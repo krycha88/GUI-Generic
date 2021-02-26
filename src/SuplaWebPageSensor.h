@@ -83,12 +83,14 @@ class SuplaWebPageSensor {
   void showDS18B20(bool readonly = false);
 #endif
 
-#if defined(SUPLA_BME280) || defined(SUPLA_SI7021) || defined(SUPLA_SHT3x) || defined(SUPLA_OLED) || defined(SUPLA_MCP23017)
+#if defined(SUPLA_DS18B20) || defined(SUPLA_DHT11) || defined(SUPLA_DHT22) || defined(SUPLA_SI7021_SONOFF)
   void handle1Wire();
   void handle1WireSave();
+#endif
+
+#if defined(SUPLA_BME280) || defined(SUPLA_SI7021) || defined(SUPLA_SHT3x) || defined(SUPLA_OLED) || defined(SUPLA_MCP23017)
   void handlei2c();
   void handlei2cSave();
-  void supla_webpage_i2c(int save);
 #endif
 
 #if defined(SUPLA_MAX6675)
@@ -102,6 +104,9 @@ class SuplaWebPageSensor {
 #ifdef SUPLA_DS18B20
   void supla_webpage_search(int save);
 #endif
+#endif
+#if defined(SUPLA_BME280) || defined(SUPLA_SI7021) || defined(SUPLA_SHT3x) || defined(SUPLA_OLED) || defined(SUPLA_MCP23017)
+  void supla_webpage_i2c(int save);
 #endif
 
 #if defined(SUPLA_MAX6675)
