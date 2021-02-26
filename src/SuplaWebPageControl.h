@@ -29,8 +29,10 @@
 class SuplaWebPageControl {
  public:
   void createWebPageControl();
+#ifdef SUPLA_BUTTON
   void handleControl();
   void handleControlSave();
+#endif
 
 #ifdef SUPLA_LIMIT_SWITCH
   void handleLimitSwitch();
@@ -41,9 +43,6 @@ class SuplaWebPageControl {
 #if (defined(SUPLA_BUTTON) && defined(SUPLA_RELAY)) || (defined(SUPLA_RSUPLA_BUTTONELAY) || defined(SUPLA_ROLLERSHUTTER))
   void handleButtonSet();
   void handleButtonSaveSet();
-
- private:
-  void supla_webpage_control(int save);
 #endif
 
 #ifdef SUPLA_BUTTON
@@ -53,6 +52,9 @@ class SuplaWebPageControl {
   void handleButtonSetMCP23017();
   void handleButtonSaveSetMCP23017();
   void supla_webpage_button_set_MCP23017(int save);
+
+ private:
+  void supla_webpage_control(int save);
 };
 
 extern SuplaWebPageControl* WebPageControl;
