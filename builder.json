@@ -502,6 +502,27 @@
 				"desc": "Paramètres de l´appareil->I2C. Prend en charge les capteurs Si7021."
 			}
 		},
+		"SUPLA_VL53L0X": {
+			"name": "Sensor VL53L0X",
+			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę sensorów VL53L0X.",
+			"defOn": false,
+			"en": {
+				"name": "VL53L0X sensor",
+				"desc": "Device settings->I2C. Supports VL53L0X sensors."
+			},
+			"es": {
+				"name": "Sensor VL53L0X",
+				"desc": "Configuración del dispositivo->I2C. Admite sensores VL53L0X."
+			},
+			"de": {
+				"name": "VL53L0X Sensor",
+				"desc": "Geräteeinstellungen->I2C. Unterstützt VL53L0X-Sensoren."
+			},
+			"fr": {
+				"name": "Capteur VL53L0X",
+				"desc": "Paramètres de l´appareil->I2C. Prend en charge les capteurs VL53L0X."
+			}
+		},
 		"SUPLA_OLED": {
 			"name": "Wyświetlacz OLED",
 			"desc": "Ustawienia urządzenia->I2C. Umożliwoa obsługę wyświetlacza OLED.",
@@ -565,6 +586,29 @@
 			"fr": {
 				"name": "Thermocouple MAX6675",
 				"desc": "Paramètres de l´appareil->SPI. Prend en charge le thermocouple MAX6675."
+			}
+		}
+	},
+	"ANALOG": {
+		"SUPLA_ANALOG_READING_MAP": {
+			"name": "Pomiar analogowy (ADC Pin)",
+			"desc": "Ustawienia urządzenia->Analog. Umożliwia obsługę pomiaru napięcia na wejściu ADC Pin.",
+			"defOn": false,
+			"en": {
+				"name": "Analog measurement (ADC Pin)",
+				"desc": "Device settings->Analog. Enables support for voltage measurement at ADC Pin input."
+			},
+			"es": {
+				"name": "Medición analógica (pin ADC)",
+				"desc": "Configuración del dispositivo->Analógico. Admite medición de voltaje en la entrada del pin ADC."
+			},
+			"de": {
+				"name": "Analoge Messung (ADC-Pin)",
+				"desc": "Geräteeinstellungen->Analog. Unterstützt Spannungsmessung am ADC Pin-Eingang."
+			},
+			"fr": {
+				"name": "Mesure analogique (Broche ADC)",
+				"desc": "Paramètres de l'appareil->Analogique. Prend en charge la mesure de tension à l'entrée ADC Pin."
 			}
 		}
 	},
@@ -774,6 +818,13 @@
 			"es": "SPI",
 			"de": "SPI",
 			"fr": "SPI"
+		},
+		"ANALOG": {
+			"pl": "Analogowe",
+			"en": "Analog",
+			"es": "Cosa análoga",
+			"de": "Analog",
+			"fr": "Analogique"
 		},
 		"OTHER": {
 			"pl": "Inne",
