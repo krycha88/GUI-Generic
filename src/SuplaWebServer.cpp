@@ -86,6 +86,9 @@ void SuplaWebServer::sendHeaderStart() {
     httpServer->sendContent_P(HTTP_META);
     httpServer->sendContent_P(HTTP_FAVICON);
     httpServer->sendContent_P(HTTP_STYLE);
+    httpServer->sendContent_P(HTTP_SCRIPT);
+    httpServer->sendContent_P(HTTP_DIV_START);
+    httpServer->sendContent_P(HTTP_IFRAMES);
     httpServer->sendContent_P(HTTP_LOGO);
 
     String summary = FPSTR(HTTP_SUMMARY);
@@ -98,7 +101,6 @@ void SuplaWebServer::sendHeaderStart() {
     summary.replace(F("{f}"), String(ESP.getFreeHeap() / 1024.0));
 
     httpServer->sendContent(summary);
-    httpServer->sendContent_P(HTTP_COPYRIGHT);
   }
 }
 
@@ -117,6 +119,7 @@ void SuplaWebServer::sendHeaderEnd() {
   if (chunkedSendHeader) {
     sendHeader();
     httpServer->sendContent_P(HTTP_RBT);
+    httpServer->sendContent_P(HTTP_DIV_END);
     httpServer->chunkedResponseFinalize();
 
 #ifdef ARDUINO_ARCH_ESP8266
