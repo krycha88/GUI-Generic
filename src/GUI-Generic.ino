@@ -59,41 +59,41 @@ void setup() {
   uint8_t rollershutters = ConfigManager->get(KEY_MAX_ROLLERSHUTTER)->getValueInt();
 
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_RELAY)->getValueInt(); nr++) {
-    if (rollershutters > 0) {
+    if (ConfigESP->getGpio(nr, FUNCTION_RELAY) != OFF_GPIO) {
+      if (rollershutters > 0) {
 #ifdef SUPLA_ROLLERSHUTTER
-      Supla::GUI::addRolleShutter(nr);
+        Supla::GUI::addRolleShutter(nr);
 #endif
-      rollershutters--;
-      nr++;
-    }
-    else {
-#ifdef SUPLA_RF_BRIDGE
-      if (ConfigESP->getGpio(FUNCTION_RF_BRIDGE_TRANSMITTER) != OFF_GPIO &&
-          ConfigManager->get(KEY_RF_BRIDGE_TYPE)->getElement(nr).toInt() == Supla::GUI::RFBridgeType::TRANSMITTER &&
-          (strcmp(ConfigManager->get(KEY_RF_BRIDGE_CODE_ON)->getElement(nr).c_str(), "") != 0 ||
-           strcmp(ConfigManager->get(KEY_RF_BRIDGE_CODE_OFF)->getElement(nr).c_str(), "") != 0)) {
-        Supla::GUI::addRelayBridge(nr);
-      }
-      else if (ConfigManager->get(KEY_RF_BRIDGE_TYPE)->getElement(nr).toInt() == Supla::GUI::RFBridgeType::RECEIVER &&
-               (strcmp(ConfigManager->get(KEY_RF_BRIDGE_CODE_ON)->getElement(nr).c_str(), "") != 0 ||
-                strcmp(ConfigManager->get(KEY_RF_BRIDGE_CODE_OFF)->getElement(nr).c_str(), "") != 0)) {
-        Supla::GUI::addButtonBridge(nr);
+        rollershutters--;
+        nr++;
       }
       else {
+#ifdef SUPLA_RF_BRIDGE
+        if (ConfigESP->getGpio(FUNCTION_RF_BRIDGE_TRANSMITTER) != OFF_GPIO &&
+            ConfigManager->get(KEY_RF_BRIDGE_TYPE)->getElement(nr).toInt() == Supla::GUI::RFBridgeType::TRANSMITTER &&
+            (strcmp(ConfigManager->get(KEY_RF_BRIDGE_CODE_ON)->getElement(nr).c_str(), "") != 0 ||
+             strcmp(ConfigManager->get(KEY_RF_BRIDGE_CODE_OFF)->getElement(nr).c_str(), "") != 0)) {
+          Supla::GUI::addRelayBridge(nr);
+        }
+        else if (ConfigManager->get(KEY_RF_BRIDGE_TYPE)->getElement(nr).toInt() == Supla::GUI::RFBridgeType::RECEIVER &&
+                 (strcmp(ConfigManager->get(KEY_RF_BRIDGE_CODE_ON)->getElement(nr).c_str(), "") != 0 ||
+                  strcmp(ConfigManager->get(KEY_RF_BRIDGE_CODE_OFF)->getElement(nr).c_str(), "") != 0)) {
+          Supla::GUI::addButtonBridge(nr);
+        }
+        else {
 #ifdef SUPLA_RELAY
-        Supla::GUI::addRelay(nr);
+          Supla::GUI::addRelay(nr);
 #endif
-      }
+        }
 #else
 
 #ifdef SUPLA_RELAY
-      Supla::GUI::addRelay(nr);
+        Supla::GUI::addRelay(nr);
 #endif
 
 #endif
-    }
+      }
 
-    if (ConfigESP->getGpio(nr, FUNCTION_RELAY) != OFF_GPIO) {
 #ifdef SUPLA_PUSHOVER
       Supla::GUI::addPushover(nr);
 #endif

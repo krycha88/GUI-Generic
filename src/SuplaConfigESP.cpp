@@ -103,7 +103,7 @@ void SuplaConfigESP::addConfigESP(int _pinNumberConfig, int _pinLedConfig) {
     }
 
     Supla::Control::Button *buttonConfig = new Supla::Control::Button(pinNumberConfig, pullUp, invertLogic);
-    buttonConfig->setMulticlickTime(800);
+    buttonConfig->setMulticlickTime(1000);
     buttonConfig->addAction(Supla::TURN_ON, *ConfigESP, Supla::ON_CLICK_1);
 
     if (modeConfigButton == CONFIG_MODE_10_ON_PRESSES) {
