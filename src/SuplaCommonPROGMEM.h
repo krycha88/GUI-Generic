@@ -23,36 +23,63 @@
 #define PGMT(pgm_ptr) (reinterpret_cast<const __FlashStringHelper*>(pgm_ptr))
 
 const char HTTP_META[] PROGMEM =
-    "<!DOCTYPE HTML><meta http-equiv='content-type' content='text/html; charset=UTF-8'><meta name='viewport' "
-    "content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>\n";
+    "<!DOCTYPE HTML><html><head><meta http-equiv='content-type' content='text/html; charset=UTF-8'>"
+	"<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>\n";
 const char HTTP_STYLE[] PROGMEM =
-    "<style>body{font-size:14px;font-family:HelveticaNeue,'Helvetica Neue',HelveticaNeueRoman,HelveticaNeue-Roman,'Helvetica Neue "
-    "Roman',TeXGyreHerosRegular,Helvetica,Tahoma,Geneva,Arial,sans-serif;font-weight:400;font-stretch:normal;background:#00d151;color:#fff;line-"
-    "height:20px;padding:0}.s{width:460px;margin:0 auto;margin-top:calc(50vh - 340px);border:solid 3px #fff;padding:0 10px "
-    "10px;border-radius:3px}#l{display:block;max-width:150px;height:155px;margin:-80px auto 20px;background:#00d151;padding-right:5px}#l "
-    "path{fill:#000}.w{margin:3px 0 16px;padding:5px 0;border-radius:3px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}h1,h3{margin:10px "
-    "8px;font-family:HelveticaNeueLight,HelveticaNeue-Light,'Helvetica Neue Light',HelveticaNeue,'Helvetica "
-    "Neue',TeXGyreHerosRegular,Helvetica,Tahoma,Geneva,Arial,sans-serif;font-weight:300;font-stretch:normal;color:#000;font-size:23px}h1{margin-"
-    "bottom:14px;color:#fff}span{display:block;margin:10px 7px 14px}i{display:block;font-style:normal;position:relative;border-bottom:solid 1px "
-    "#00d151;height:42px}i:last-child{border:none}label{position:absolute;display:inline-block;top:0;left:8px;color:#00d151;line-height:41px;}i "
-    "input,"
-    "select{width:calc(100% - "
-    "166px);border:none;font-size:16px;line-height:40px;border-radius:0;letter-spacing:-.5px;background:#fff;color:#000;padding-left:165px;-webkit-"
-    "appearance:none;-moz-appearance:none;appearance:none;outline:0!important;height:40px}select{padding:0;float:right;margin:1px 3px 1px "
-    "2px}button{width:100%;border:0;background:#000;padding:5px 10px;font-size:16px;line-height:40px;color:#fff;border-radius:3px;box-shadow:0 1px "
-    "3px rgba(0,0,0,.3);cursor:pointer}.c{background:#ffe836;position:fixed;width:100%;line-height:80px;color:#000;top:0;left:0;box-shadow:0 1px 3px "
-    "rgba(0,0,0,.3);text-align:center;font-size:26px;z-index:100}@media all and (max-height:920px){.s{margin-top:80px}}@media all and "
-    "(max-width:900px){.s{width:calc(100% - 20px);margin-top:40px;border:none;padding:0 "
-    "8px;border-radius:0}#l{max-width:80px;height:auto;margin:10px auto "
-    "20px}h1,h3{font-size:19px}i{border:none;height:auto}label{display:block;margin:4px 0 "
-    "12px;color:#00d151;font-size:13px;position:relative;line-height:18px}i input,select{width:calc(100% - "
-    "10px);font-size:16px;line-height:28px;padding:0 5px;border-bottom:solid 1px "
-    "#00d151}select{width:100%;float:none;margin:0}}iframe{margin:auto;display:block;}.formcenter{color:#000;width:50%;margin: 25px auto 25px "
-    "auto;} input[type='checkbox' i]{appearance: auto; margin-top: 10px; height: 20px; width: calc(100% - 116px);} @media (max-width: 900px)input[type='checkbox' i]{width: "
-    "auto;}</style>";
-
+	    "<style>body{font-size:14px;font-family:HelveticaNeue,'Helvetica Neue',HelveticaNeueRoman,HelveticaNeue-Roman,'Helvetica Neue "
+	    "Roman',TeXGyreHerosRegular,Helvetica,Tahoma,Geneva,Arial,sans-serif;font-weight:400;font-stretch:normal;background:#00d151;color:#fff;line-"
+	    "height:20px;padding:0}.s{width:460px;margin:0 auto;margin-top:calc(50vh - 340px);border:solid 3px #fff;padding:0 10px "
+	    "10px;border-radius:3px}#l{display:block;max-width:150px;height:155px;margin:-80px auto 20px;background:#00d151;padding-right:5px}#l "
+	    "path{fill:#000}.w{margin:3px 0 16px;padding:5px 0;border-radius:3px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}h1,h3{margin:10px "
+	    "8px;font-family:HelveticaNeueLight,HelveticaNeue-Light,'Helvetica Neue Light',HelveticaNeue,'Helvetica "
+	    "Neue',TeXGyreHerosRegular,Helvetica,Tahoma,Geneva,Arial,sans-serif;font-weight:300;font-stretch:normal;color:#000;font-size:23px}h1{margin-"
+	    "bottom:14px;color:#fff}span{display:block;margin:10px 7px 14px}i{display:block;font-style:normal;position:relative;border-bottom:solid 1px "
+	    "#00d151;height:42px}i:last-child{border:none}label{position:absolute;display:inline-block;top:0;left:8px;color:#00d151;line-height:41px;}i "
+	    "input,"
+	    "select{width:calc(100% - "
+	    "166px);border:none;font-size:16px;line-height:40px;border-radius:0;letter-spacing:-.5px;background:#fff;color:#000;padding-left:165px;-webkit-"
+	    "appearance:none;-moz-appearance:none;appearance:none;outline:0!important;height:40px}select{padding:0;float:right;margin:1px 3px 1px "
+	    "2px}button{width:100%;border:0;background:#000;padding:5px 10px;font-size:16px;line-height:40px;color:#fff;border-radius:3px;box-shadow:0 1px "
+	    "3px rgba(0,0,0,.3);cursor:pointer}.c{background:#ffe836;position:fixed;width:100%;line-height:80px;color:#000;top:0;left:0;box-shadow:0 1px 3px "
+	    "rgba(0,0,0,.3);text-align:center;font-size:26px;z-index:100}"
+	    ".dif{position:absolute;width:160px;z-index:0}.difl{margin-left:-10px}.difr{margin-left:310px}.dift{margin-top:-94px}"
+	    ".iframe{width:160px;height:90px;border:0;display:none}"
+		"@media all and (max-height:920px){.s{margin-top:80px}}"
+		"@media all and (max-width:900px){.s{width:calc(100% - 20px);margin-top:40px;border:none;padding:0 "
+	    "8px;border-radius:0}#l{max-width:80px;height:auto;margin:10px auto "
+	    "20px}h1,h3{font-size:19px}i{border:none;height:auto}label{display:block;margin:4px 0 "
+	    "12px;color:#00d151;font-size:13px;position:relative;line-height:18px}i input,select{width:calc(100% - "
+	    "10px);font-size:16px;line-height:28px;padding:0 5px;border-bottom:solid 1px "
+	    "#00d151}select{width:100%;float:none;margin:0}}iframe{margin:auto;display:block;}.formcenter{color:#000;width:50%;margin: 25px auto 25px "
+	    "auto;} input[type='checkbox' i]{appearance:auto;margin-top:10px;height:20px;width:calc(100% - 116px);}"
+		"@media (max-width: 900px){input[type='checkbox' i]{width:auto;}.difr{margin-left:calc(100% - 190px);}}</style>";
+const char HTTP_SCRIPT[] PROGMEM =
+	"<script>"
+	"function ifl(i){"
+	"let r=new XMLHttpRequest;"
+	"r.open('GET',i.src,true);"
+	"r.onprogress=function(ev){"
+	"let s=ev.target.status;"
+	"let sfn=(s).toString()[0];"
+	"switch(sfn) {"
+	"case '2':"
+	"r.abort();"
+	"i.style.display='block';"
+	"break;"
+	"default:"
+	"r.abort();"
+	"i.style.display='none';"
+	"};"
+	"};"
+	"r.send('');"
+	"};"
+	"</script>\n";
+const char HTTP_DIV_START[] PROGMEM =
+    "</head><body><div class='s'>";
+const char HTTP_DIV_END[] PROGMEM =
+    "</div></body></html>";
 const char HTTP_LOGO[] PROGMEM =
-    "<div class='s'><a href='/'><svg version='1.1' id='l' x='0' y='0' viewBox='0 0 200 200' xml:space='preserve'><path "
+    "<a href='/'><svg version='1.1' id='l' x='0' y='0' viewBox='0 0 200 200' xml:space='preserve'><path "
     "d='M59.3,2.5c18.1,0.6,31.8,8,40.2,23.5c3.1,5.7,4.3,11.9,4.1,18.3c-0.1,3.6-0.7,7.1-1.9,10.6c-0.2,0.7-0.1,1.1,0.6,1.5c12.8,7.7,25.5,15.4,38.3,"
     "23c2.9,1.7,5.8,3.4,8.7,5.3c1,0.6,1.6,0.6,2.5-0.1c4.5-3.6,9.8-5.3,15.7-5.4c12.5-0.1,22.9,7.9,25.2,19c1.9,9.2-2.9,19.2-11.8,23.9c-8.4,4.5-16.9,4."
     "5-25.5,0.2c-0.7-0.3-1-0.2-1.5,0.3c-4.8,4.9-9.7,9.8-14.5,14.6c-5.3,5.3-10.6,10.7-15.9,16c-1.8,1.8-3.6,3.7-5.4,5.4c-0.7,0.6-0.6,1,0,1.6c3.6,3.4,5."
@@ -70,9 +97,11 @@ const char HTTP_LOGO[] PROGMEM =
     "></svg></a>";
 const char HTTP_SUMMARY[] PROGMEM =
     "<h1>{h}</h1><span>LAST STATE: {s}<br>Firmware: SuplaDevice {v}<br>GUID: {g}<br>MAC: {m}<br>Free Mem: {f}KB</span>\n";
-const char HTTP_COPYRIGHT[] PROGMEM =
-    "<a target='_blank' rel='noopener noreferrer' href='https://forum.supla.org/viewtopic.php?f=11&t=7133'><span style='color: #ffffff "
-    "!important;'>https://forum.supla.org/</span></a>\n";
+const char HTTP_IFRAMES[] PROGMEM =
+    "<div class='dif difl dift'><iframe class='iframe' src='https://gui-generic-builder.supla.io/f.php?tl' onload='ifl(this)'></iframe></div>"
+    "<div class='dif difr dift'><iframe class='iframe' src='https://gui-generic-builder.supla.io/f.php?tr' onload='ifl(this)'></iframe></div>"
+    "<div class='dif difl'><iframe class='iframe' src='https://gui-generic-builder.supla.io/f.php?l' onload='ifl(this)'></iframe></div>"
+    "<div class='dif difr'><iframe class='iframe' src='https://gui-generic-builder.supla.io/f.php?r' onload='ifl(this)'></iframe></div>";
 
 const char HTTP_FAVICON[] PROGMEM =
     "<link rel='icon' "

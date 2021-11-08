@@ -102,24 +102,29 @@ void addRelay(uint8_t nr) {
       relay.push_back(new Supla::Control::Relay(pinRelay, highIsOn));
     }
 
+    int size = relay.size() - 1;
+
     switch (ConfigESP->getMemory(pinRelay, nr)) {
       case MEMORY_RELAY_OFF:
-        relay[nr]->setDefaultStateOff();
+        relay[size]->setDefaultStateOff();
         break;
       case MEMORY_RELAY_ON:
-        relay[nr]->setDefaultStateOn();
+        relay[size]->setDefaultStateOn();
         break;
       case MEMORY_RELAY_RESTORE:
-        relay[nr]->setDefaultStateRestore();
+        relay[size]->setDefaultStateRestore();
         break;
     }
 
-    relay[nr]->keepTurnOnDuration();
-    relay[nr]->getChannel()->setDefault(SUPLA_CHANNELFNC_POWERSWITCH);
+    relay[size]->keepTurnOnDuration();
+    relay[size]->getChannel()->setDefault(SUPLA_CHANNELFNC_POWERSWITCH);
 
     if (pinLED != OFF_GPIO) {
       new Supla::Control::PinStatusLed(pinRelay, pinLED, !levelLed);
     }
+  }
+  else {
+    relay.push_back(NULL);
   }
   delay(0);
 }
@@ -129,22 +134,31 @@ void addRelay(uint8_t nr) {
 void addButton(uint8_t nr) {
   uint8_t pinButton = ConfigESP->getGpio(nr, FUNCTION_BUTTON);
 
+  if (ConfigManager->get(KEY_MAX_ROLLERSHUTTER)->getValueInt() * 2 > nr) {
+    return;
+  }
+
   if (pinButton != OFF_GPIO) {
     auto button = new Supla::Control::Button(pinButton, ConfigESP->getPullUp(pinButton), ConfigESP->getInversed(pinButton));
     auto at = new Supla::Control::ActionTrigger();
 
     if (ConfigESP->getEvent(pinButton) == Supla::ON_CHANGE) {
-      button->setMulticlickTime(800, true);
+      button->setMulticlickTime(350, true);
     }
     else {
-      button->setMulticlickTime(800);
+      button->setMulticlickTime(350);
+      button->setHoldTime(350);
     }
 
-    if (Supla::GUI::relay.size() > nr) {
-      button->addAction(ConfigESP->getAction(pinButton), *relay[nr], ConfigESP->getEvent(pinButton));
+    if (Supla::GUI::relay.size() >= nr && Supla::GUI::relay[nr] != NULL) {
+      // button->addAction(ConfigESP->getAction(pinButton), *relay[nr], ConfigESP->getEvent(pinButton));
+      button->addAction(ConfigESP->getAction(pinButton), *relay[nr], Supla::ON_CLICK_1);
       button->setSwNoiseFilterDelay(100);
 
       at->setRelatedChannel(relay[nr]);
+    }
+    else {
+      button->addAction(ConfigESP->getAction(pinButton), at, Supla::ON_CLICK_1);
     }
 
     at->attach(button);
@@ -192,20 +206,22 @@ void addRelayBridge(uint8_t nr) {
       relay.push_back(bridgeRelay);
     }
 
+    int size = relay.size() - 1;
+
     switch (ConfigESP->getMemory(pinRelay, nr)) {
       case MEMORY_RELAY_OFF:
-        relay[nr]->setDefaultStateOff();
+        relay[size]->setDefaultStateOff();
         break;
       case MEMORY_RELAY_ON:
-        relay[nr]->setDefaultStateOn();
+        relay[size]->setDefaultStateOn();
         break;
       case MEMORY_RELAY_RESTORE:
-        relay[nr]->setDefaultStateRestore();
+        relay[size]->setDefaultStateRestore();
         break;
     }
 
-    relay[nr]->keepTurnOnDuration();
-    relay[nr]->getChannel()->setDefault(SUPLA_CHANNELFNC_POWERSWITCH);
+    relay[size]->keepTurnOnDuration();
+    relay[size]->getChannel()->setDefault(SUPLA_CHANNELFNC_POWERSWITCH);
 
     if (pinLED != OFF_GPIO) {
       new Supla::Control::PinStatusLed(pinRelay, pinLED, !levelLed);
