@@ -258,6 +258,7 @@ void MCP_23017::customDigitalWrite(int channelNumber,
   }
   if ((pin > 115) && (pin < 132)) {
     mcp2->digitalWrite(pin - 116, val);
+    return;
   }
   if ((pin > 131) && (pin < 148)) {
     mcp3->digitalWrite(pin - 132, val);
