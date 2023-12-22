@@ -40,7 +40,6 @@ extern "C" {
 
 #ifdef SUPLA_CC1101
 #include "src/sensor/WmbusMeter.h"
-Supla::Sensor::WmbusMeter *meter;
 #endif
 
 #include "src/boneIO/boneIO.h"
@@ -298,11 +297,11 @@ void setup() {
 #endif
 
 #ifdef GUI_SENSOR_SPI
-  if (ConfigESP->getGpio(FUNCTION_CLK) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_CS) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_D0) != OFF_GPIO) {
+  if (ConfigESP->getGpio(FUNCTION_CLK) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_CS) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_MISO) != OFF_GPIO) {
 #ifdef SUPLA_MAX6675
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_SPI_MAX6675).toInt()) {
       auto thermocouple =
-          new Supla::Sensor::MAX6675_K(ConfigESP->getGpio(FUNCTION_CLK), ConfigESP->getGpio(FUNCTION_CS), ConfigESP->getGpio(FUNCTION_D0));
+          new Supla::Sensor::MAX6675_K(ConfigESP->getGpio(FUNCTION_CLK), ConfigESP->getGpio(FUNCTION_CS), ConfigESP->getGpio(FUNCTION_MISO));
 #ifdef SUPLA_CONDITIONS
       Supla::GUI::Conditions::addConditionsSensor(SENSOR_MAX6675, S_MAX6675, thermocouple);
 #endif
@@ -312,7 +311,7 @@ void setup() {
 #ifdef SUPLA_MAX31855
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_SPI_MAX31855).toInt()) {
       auto thermocouple =
-          new Supla::Sensor::MAX31855(ConfigESP->getGpio(FUNCTION_CLK), ConfigESP->getGpio(FUNCTION_CS), ConfigESP->getGpio(FUNCTION_D0));
+          new Supla::Sensor::MAX31855(ConfigESP->getGpio(FUNCTION_CLK), ConfigESP->getGpio(FUNCTION_CS), ConfigESP->getGpio(FUNCTION_MISO));
 #ifdef SUPLA_CONDITIONS
       Supla::GUI::Conditions::addConditionsSensor(SENSOR_MAX31855, S_MAX31855, thermocouple);
 #endif
@@ -347,7 +346,7 @@ void setup() {
       }
 
       int mosi = ConfigESP->getGpio(FUNCTION_MOSI);
-      int miso = ConfigESP->getGpio(FUNCTION_D0);
+      int miso = ConfigESP->getGpio(FUNCTION_MISO);
       int clk = ConfigESP->getGpio(FUNCTION_CLK);
       int cs = ConfigESP->getGpio(FUNCTION_CS);
       int gdo0 = ConfigESP->getGpio(FUNCTION_GDO0);
@@ -367,6 +366,8 @@ void setup() {
       Serial.println("GPIO END");
 
       meter = new Supla::Sensor::WmbusMeter(mosi, miso, clk, cs, gdo0, gdo2);
+      attachInterrupt(gdo0, Supla::Sensor::WmbusMeterIterateAlways, RISING);
+
       meter->add_sensor(new Supla::Sensor::SensorInfo(sensorId, sensorType, "total_water_m3", key));
       meter->add_driver(new Amiplus());
       meter->add_driver(new Apator08());

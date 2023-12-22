@@ -31,7 +31,7 @@
 #define INPUT_MAX31855 "imax31855"
 #define INPUT_CLK_GPIO "clk"
 #define INPUT_CS_GPIO  "cs"
-#define INPUT_D0_GPIO  "d0" // miso
+#define INPUT_MISO_GPIO  "d0" // miso
 #define INPUT_MOSI_GPIO "mosi"
 
 

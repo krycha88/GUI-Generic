@@ -50,7 +50,7 @@
 #define S_CC1101                         "CC1101"
 
 //### PIN codes not translated ###
-#define S_D0  "D0" //MISO
+#define S_MISO  "D0" //MISO
 #define S_SDA "SDA"
 #define S_SCL "SCL"
 #define S_CLK "CLK"

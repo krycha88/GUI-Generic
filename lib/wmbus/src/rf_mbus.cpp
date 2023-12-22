@@ -38,8 +38,11 @@ uint8_t rf_mbus::start(bool force) {
   sync_time_ = millis();
   max_wait_time_ = extra_time_;
 
+  int retries = 10;
   ELECHOUSE_cc1101.SpiStrobe(CC1101_SIDLE);
-  while((ELECHOUSE_cc1101.SpiReadStatus(CC1101_MARCSTATE) != MARCSTATE_IDLE));
+  while((ELECHOUSE_cc1101.SpiReadStatus(CC1101_MARCSTATE) != MARCSTATE_IDLE && retries-- > 0)) {
+    delay(1);
+  };
   ELECHOUSE_cc1101.SpiStrobe(CC1101_SFTX);  //flush TXfifo
   ELECHOUSE_cc1101.SpiStrobe(CC1101_SFRX);  //flush RXfifo
 
@@ -65,7 +68,9 @@ uint8_t rf_mbus::start(bool force) {
   ELECHOUSE_cc1101.SpiWriteReg(CC1101_PKTCTRL0, INFINITE_PACKET_LENGTH);
 
   ELECHOUSE_cc1101.SpiStrobe(CC1101_SRX);
-  while((ELECHOUSE_cc1101.SpiReadStatus(CC1101_MARCSTATE) != MARCSTATE_RX));
+  while((ELECHOUSE_cc1101.SpiReadStatus(CC1101_MARCSTATE) != MARCSTATE_RX && retries-- > 0)) {
+    delay(1);
+  };
 
   RXinfo.state = 1;
 
