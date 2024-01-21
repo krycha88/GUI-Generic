@@ -12,14 +12,24 @@
 
 struct Mkradio4: Driver
 {
-  Mkradio4() : Driver(std::string("mkradio4")) {};
+  Mkradio4() : Driver(std::string("mkradio4")) {
+    // Techem Service 'T','C','H'
+    addDetection(MANFCODE('T', 'C', 'H'), 0x62, 0x95);
+    addDetection(MANFCODE('T', 'C', 'H'), 0x62, 0x70);
+    addDetection(MANFCODE('T', 'C', 'H'), 0x72, 0x95);
+    addDetection(MANFCODE('T', 'C', 'H'), 0x72, 0x70);
+  };
   virtual std::map<std::string, float> get_values(std::vector<unsigned char> &telegram) override {
     std::map<std::string, float> ret_val{};
+    if (detect(this->get_manufacturer(telegram), this->get_type(telegram), this->get_version(telegram))) {
+      add_to_map(ret_val, "total_water_m3", this->get_total_water_m3(telegram));
 
-    add_to_map(ret_val, "total_water_m3", this->get_total_water_m3(telegram));
-
-    if (ret_val.size() > 0) {
-      return ret_val;
+      if (ret_val.size() > 0) {
+        return ret_val;
+      }
+      else {
+        return {};
+      }
     }
     else {
       return {};
