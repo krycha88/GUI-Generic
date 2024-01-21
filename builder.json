@@ -1,5 +1,5 @@
 {
-	"version": "6.0.0",
+	"version": "6.0.1",
 	"compiler": {
 		"gglib": ["EspSoftwareSerial"]
 	},
@@ -232,6 +232,53 @@
 			},
 			"fr": {
 				"name": "WT32-ETH01",
+				"desc": ""
+			}
+		},
+		"SUPLA_EXCLUDE_LITTLEFS_CONFIG": {
+			"name": "Wyłączenie LittleFS",
+			"desc": "Wyklucza dodanie includa LITTLEFS, dzięki czemu kompilacja oszczędza prawie 100KB binarki.",
+			"alertOff": "Wyłączenie tej opcji zwiększy o 100KB binarkę, zmniejszając ilość dostępnego miejsca np. dla OTA.",
+			"defOn": true,
+			"en": {
+				"name": "Disabling LittleFS",
+				"desc": "It excludes the addition of the LITTLEFS includa, which saves the compilation almost 100KB.",
+				"alertOff": "Disabling this option will increase the compilation by almost 100KB, reducing the amount of space available, e.g. for OTA."
+			},
+			"es": {
+				"name": "Deshabilitar LittleFS",
+				"desc": "Excluye la adición de LITTLEFS includa, lo que ahorra la compilación casi 100 KB.",
+				"alertOff": "Deshabilitar esta opción aumentará la compilación en casi 100 KB, reduciendo la cantidad de espacio disponible, por ejemplo, para OTA."
+			},
+			"de": {
+				"name": "LittleFS deaktivieren",
+				"desc": "Es schließt das Hinzufügen der LITTLEFS-Includa aus, wodurch die Kompilierung fast 100 KB einspart.",
+				"alertOff": "Durch Deaktivieren dieser Option wird die Kompilierung um fast 100 KB erhöht, wodurch der verfügbare Speicherplatz, z. B. für OTA, verringert wird."
+			},
+			"fr": {
+				"name": "Désactivation de LittleFS",
+				"desc": "Il exclut l'ajout du LITTLEFS includa, qui permet d'économiser près de 100 Ko sur la compilation.",
+				"alertOff": "La désactivation de cette option augmentera la compilation de près de 100 Ko, réduisant ainsi la quantité d'espace disponible, par exemple pour l'OTA."
+			}
+		},
+		"SUPLA_COMM_DEBUG": {
+			"name": "Debugowanie zdalne",
+			"desc": "Debugowanie zdalne.",
+			"defOn": false,
+			"en": {
+				"name": "Comm Debug",
+				"desc": ""
+			},
+			"es": {
+				"name": "Comm Debug",
+				"desc": ""
+			},
+			"de": {
+				"name": "Comm Debug",
+				"desc": ""
+			},
+			"fr": {
+				"name": "Comm Debug",
 				"desc": ""
 			}
 		}
@@ -1445,7 +1492,7 @@
 			"de": "Stromzähler",
 			"fr": "Compteur d'énergie électrique"
 		}
-		,
+	,
 		"BONEIO": {
 			"pl": "boneIO",
 			"en": "boneIO",

@@ -17,15 +17,15 @@
 */
 
 /*  - for WT32-ETH01 - */
-#ifdef SUPLA_WT32_ETH01_LAN8720
-#include "SuplaGuiWt32_eth01.h"
+#ifdef SUPLA_ETH01_LAN8720
+#include "SuplaGuiEth01.h"
 #include "../../SuplaDeviceGUI.h"
 
 namespace Supla {
-GUI_WT32_ETH01::GUI_WT32_ETH01(uint8_t ethmode, unsigned char *ip) : Supla::WT32_ETH01(ethmode, ip) {
+GUI_ETH01::GUI_ETH01(uint8_t ethmode, unsigned char *ip) : Supla::ESPETH(ethmode, ip) {
 }
 
-void GUI_WT32_ETH01::setup() {
+void GUI_ETH01::setup() {
   if (!ethConfigured) {
     ethConfigured = true;
 

@@ -23,10 +23,13 @@ SuplaConfigESP::SuplaConfigESP() {
   configModeESP = Supla::DEVICE_MODE_NORMAL;
 
   if (ConfigManager->isDeviceConfigured()) {
-    commonReset("SET DEVICE CONFIGURATION!", ResetType::RESET_DEVICE_DATA);
-
     if (strcmp(ConfigManager->get(KEY_SUPLA_GUID)->getValue(), "") == 0 || strcmp(ConfigManager->get(KEY_SUPLA_AUTHKEY)->getValue(), "") == 0) {
+      commonReset("SET FIRST DEVICE CONFIGURATION!", ResetType::RESET_FACTORY_DATA);
       ConfigManager->setGUIDandAUTHKEY();
+      ConfigManager->save();
+    }
+    else {
+      commonReset("SET DEVICE CONFIGURATION!", ResetType::RESET_NO_ERASE_DATA);
     }
 
     configModeInit();
@@ -81,7 +84,8 @@ void SuplaConfigESP::addConfigESP(int _pinNumberConfig, int _pinLedConfig) {
 
     Supla::Control::Button *buttonConfig = new Supla::Control::Button(pinNumberConfig, pullUp, invertLogic);
     buttonConfig->setMulticlickTime(450);
-    buttonConfig->addAction(Supla::TURN_ON, *ConfigESP, Supla::ON_CLICK_1);
+    buttonConfig->dontUseOnLoadConfig();
+    buttonConfig->addAction(CONFIG_MODE_RESET, *ConfigESP, Supla::ON_CLICK_1);
 
     if (modeConfigButton == CONFIG_MODE_10_ON_PRESSES) {
       buttonConfig->addAction(CONFIG_MODE_10_ON_PRESSES, *ConfigESP, Supla::ON_CLICK_10);
@@ -95,20 +99,13 @@ void SuplaConfigESP::addConfigESP(int _pinNumberConfig, int _pinLedConfig) {
 
 void SuplaConfigESP::handleAction(int event, int action) {
   if (action == CONFIG_MODE_10_ON_PRESSES) {
-    if (event == Supla::ON_CLICK_10) {
-      configModeInit();
-    }
+    configModeInit();
   }
-  if (action == CONFIG_MODE_5SEK_HOLD) {
-    if (event == Supla::ON_HOLD) {
-      configModeInit();
-    }
+  else if (action == CONFIG_MODE_5SEK_HOLD) {
+    configModeInit();
   }
-
-  if (configModeESP == Supla::DEVICE_MODE_CONFIG) {
-    if (event == Supla::ON_CLICK_1) {
-      rebootESP();
-    }
+  else if (configModeESP == Supla::DEVICE_MODE_CONFIG && action == CONFIG_MODE_RESET) {
+    rebootESP();
   }
 }
 
@@ -120,16 +117,20 @@ void SuplaConfigESP::rebootESP() {
 }
 
 void SuplaConfigESP::configModeInit() {
-  configModeESP = Supla::DEVICE_MODE_CONFIG;
-  ledBlinking(100);
+  if (configModeESP != Supla::DEVICE_MODE_CONFIG) {
+    configModeESP = Supla::DEVICE_MODE_CONFIG;
+    ledBlinking(100);
 
-  Supla::Network::SetConfigMode();
+#ifndef SUPLA_WT32_ETH01_LAN8720
+    Supla::GUI::enableConnectionSSL(false);
+    Supla::GUI::setupConnection();
+#endif
 
-  Supla::GUI::enableConnectionSSL(false);
-  Supla::GUI::setupConnection();
+    Supla::Network::SetConfigMode();
 
-  if (getCountChannels() > 0) {
-    SuplaDevice.enterConfigMode();
+    // if (getCountChannels() > 0) {
+    //   SuplaDevice.enterConfigMode();
+    // }
   }
 }
 
@@ -787,13 +788,44 @@ void SuplaConfigESP::commonReset(const char *resetMessage, ResetType resetType, 
 
   Serial.println(resetMessage);
 
-  if (resetType == RESET_FACTORY_DATA) {
+  if (resetType == RESET_FACTORY_DATA || RESET_DEVICE_DATA) {
     clearEEPROM();
-    ConfigManager->deleteAllValues();
-  }
-  else if (resetType == RESET_DEVICE_DATA) {
-    clearEEPROM();
-    ConfigManager->deleteDeviceValues();
+    if (resetType == RESET_FACTORY_DATA) {
+      ConfigManager->deleteAllValues();
+    }
+    else if (resetType == RESET_DEVICE_DATA) {
+      ConfigManager->deleteDeviceValues();
+    }
+
+#ifdef TEMPLATE_BOARD_JSON
+    if (strcmp(ConfigManager->get(KEY_BOARD)->getValue(), "") == 0) {
+      Supla::TanplateBoard::addTemplateBoard();
+    }
+#elif defined(TEMPLATE_BOARD_OLD)
+    if (strcmp(ConfigManager->get(KEY_BOARD)->getValue(), "") == 0) {
+      chooseTemplateBoard(getDefaultTamplateBoard());
+    }
+#endif
+
+#ifdef SUPLA_BONEIO
+    ConfigESP->setMemory(BONEIO_RELAY_CONFIG, true);
+#ifdef USE_MCP_OUTPUT
+    ConfigESP->setLevel(BONEIO_RELAY_CONFIG, HIGH);
+#else
+    ConfigESP->setLevel(BONEIO_RELAY_CONFIG, LOW);
+#endif
+#else
+    if (resetType == RESET_FACTORY_DATA) {
+      if (ConfigESP->getGpio(FUNCTION_CFG_LED) == OFF_GPIO) {
+        ConfigESP->setGpio(2, FUNCTION_CFG_LED);
+        ConfigESP->setLevel(2, LOW);
+      }
+
+      if (ConfigESP->getGpio(FUNCTION_CFG_BUTTON) == OFF_GPIO) {
+        ConfigESP->setGpio(0, FUNCTION_CFG_BUTTON);
+      }
+    }
+#endif
   }
 
   KeyValuePair keysToUpdate[] = {
@@ -813,34 +845,6 @@ void SuplaConfigESP::commonReset(const char *resetMessage, ResetType resetType, 
       ConfigManager->set(kvp.key, kvp.defaultValue);
     }
   }
-
-  if (ConfigESP->getGpio(FUNCTION_CFG_BUTTON) == OFF_GPIO) {
-    ConfigESP->setGpio(0, FUNCTION_CFG_BUTTON);
-  }
-
-  if (ConfigESP->getGpio(FUNCTION_CFG_LED) == OFF_GPIO) {
-    ConfigESP->setGpio(2, FUNCTION_CFG_LED);
-    ConfigESP->setLevel(2, LOW);
-  }
-
-#ifdef SUPLA_BONEIO
-  ConfigESP->setMemory(BONEIO_RELAY_CONFIG, true);
-#ifdef USE_MCP_OUTPUT
-  ConfigESP->setLevel(BONEIO_RELAY_CONFIG, HIGH);
-#else
-  ConfigESP->setLevel(BONEIO_RELAY_CONFIG, LOW);
-#endif
-#endif
-
-#ifdef TEMPLATE_BOARD_JSON
-  if (strcmp(ConfigManager->get(KEY_BOARD)->getValue(), "") == 0) {
-    Supla::TanplateBoard::addTemplateBoard();
-  }
-#elif defined(TEMPLATE_BOARD_OLD)
-  if (strcmp(ConfigManager->get(KEY_BOARD)->getValue(), "") == 0) {
-    chooseTemplateBoard(getDefaultTamplateBoard());
-  }
-#endif
 
   ConfigManager->save();
 

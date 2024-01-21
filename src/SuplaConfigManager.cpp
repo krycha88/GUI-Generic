@@ -463,6 +463,10 @@ SuplaConfigManager::SuplaConfigManager() {
     this->addKey(KEY_WMBUS_SENSOR, 30);
     this->addKey(KEY_WMBUS_SENSOR_ID, 100);
     this->addKey(KEY_WMBUS_SENSOR_KEY, 200);
+#else
+    this->addKey(KEY_WMBUS_SENSOR, 30, false);
+    this->addKey(KEY_WMBUS_SENSOR_ID, 100, false);
+    this->addKey(KEY_WMBUS_SENSOR_KEY, 200, false);
 #endif
 
     SPIFFS.end();
@@ -756,7 +760,7 @@ bool SuplaConfigManager::isDeviceConfigured() {
   return strcmp(this->get(KEY_SUPLA_GUID)->getValue(), "") == 0 || strcmp(this->get(KEY_SUPLA_AUTHKEY)->getValue(), "") == 0 ||
          strcmp(this->get(KEY_LOGIN)->getValue(), "") == 0 || strcmp(this->get(KEY_ENABLE_SSL)->getValue(), "") == 0 ||
          strcmp(this->get(KEY_ENABLE_GUI)->getValue(), "") == 0 || strcmp(this->get(KEY_SUPLA_SERVER)->getValue(), DEFAULT_SERVER) == 0 ||
-         strcmp(this->get(KEY_SUPLA_EMAIL)->getValue(), DEFAULT_EMAIL) == 0 || ConfigESP->getGpio(FUNCTION_CFG_BUTTON) == OFF_GPIO;
+         strcmp(this->get(KEY_SUPLA_EMAIL)->getValue(), DEFAULT_EMAIL) == 0;
 }
 
 ConfigOption *SuplaConfigManager::get(uint8_t key) {

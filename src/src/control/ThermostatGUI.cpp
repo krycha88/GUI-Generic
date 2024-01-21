@@ -56,21 +56,21 @@ ThermostatGUI::ThermostatGUI(uint8_t thermostatNumber, SuplaDeviceClass *sdc)
   HvacBase::setTemperatureAutoOffsetMax(1000);  // 10 degrees
   HvacBase::addAvailableAlgorithm(SUPLA_HVAC_ALGORITHM_ON_OFF_SETPOINT_MIDDLE);
 
-if (strcmp(ConfigManager->get(KEY_THERMOSTAT_TEMPERATURE_MIN)->getElement(getNumber()).c_str(), "") != 0) {
+  if (strcmp(ConfigManager->get(KEY_THERMOSTAT_TEMPERATURE_MIN)->getElement(getNumber()).c_str(), "") != 0) {
     uint8_t temperatureMin = ConfigManager->get(KEY_THERMOSTAT_TEMPERATURE_MIN)->getElement(getNumber()).toInt();
     HvacBase::setDefaultTemperatureRoomMin(SUPLA_CHANNELFNC_HVAC_THERMOSTAT, temperatureMin * 100);
-}
-if (strcmp(ConfigManager->get(KEY_THERMOSTAT_TEMPERATURE_MAX)->getElement(getNumber()).c_str(), "") != 0) {
+  }
+  if (strcmp(ConfigManager->get(KEY_THERMOSTAT_TEMPERATURE_MAX)->getElement(getNumber()).c_str(), "") != 0) {
     uint8_t temperatureMax = ConfigManager->get(KEY_THERMOSTAT_TEMPERATURE_MAX)->getElement(getNumber()).toInt();
     HvacBase::setDefaultTemperatureRoomMax(SUPLA_CHANNELFNC_HVAC_THERMOSTAT, temperatureMax * 100);
-}
+  }
   uint8_t thermostatType = ConfigManager->get(KEY_THERMOSTAT_TYPE)->getElement(getNumber()).toInt();
   setThermostatType(thermostatType);
 
   if (pinLED != OFF_GPIO) {
     auto statusLed = new Supla::Control::InternalPinOutput(pinLED, levelLed);
 
-    if (ConfigManager->get(KEY_THERMOSTAT_TYPE)->getElement(getNumber()).toInt() == Supla::GUI::THERMOSTAT_COOL) {
+    if (thermostatType == Supla::GUI::THERMOSTAT_COOL) {
       HvacBase::addAction(Supla::TURN_OFF, statusLed, Supla::ON_HVAC_STANDBY, true);
       HvacBase::addAction(Supla::TURN_OFF, statusLed, Supla::ON_HVAC_HEATING, true);
       HvacBase::addAction(Supla::TURN_ON, statusLed, Supla::ON_HVAC_COOLING, true);
@@ -95,6 +95,34 @@ if (strcmp(ConfigManager->get(KEY_THERMOSTAT_TEMPERATURE_MAX)->getElement(getNum
 
 void ThermostatGUI::notifyConfigChange(int channelNumber) {
   if (HvacBase::getChannelNumber() == channelNumber) {
+    auto function = HvacBase::getChannelFunction();
+
+    switch (function) {
+      case SUPLA_CHANNELFNC_HVAC_THERMOSTAT: {
+        if (HvacBase::isHeatingSubfunction()) {
+          ConfigManager->setElement(KEY_THERMOSTAT_TYPE, getNumber(), Supla::GUI::THERMOSTAT_HEAT);
+        }
+        if (HvacBase::isCoolingSubfunction()) {
+          ConfigManager->setElement(KEY_THERMOSTAT_TYPE, getNumber(), Supla::GUI::THERMOSTAT_COOL);
+        }
+        break;
+      }
+      case SUPLA_CHANNELFNC_HVAC_THERMOSTAT_DIFFERENTIAL:
+      case SUPLA_CHANNELFNC_HVAC_DOMESTIC_HOT_WATER: {
+        if (HvacBase::isDomesticHotWaterFunctionSupported()) {
+          ConfigManager->setElement(KEY_THERMOSTAT_TYPE, getNumber(), Supla::GUI::THERMOSTAT_DOMESTIC_HOT_WATER);
+        }
+        if (HvacBase::isDifferentialFunctionSupported()) {
+          ConfigManager->setElement(KEY_THERMOSTAT_TYPE, getNumber(), Supla::GUI::THERMOSTAT_DIFFERENTIAL);
+        }
+        break;
+      }
+      case SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO: {
+        ConfigManager->setElement(KEY_THERMOSTAT_TYPE, getNumber(), Supla::GUI::THERMOSTAT_AUTO);
+        break;
+      }
+    }
+
     ConfigManager->setElement(KEY_THERMOSTAT_MAIN_THERMOMETER_CHANNEL, getNumber(), static_cast<int>(HvacBase::getMainThermometerChannelNo()));
     ConfigManager->setElement(KEY_THERMOSTAT_AUX_THERMOMETER_CHANNEL, getNumber(), static_cast<int>(HvacBase::getAuxThermometerChannelNo()));
     ConfigManager->setElement(KEY_THERMOSTAT_HISTERESIS, getNumber(), static_cast<double>(HvacBase::getTemperatureHisteresis() / 100.0));

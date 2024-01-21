@@ -49,6 +49,10 @@ void setupConnection() {
   if (eth == nullptr) {
     eth = new Supla::GUI_WT32_ETH01(1);  // uint_t ETH_ADDR = I²C-address of Ethernet PHY (0 or 1)
   }
+#elif defined(SUPLA_ETH01_LAN8720)
+  if (eth == nullptr) {
+    eth = new Supla::GUI_ETH01(1);  // uint_t ETH_ADDR = I²C-address of Ethernet PHY (0 or 1)
+  }
 #else
   if (wifi) {
     wifi->setSsid(ConfigManager->get(KEY_WIFI_SSID)->getValue());
@@ -67,8 +71,7 @@ void setupConnection() {
 }
 
 void enableConnectionSSL(bool value) {
-#ifdef SUPLA_WT32_ETH01_LAN8720
-
+#if defined(SUPLA_WT32_ETH01_LAN8720) || defined(SUPLA_ETH01_LAN8720)
   if (eth) {
     if (ConfigESP->configModeESP == Supla::DEVICE_MODE_CONFIG) {
       eth->setSSLEnabled(false);
@@ -821,6 +824,8 @@ Supla::Control::ConfigExpander *Expander;
 
 #ifdef SUPLA_WT32_ETH01_LAN8720
 Supla::WT32_ETH01 *eth = nullptr;
+#elif defined(SUPLA_ETH01_LAN8720)
+Supla::GUI_ETH01 *eth = nullptr;
 #else
 Supla::GUIESPWifi *wifi = nullptr;
 #endif

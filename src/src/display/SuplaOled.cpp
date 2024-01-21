@@ -132,7 +132,7 @@ void displayUiRelayState(OLEDDisplay* display) {
   display->setFont(ArialMT_Win1250_Plain_10);
   display->setTextAlignment(TEXT_ALIGN_LEFT);
 
-  size_t maxIterations = 7;  // Maksymalna liczba iteracji
+  size_t maxIterations = 8;
   size_t relaySize = Supla::GUI::relay.size();
 
   for (size_t i = 0; i < relaySize && i < maxIterations; i++) {
@@ -148,6 +148,9 @@ void displayUiRelayState(OLEDDisplay* display) {
         display->drawString(x + 2, y, String(i + 1));
       }
       x += 15;
+    }
+    else {
+      maxIterations++;
     }
   }
   // display->setColor(WHITE);
@@ -181,15 +184,17 @@ void displayUiSuplaStatus(OLEDDisplay* display) {
 }
 
 void displayUiSuplaClock(OLEDDisplay* display) {
-  char clockBuff[6];
-  auto suplaClock = SuplaDevice.getClock();
+  if (display->getWidth() > 64) {
+    char clockBuff[6];
+    auto suplaClock = SuplaDevice.getClock();
 
-  if (suplaClock->isReady()) {
-    sprintf_P(clockBuff, PSTR("%02d:%02d"), suplaClock->getHour(), suplaClock->getMin());
-    display->setColor(WHITE);
-    display->setFont(ArialMT_Plain_10);
-    display->setTextAlignment(TEXT_ALIGN_LEFT);
-    display->drawString(0, display->getHeight() - 10, String(clockBuff));
+    if (suplaClock->isReady()) {
+      sprintf_P(clockBuff, PSTR("%02d:%02d"), suplaClock->getHour(), suplaClock->getMin());
+      display->setColor(WHITE);
+      display->setFont(ArialMT_Plain_10);
+      display->setTextAlignment(TEXT_ALIGN_LEFT);
+      display->drawString(0, display->getHeight() - 10, String(clockBuff));
+    }
   }
 }
 
@@ -376,7 +381,15 @@ void displayThermostat(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t 
 
     auto channelMainThermometr = getChanelByChannelNumber(mainThermometr);
     double mainTemperature = getTemperatureFromChannelThermometr(channelMainThermometr);
-    double setpointTemperatureHeat = channel->getHvacSetpointTemperatureHeat() / 100.0;
+
+    double setpointTemperature = 0;
+    uint8_t thermostatType = ConfigManager->get(KEY_THERMOSTAT_TYPE)->getElement(thermostatIndex).toInt();
+    if (thermostatType == Supla::GUI::THERMOSTAT_COOL) {
+      setpointTemperature = channel->getHvacSetpointTemperatureCool() / 100.0;
+    }
+    else {
+      setpointTemperature = channel->getHvacSetpointTemperatureHeat() / 100.0;
+    }
 
     display->setColor(WHITE);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
@@ -398,7 +411,20 @@ void displayThermostat(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t 
     if (channel->getHvacMode() != SUPLA_HVAC_MODE_OFF) {
       if (channel->getHvacIsOn()) {
         display->setColor(WHITE);
-        display->fillCircle(x + 4, y + 20 + shiftWhenAddedRelay, 4);
+        int16_t x0 = 0, y0 = 10;
+        int16_t x1 = 10, y1 = 10;
+        int16_t x2 = 5, y2 = 5;
+
+        if (thermostatType == Supla::GUI::THERMOSTAT_COOL) {
+          y0 = 0;
+          y1 = 0;
+        }
+
+        y0 += shiftWhenAddedRelay + 13;
+        y1 += shiftWhenAddedRelay + 13;
+        y2 += shiftWhenAddedRelay + 13;
+
+        display->fillTriangle(x0, y0, x1, y1, x2, y2);
       }
 
       if (channel->isHvacFlagWeeklySchedule()) {
@@ -414,7 +440,7 @@ void displayThermostat(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t 
       display->drawString(display->getWidth() - 47, display->getHeight() - 10, String("set"));
 
       display->setFont(ArialMT_Plain_16);
-      display->drawString(display->getWidth() - 30, display->getHeight() - 15, getTempString(setpointTemperatureHeat).c_str());
+      display->drawString(display->getWidth() - 30, display->getHeight() - 15, getTempString(setpointTemperature).c_str());
     }
 
     String name = ConfigManager->get(KEY_NAME_SENSOR)->getElement(state->currentFrame);

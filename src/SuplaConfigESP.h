@@ -51,6 +51,7 @@ enum _ConfigMode
 {
   CONFIG_MODE_10_ON_PRESSES,
   CONFIG_MODE_5SEK_HOLD,
+  CONFIG_MODE_RESET,
   FACTORYRESET
 };
 
@@ -72,6 +73,7 @@ typedef struct {
 
 enum ResetType
 {
+  RESET_NO_ERASE_DATA,
   RESET_DEVICE_DATA,
   RESET_FACTORY_DATA
 };

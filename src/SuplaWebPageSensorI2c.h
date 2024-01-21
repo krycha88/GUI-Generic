@@ -57,7 +57,7 @@ enum _sensor
 enum _sensor2
 {
   SENSOR_I2C_MS5611,
-  SENSOR_SPI_CC1101
+  SENSOR_SPI_CC1101,
   SENSOR_I2C_AHTX0
 };
 
