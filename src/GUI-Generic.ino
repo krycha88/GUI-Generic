@@ -786,17 +786,6 @@ void setup() {
     }
 #endif
 
-#ifdef SUPLA_AHTX0
-    if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_AHTX0).toInt()) {
-      auto aht = new Supla::Sensor::AHTX0();
-      correctionHandler.addThermHygroMeter(aht);
-
-#ifdef SUPLA_CONDITIONS
-      Supla::GUI::Conditions::addConditionsSensor(SENSOR_AHTX0, S_AHTX0, aht);
-#endif
-    }
-#endif
-
 #ifdef SUPLA_OLED
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_OLED).toInt()) {
       SuplaOled *oled = new SuplaOled();
@@ -880,6 +869,22 @@ void setup() {
     if (force400khz)
       Wire.setClock(400000);
   }
+#endif
+
+#if defined(GUI_SENSOR_I2C_2)
+ if (ConfigESP->getGpio(FUNCTION_SDA) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_SCL) != OFF_GPIO) {
+    bool force400khz = false;
+#ifdef SUPLA_AHTX0
+    if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_AHTX0).toInt()) {
+      auto aht = new Supla::Sensor::AHTX0();
+      correctionHandler.addThermHygroMeter(aht);
+
+#ifdef SUPLA_CONDITIONS
+      Supla::GUI::Conditions::addConditionsSensor(SENSOR_AHTX0, S_AHTX0, aht);
+#endif
+    }
+#endif
+ }
 #endif
 
 #ifdef SUPLA_ACTION_TRIGGER
