@@ -26,17 +26,17 @@
 
 #define SUPLA_CONFIG_MAX_KEY_SIZE 16
 
-#define MAX_SSID_SIZE          33  // actuall SSID should be at most 32 bytes
+#define MAX_SSID_SIZE          33  // actual SSID should be at most 32 bytes
                                    // but we add here extra byte for null
                                    // termination
 #define MAX_WIFI_PASSWORD_SIZE 64
 #define MQTT_CLIENTID_MAX_SIZE 23
-#define MQTT_USERNAME_MAX_SIZE 65
-#define MQTT_PASSWORD_MAX_SIZE 65
+#define MQTT_USERNAME_MAX_SIZE 256
+#define MQTT_PASSWORD_MAX_SIZE 256
 
 namespace Supla {
 
-enum DeviceMode {
+enum DeviceMode : uint8_t {
   DEVICE_MODE_NOT_SET = 0,
   DEVICE_MODE_TEST = 1,
   DEVICE_MODE_NORMAL = 2,
@@ -52,6 +52,9 @@ class Config {
   virtual void removeAll() = 0;
   virtual bool isMinimalConfigReady();
   virtual bool isConfigModeSupported();
+
+  // Override this method and setup all default value if needed
+  virtual void initDefaultDeviceConfig();
 
   // Generic getters and setters
   virtual bool setString(const char* key, const char* value) = 0;

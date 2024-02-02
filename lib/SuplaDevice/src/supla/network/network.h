@@ -43,6 +43,7 @@ class Network {
   static bool GetMacAddr(uint8_t *);
   static void SetHostname(const char *);
   static bool IsSuplaSSLEnabled();
+  static bool IsIpSetupTimeout();
 
   static void printData(const char *prefix, const void *buf, const int count);
 
@@ -56,6 +57,7 @@ class Network {
   virtual bool getMacAddr(uint8_t *);
   virtual void setHostname(const char *);
   virtual bool isSuplaSSLEnabled();
+  virtual bool isIpSetupTimeout();
 
   virtual bool isReady() = 0;
   virtual bool iterate();
@@ -80,17 +82,17 @@ class Network {
 
  protected:
   static Network *netIntf;
-  SuplaDeviceClass *sdc = nullptr;
 
-  enum DeviceMode mode = DEVICE_MODE_NORMAL;
-  bool setupNeeded = false;
-  bool useLocalIp;
+  SuplaDeviceClass *sdc = nullptr;
+  const char *rootCACert = nullptr;
+  unsigned int rootCACertSize = 0;
   unsigned char localIp[4];
   char hostname[32] = {};
 
+  enum DeviceMode mode = DEVICE_MODE_NORMAL;
+  bool setupNeeded = false;
+  bool useLocalIp = false;
   bool sslEnabled = true;
-  const char *rootCACert = nullptr;
-  unsigned int rootCACertSize = 0;
 };
 
 };  // namespace Supla

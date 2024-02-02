@@ -234,7 +234,7 @@ void ProtocolParameters::send(Supla::WebSender* sender) {
             "<div class=\"mqtt\">");
       } else {
         sender->send(
-            "<div class=\"box\" class=\"mqtt\">");
+            "<div class=\"box mqtt\">");
         sender->send(
             "<h3>MQTT Settings</h3>");
       }
@@ -323,7 +323,7 @@ void ProtocolParameters::send(Supla::WebSender* sender) {
       sender->sendLabelFor(keyMqttUser, "Username");
       sender->send("<input ");
       sender->sendNameAndId(keyMqttUser);
-      sender->send("maxlength=\"64\" value=\"");
+      sender->send("maxlength=\"255\" value=\"");
       if (cfg->getMqttUser(buf)) {
         sender->sendSafe(buf);
       }
@@ -334,10 +334,10 @@ void ProtocolParameters::send(Supla::WebSender* sender) {
       // form-field START
       sender->send("<div class=\"form-field\" id=\"mauth_pwd\">");
       const char keyMqttPasswd[] = "mqttpasswd";
-      sender->sendLabelFor(keyMqttPasswd, "Password (required, max 64)");
+      sender->sendLabelFor(keyMqttPasswd, "Password (required, max 255)");
       sender->send("<input ");
       sender->sendNameAndId(keyMqttPasswd);
-      sender->send(" maxlength=\"64\">");
+      sender->send(" maxlength=\"255\">");
       sender->send("</div>");
       // form-field END
 

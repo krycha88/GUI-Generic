@@ -29,6 +29,9 @@ set(SRCS
   supla/storage/storage.cpp
   supla/storage/config.cpp
   supla/storage/key_value.cpp
+  supla/storage/simple_state.cpp
+  supla/storage/state_storage_interface.cpp
+  supla/storage/state_wear_leveling_byte.cpp
 
   supla/control/internal_pin_output.cpp
   supla/control/pin_status_led.cpp
@@ -94,6 +97,10 @@ set(SRCS
   supla/sensor/hygro_meter.cpp
   supla/sensor/thermometer.cpp
   supla/sensor/thermometer_driver.cpp
+  supla/sensor/general_purpose_channel_base.cpp
+  supla/sensor/general_purpose_measurement.cpp
+  supla/sensor/general_purpose_meter.cpp
+  supla/sensor/memory_variable_driver.cpp
   supla/sensor/electricity_meter.cpp
   supla/sensor/binary.cpp
   supla/sensor/binary_base.cpp

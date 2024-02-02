@@ -587,6 +587,9 @@ void Supla::Protocol::SuplaSrpc::onSetActivityTimeoutResult(
 
 void Supla::Protocol::SuplaSrpc::setActivityTimeout(
     uint32_t activityTimeoutSec) {
+  if (activityTimeoutSec < 6) {
+    activityTimeoutSec = 6;
+  }
   activityTimeoutS = activityTimeoutSec;
 }
 
@@ -594,11 +597,14 @@ bool Supla::Protocol::SuplaSrpc::ping() {
   uint32_t _millis = millis();
   // If time from last response is longer than "server_activity_timeout + 10 s",
   // then inform about failure in communication
-  if ((_millis - lastResponseMs) / 1000 >= (activityTimeoutS + 10)) {
+  if ((_millis - lastResponseMs) / 1000 >=
+      (static_cast<uint32_t>(activityTimeoutS) + 10)) {
     return false;
   } else if (_millis - lastPingTimeMs >= 5000 &&
-             ((_millis - lastResponseMs) / 1000 >= (activityTimeoutS - 5) ||
-              (_millis - lastSentMs) / 1000 >= (activityTimeoutS - 5))) {
+             ((_millis - lastResponseMs) / 1000 >=
+                  (static_cast<uint32_t>(activityTimeoutS) - 5) ||
+              (_millis - lastSentMs) / 1000 >=
+                  (static_cast<uint32_t>(activityTimeoutS) - 5))) {
     lastPingTimeMs = _millis;
     srpc_dcs_async_ping_server(srpc);
   }
@@ -625,9 +631,25 @@ bool Supla::Protocol::SuplaSrpc::iterate(uint32_t _millis) {
 
   // Establish connection with Supla server
   if (!client->connected()) {
-    sdc->uptime.setConnectionLostCause(
-        SUPLA_LASTCONNECTIONRESETCAUSE_SERVER_CONNECTION_LOST);
-    registered = 0;
+    deinitializeSrpc();
+    if (registered != 0) {
+      SUPLA_LOG_DEBUG("Supla server connection lost. Trying to reconnect");
+      sdc->uptime.setConnectionLostCause(
+          SUPLA_LASTCONNECTIONRESETCAUSE_SERVER_CONNECTION_LOST);
+      registered = 0;
+      client->stop();
+#ifdef ARDUINO_ARCH_ESP8266
+      // Arduino ESP8266 seems to leak memory on SSL reconnect.
+      // Workaround: Resetting Wi-Fi cleans it up
+      if (Supla::Network::IsSuplaSSLEnabled()) {
+        requestNetworkRestart = true;
+      }
+#endif
+      waitForIterate = 1000;
+      lastIterateTime = _millis;
+      return false;
+    }
+
     if (port == -1) {
       if (Supla::Network::IsSuplaSSLEnabled()) {
         port = 2016;
@@ -643,12 +665,21 @@ bool Supla::Protocol::SuplaSrpc::iterate(uint32_t _millis) {
       SUPLA_LOG_INFO("Connected to Supla Server");
       initializeSrpc();
     } else {
-      sdc->status(STATUS_SERVER_DISCONNECTED, "Not connected to Supla server");
+      if (!firstConnectionAttempt) {
+        sdc->status(STATUS_SERVER_DISCONNECTED,
+                    "Not connected to Supla server");
+      }
       SUPLA_LOG_DEBUG("Connection fail (%d). Server: %s",
                       result,
                       Supla::Channel::reg_dev.ServerName);
+      if (firstConnectionAttempt) {
+        waitForIterate = 1000;
+      } else {
+        waitForIterate = 10000;
+      }
+
       disconnect();
-      waitForIterate = 10000;
+      firstConnectionAttempt = false;
       connectionFailCounter++;
       if (connectionFailCounter % 6 == 0) {
         requestNetworkRestart = true;
@@ -750,6 +781,7 @@ void Supla::Protocol::SuplaSrpc::disconnect() {
     return;
   }
 
+  firstConnectionAttempt = true;
   registered = 0;
   client->stop();
   deinitializeSrpc();
@@ -856,6 +888,11 @@ uint32_t Supla::Protocol::SuplaSrpc::getActivityTimeout() {
 }
 
 bool Supla::Protocol::SuplaSrpc::isUpdatePending() {
+  if (sdc->isRemoteDeviceConfigEnabled()) {
+    if (!setDeviceConfigReceivedAfterRegistration) {
+      return true;
+    }
+  }
   return Supla::Element::IsAnyUpdatePending();
 }
 
@@ -1282,9 +1319,10 @@ void Supla::Protocol::SuplaSrpc::initializeSrpc() {
 }
 
 void Supla::Protocol::SuplaSrpc::deinitializeSrpc() {
-  SUPLA_LOG_INFO("Deinitializing SRPC");
   if (srpc) {
+    SUPLA_LOG_INFO("Deinitializing SRPC");
     srpc_free(srpc);
     srpc = nullptr;
   }
+  setDeviceConfigReceivedAfterRegistration = false;
 }

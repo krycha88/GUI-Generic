@@ -26,6 +26,8 @@
 #include <supla/log_wrapper.h>
 #include <supla/protocol/supla_srpc.h>
 #include <supla/device/remote_device_config.h>
+#include <supla/mutex.h>
+#include <supla/auto_lock.h>
 
 Supla::Device::StatusLed::StatusLed(Supla::Io *io, uint8_t outPin, bool invert)
     : StatusLed(outPin, invert) {
@@ -34,6 +36,7 @@ Supla::Device::StatusLed::StatusLed(Supla::Io *io, uint8_t outPin, bool invert)
 
 Supla::Device::StatusLed::StatusLed(uint8_t outPin, bool invert)
     : outPin(outPin), invert(invert) {
+  mutex = Supla::Mutex::Create();
 }
 
 void Supla::Device::StatusLed::onLoadConfig(SuplaDeviceClass *sdc) {
@@ -66,6 +69,7 @@ void Supla::Device::StatusLed::onLoadConfig(SuplaDeviceClass *sdc) {
 }
 
 void Supla::Device::StatusLed::storeModeToConfig() {
+  Supla::AutoLock autoLock(mutex);
   auto cfg = Supla::Storage::ConfigInstance();
   if (cfg) {
     int8_t currentCfgValue = 0;
@@ -95,6 +99,7 @@ void Supla::Device::StatusLed::storeModeToConfig() {
 }
 
 void Supla::Device::StatusLed::onInit() {
+  Supla::AutoLock autoLock(mutex);
   updatePin();
   if (state == NOT_INITIALIZED) {
     turnOn();
@@ -103,6 +108,7 @@ void Supla::Device::StatusLed::onInit() {
 }
 
 void Supla::Device::StatusLed::iterateAlways() {
+  Supla::AutoLock autoLock(mutex);
   if (ledMode == LED_ALWAYS_OFF) {
     offDuration = 1000;
     onDuration = 0;
@@ -127,7 +133,9 @@ void Supla::Device::StatusLed::iterateAlways() {
       break;
 
     case STATUS_SOFTWARE_RESET:
-      currentSequence = REGISTERED_AND_READY;
+      offDuration = 1000;
+      onDuration = 0;
+      currentSequence = CUSTOM_SEQUENCE;
       break;
 
     case STATUS_OFFLINE_MODE:
@@ -195,7 +203,7 @@ void Supla::Device::StatusLed::iterateAlways() {
         currentSequence = PACZKOW_WE_HAVE_A_PROBLEM;
         break;
       }
-      if (proto->isConnecting()) {
+      if (proto->isConnecting() && !SuplaDevice.isSleepingDeviceEnabled()) {
         currentSequence = SERVER_CONNECTING;
       }
     }
@@ -249,10 +257,12 @@ void Supla::Device::StatusLed::iterateAlways() {
 }
 
 void Supla::Device::StatusLed::onTimer() {
+  Supla::AutoLock autoLock(mutex);
   updatePin();
 }
 
 void Supla::Device::StatusLed::setInvertedLogic(bool invertedLogic) {
+  Supla::AutoLock autoLock(mutex);
   invert = invertedLogic;
   updatePin();
 }
@@ -289,18 +299,21 @@ void Supla::Device::StatusLed::updatePin() {
 
 void Supla::Device::StatusLed::setCustomSequence(int onDurationMs,
     int offDurationMs) {
+  Supla::AutoLock autoLock(mutex);
   currentSequence = CUSTOM_SEQUENCE;
   onDuration = onDurationMs;
   offDuration = offDurationMs;
 }
 
 void Supla::Device::StatusLed::setAutoSequence() {
+  Supla::AutoLock autoLock(mutex);
   // resetting to defaults will trigger automatic sequence update on
   // iterateAlways call
   currentSequence = NETWORK_CONNECTING;
 }
 
 void Supla::Device::StatusLed::setMode(LedMode newMode) {
+  Supla::AutoLock autoLock(mutex);
   ledMode = newMode;
 }
 

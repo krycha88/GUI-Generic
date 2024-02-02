@@ -27,32 +27,58 @@
 
 namespace Supla {
 
+enum class ChannelConfigState : uint8_t {
+  None = 0,
+  LocalChangePending = 1,
+  SetChannelConfigSend = 2,
+  SetChannelConfigFailed = 3,
+  WaitForConfigFinished = 4
+};
+
 class Condition;
 
 class ElementWithChannelActions : public Element, public LocalAction {
  public:
   // Override local action methods in order to delegate execution to Channel
-  void addAction(int action,
+  void addAction(uint16_t action,
       ActionHandler &client,  // NOLINT(runtime/references)
-      int event,
+      uint16_t event,
       bool alwaysEnabled = false) override;
-  void addAction(int action, ActionHandler *client, int event,
+  void addAction(uint16_t action, ActionHandler *client, uint16_t event,
       bool alwaysEnabled = false) override;
-  virtual void addAction(int action,
+  virtual void addAction(uint16_t action,
       ActionHandler &client,  // NOLINT(runtime/references)
       Supla::Condition *condition,
       bool alwaysEnabled = false);
-  virtual void addAction(int action, ActionHandler *client,
+  virtual void addAction(uint16_t action, ActionHandler *client,
       Supla::Condition *condition,
       bool alwaysEnabled = false);
 
-  bool isEventAlreadyUsed(int event) override;
+  bool isEventAlreadyUsed(uint16_t event, bool ignoreAlwaysEnabled) override;
+  void onRegistered(Supla::Protocol::SuplaSrpc *suplaSrpc) override;
+  bool iterateConnected() override;
+  void handleChannelConfigFinished() override;
+  uint8_t handleChannelConfig(TSD_ChannelConfig *result, bool local) override;
+  virtual uint8_t applyChannelConfig(TSD_ChannelConfig *result);
+  void handleSetChannelConfigResult(
+      TSDS_SetChannelConfigResult *result) override;
 
-  void runAction(int event) override;
+  void clearChannelConfigChangedFlag();
 
-  virtual bool loadFunctionFromConfig();
+  void runAction(uint16_t event) override;
+
   // returns true if function was changed (previous one was different)
   virtual bool setAndSaveFunction(_supla_int_t channelFunction);
+  virtual bool loadFunctionFromConfig();
+  virtual bool saveConfigChangeFlag();
+  virtual bool loadConfigChangeFlag();
+  virtual void fillChannelConfig(void *channelConfig, int *size);
+  bool isAnyUpdatePending() override;
+
+ protected:
+  Supla::ChannelConfigState channelConfigState =
+      Supla::ChannelConfigState::None;
+  bool configFinishedReceived = false;
 };
 
 };  // namespace Supla

@@ -71,7 +71,7 @@ void ImpulseCounter::onInit() {
       Supla::Io::digitalRead(channel.getChannelNumber(), impulsePin, io);
 }
 
-unsigned _supla_int64_t ImpulseCounter::getCounter() {
+uint64_t ImpulseCounter::getCounter() {
   return counter;
 }
 
@@ -80,13 +80,13 @@ void ImpulseCounter::onSaveState() {
 }
 
 void ImpulseCounter::onLoadState() {
-  unsigned _supla_int64_t data;
+  uint64_t data;
   if (Supla::Storage::ReadState((unsigned char *)&data, sizeof(data))) {
     setCounter(data);
   }
 }
 
-void ImpulseCounter::setCounter(unsigned _supla_int64_t value) {
+void ImpulseCounter::setCounter(uint64_t value) {
   counter = value;
   SUPLA_LOG_DEBUG(
             "ImpulseCounter[%d] - set counter to %d",
@@ -128,6 +128,8 @@ int ImpulseCounter::handleCalcfgFromServer(TSD_DeviceCalCfgRequest *request) {
       if (!request->SuperUserAuthorized) {
         return SUPLA_CALCFG_RESULT_UNAUTHORIZED;
       }
+      SUPLA_LOG_INFO("ImpulseCounter[%d] - CALCFG reset counter received",
+                     channel.getChannelNumber());
       setCounter(0);
       return SUPLA_CALCFG_RESULT_DONE;
     }
