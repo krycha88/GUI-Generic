@@ -61,7 +61,7 @@ enum _sensor2
   SENSOR_I2C_AHTX0
 };
 
-#if defined(GUI_SENSOR_I2C) || defined(GUI_SENSOR_I2C_ENERGY_METER)
+#if defined(GUI_SENSOR_I2C) || defined(GUI_SENSOR_I2C_ENERGY_METER) || defined(GUI_SENSOR_I2C_2)
 
 #if defined(SUPLA_BME280) || defined(SUPLA_BMP280)
 enum _bmeAdress
@@ -166,10 +166,19 @@ void webPageI2CScanner(TwoWire* wire);
 #define INPUT_SUPLA_SHT_AUTODETECT "issa"
 #endif
 
-#ifdef SUPLA_AHTX0
-#define INPUT_AHTX0 "aht"
 #endif
 
+#if defined(GUI_SENSOR_I2C_2)
+#ifdef SUPLA_AHTX0
+#define INPUT_AHTX0 "aht"
+enum _ahtAdress
+{
+  AHT_ADDRESS_0X38 = 1,
+  AHT_ADDRESS_0X39,
+  AHT_ADDRESS_0X38_AND_0X39
+};
 #endif
+
+#endif // defined(GUI_SENSOR_I2C)
 
 #endif  // ifndef SuplaWebPageSensorI2c_h

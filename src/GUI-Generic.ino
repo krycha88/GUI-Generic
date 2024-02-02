@@ -876,7 +876,28 @@ void setup() {
     bool force400khz = false;
 #ifdef SUPLA_AHTX0
     if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_AHTX0).toInt()) {
-      auto aht = new Supla::Sensor::AHTX0();
+      Supla::Sensor::AHTX0 *aht = nullptr;
+      switch (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_AHTX0).toInt()) {
+        case AHT_ADDRESS_0X38:
+          aht = new Supla::Sensor::AHTX0(AHTX0_I2CADDR_DEFAULT, 1);
+#ifdef SUPLA_CONDITIONS
+          Supla::GUI::Conditions::addConditionsSensor(SENSOR_AHTX0, S_AHTX0, aht);
+#endif
+          break;
+        case AHT_ADDRESS_0X39:
+          aht = new Supla::Sensor::AHTX0(AHTX0_I2CADDR_ALTERNATE, 1);
+#ifdef SUPLA_CONDITIONS
+          Supla::GUI::Conditions::addConditionsSensor(SENSOR_AHTX0, S_AHTX0, aht);
+#endif
+          break;
+        case AHT_ADDRESS_0X38_AND_0X39:
+          aht = new Supla::Sensor::AHTX0(AHTX0_I2CADDR_DEFAULT, 1);
+          Supla::Sensor::AHTX0 *aht1 = new Supla::Sensor::AHTX0(AHTX0_I2CADDR_ALTERNATE, 2);    
+#ifdef SUPLA_CONDITIONS
+          Supla::GUI::Conditions::addConditionsSensor(SENSOR_AHTX0, S_AHTX0, aht);
+          Supla::GUI::Conditions::addConditionsSensor(SENSOR_AHTX0, S_AHTX0, aht1, 1);
+#endif     
+      }
       correctionHandler.addThermHygroMeter(aht);
 
 #ifdef SUPLA_CONDITIONS

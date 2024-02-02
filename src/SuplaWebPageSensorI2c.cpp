@@ -16,7 +16,7 @@
 
 #include "SuplaWebPageSensorI2c.h"
 
-#if defined(GUI_SENSOR_I2C) || defined(GUI_SENSOR_I2C_ENERGY_METER)
+#if defined(GUI_SENSOR_I2C) || defined(GUI_SENSOR_I2C_2) || defined(GUI_SENSOR_I2C_ENERGY_METER)
 void createWebPageSensorI2c() {
   WebServer->httpServer->on(getURL(PATH_I2C), [&]() {
     if (!WebServer->isLoggedIn()) {
@@ -159,7 +159,7 @@ void handleSensorI2c(int save) {
 #ifdef SUPLA_AHTX0
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_AHTX0).toInt();
     addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_AHTX0, F("AHTX0"), STATE_P, 2, selected);
+    addListBox(webContentBuffer, INPUT_AHTX0, String(S_ADDRESS) + S_SPACE + S_AHTX0, AHTX0_P, 4, selected);
     addFormHeaderEnd(webContentBuffer);
 #endif
 

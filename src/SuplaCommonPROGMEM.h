@@ -225,6 +225,13 @@ const char ADR44_ADR45[] PROGMEM = "0x44 & 0x45";
 const char* const SHT3x_P[] PROGMEM = {OFF, ADR44, ADR45, ADR44_ADR45};
 #endif
 
+#if defined(SUPLA_AHTX0)
+const char ADR38[] PROGMEM = "0x38";
+const char ADR39[] PROGMEM = "0x39";
+const char ADR38_ADR39[] PROGMEM = "0x38 & 0x39";
+const char* const AHTX0_P[] PROGMEM = {OFF, ADR38, ADR39, ADR38_ADR39};
+#endif
+
 #if defined(GUI_SENSOR_I2C_EXPENDER) || defined(SUPLA_LCD_HD44780)
 const char ADR20[] PROGMEM = "0x20";
 const char ADR21[] PROGMEM = "0x21";
