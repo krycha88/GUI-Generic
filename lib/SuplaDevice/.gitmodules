@@ -1,6 +1,0 @@
-[submodule "extras/esp-idf/esp32-owb"]
-	path = extras/esp-idf/esp32-owb
-	url = https://github.com/SUPLA/esp32-owb.git
-[submodule "extras/esp-idf/esp32-ds18b20"]
-	path = extras/esp-idf/esp32-ds18b20
-	url = https://github.com/SUPLA/esp32-ds18b20.git
