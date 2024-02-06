@@ -102,6 +102,7 @@ void SuplaWebServer::sendHeaderStart() {
     httpServer->sendContent_P(HTTP_LOGO);
 
     String summary = FPSTR(HTTP_SUMMARY);
+    summary.reserve(256);
 
     summary.replace(F("{h}"), ConfigManager->get(KEY_HOST_NAME)->getValue());
     summary.replace(F("{s}"), ConfigESP->getLastStatusMessageSupla());
@@ -146,9 +147,9 @@ void SuplaWebServer::sendHeaderEnd() {
     httpServer->client().stop();
     chunkedSendHeader = false;
 
-// #ifdef SUPLA_DEBUG_MODE
-//     checkRAM();
-// #endif
+    // #ifdef SUPLA_DEBUG_MODE
+    //     checkRAM();
+    // #endif
   }
 }
 

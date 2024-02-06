@@ -223,7 +223,18 @@ void chooseTemplateBoard(String board) {
       case NewRelay4:
         addRelay(3, gpio);
         break;
-
+      case NewRelay5:
+        addRelay(4, gpio);
+        break;
+      case NewRelay6:
+        addRelay(5, gpio);
+        break;
+      case NewRelay7:
+        addRelay(6, gpio);
+        break;
+      case NewRelay8:
+        addRelay(7, gpio);
+        break;
       case NewRelay1i:
         addRelay(0, gpio, LOW);
         break;
@@ -236,7 +247,18 @@ void chooseTemplateBoard(String board) {
       case NewRelay4i:
         addRelay(3, gpio, LOW);
         break;
-
+      case NewRelay5i:
+        addRelay(4, gpio, LOW);
+        break;
+      case NewRelay6i:
+        addRelay(5, gpio, LOW);
+        break;
+      case NewRelay7i:
+        addRelay(6, gpio, LOW);
+        break;
+      case NewRelay8i:
+        addRelay(7, gpio, LOW);
+        break;
       case NewSwitch1:
         if (ConfigESP->getGpio(0, FUNCTION_BUTTON) != OFF_GPIO) {
           ConfigESP->clearGpio(ConfigESP->getGpio(0, FUNCTION_BUTTON), FUNCTION_BUTTON);
