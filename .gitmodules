@@ -1,0 +1,3 @@
+[submodule "lib/SuplaDevice"]
+	path = lib/SuplaDevice
+	url = git@github.com:SUPLA/supla-device.git
