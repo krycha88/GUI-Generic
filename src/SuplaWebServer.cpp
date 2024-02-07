@@ -16,8 +16,7 @@
 
 #include "SuplaWebServer.h"
 #include "SuplaDeviceGUI.h"
-
-String webContentBuffer;
+#include <supla/tools.h>
 
 SuplaWebServer::SuplaWebServer() {
   isRunningWebServer = false;
@@ -83,7 +82,12 @@ void SuplaWebServer::createWebServer() {
 
 void SuplaWebServer::sendHeaderStart() {
   if (!chunkedSendHeader) {
+    // printFreeMemory();
     chunkedSendHeader = true;
+    char buf[512] = {};
+    char freeHeapStr[10];
+    ConfigESP->getFreeHeapAsString(freeHeapStr);
+
 #ifdef ARDUINO_ARCH_ESP8266
     tcpCleanup();
 #endif
@@ -101,42 +105,54 @@ void SuplaWebServer::sendHeaderStart() {
     httpServer->sendContent_P(HTTP_IFRAMES);
     httpServer->sendContent_P(HTTP_LOGO);
 
-    String summary = FPSTR(HTTP_SUMMARY);
-    summary.reserve(256);
+    WebServer->sendContent(F("<h1>"));
+    WebServer->sendContent(ConfigManager->get(KEY_HOST_NAME)->getValue());
+    WebServer->sendContent(F("</h1><span>LAST STATE: "));
+    WebServer->sendContent(ConfigESP->getLastStatusMessageSupla());
+    WebServer->sendContent(F("<br>Firmware: "));
+    WebServer->sendContent(Supla::Channel::reg_dev.SoftVer);
+    WebServer->sendContent(F("<br>GUID: "));
 
-    summary.replace(F("{h}"), ConfigManager->get(KEY_HOST_NAME)->getValue());
-    summary.replace(F("{s}"), ConfigESP->getLastStatusMessageSupla());
-    summary.replace(F("{v}"), Supla::Channel::reg_dev.SoftVer);
-    summary.replace(F("{g}"), ConfigManager->get(KEY_SUPLA_GUID)->getValueHex(SUPLA_GUID_SIZE));
-    summary.replace(F("{m}"), ConfigESP->getMacAddress(true));
-    summary.replace(F("{f}"), String(ESP.getFreeHeap() / 1024.0));
+    generateHexString(Supla::Channel::reg_dev.GUID, buf, SUPLA_GUID_SIZE);
+    WebServer->sendContent(buf);
+
+    WebServer->sendContent(F("<br>MAC: "));
+    ConfigESP->getMacAddress(buf, true);
+    WebServer->sendContent(buf);
+    WebServer->sendContent(F("</span>"));
+
+    WebServer->sendContent(F("<span>"));
+    WebServer->sendContent(F("Free Mem: "));
+    WebServer->sendContent(freeHeapStr);
+    WebServer->sendContent(F("KB<br>Mode: "));
+
     if (ConfigESP->configModeESP == Supla::DEVICE_MODE_NORMAL) {
-      summary.replace(F("{c}"), "NORMAL");
+      WebServer->sendContent(F("NORMAL"));
     }
     else {
-      summary.replace(F("{c}"), "CONFIG");
+      WebServer->sendContent(F("CONFIG"));
     }
-
-    httpServer->sendContent(summary);
+    WebServer->sendContent(F("</span>"));
   }
 }
 
-void SuplaWebServer::sendHeader() {
+void SuplaWebServer::sendContent(const String& content) {
   if (chunkedSendHeader) {
-    if (!webContentBuffer.isEmpty()) {
-      httpServer->sendContent(webContentBuffer);
-      webContentBuffer.clear();
-      webContentBuffer = String();
-      delay(0);
+    if (!content.isEmpty()) {
+      httpServer->sendContent(content);
     }
   }
 }
+
+void SuplaWebServer::sendContent(double content) {
+  this->sendContent(String(content).c_str());
+};
 
 void SuplaWebServer::sendHeaderEnd() {
   if (chunkedSendHeader) {
-    sendHeader();
-    addButton(webContentBuffer, S_RESTART, getParameterRequest("", PATH_REBOT, "3"));
-    addButton(webContentBuffer, S_TOOLS, PATH_TOOLS);
+    // sendHeader();
+    addButton(S_RESTART, getParameterRequest("", PATH_REBOT, "3"));
+    addButton(S_TOOLS, PATH_TOOLS);
     httpServer->sendContent_P(HTTP_DIV_END);
     httpServer->chunkedResponseFinalize();
 
@@ -146,17 +162,16 @@ void SuplaWebServer::sendHeaderEnd() {
     httpServer->client().flush();
     httpServer->client().stop();
     chunkedSendHeader = false;
-
-    // #ifdef SUPLA_DEBUG_MODE
-    //     checkRAM();
-    // #endif
+    //printFreeMemory();
   }
 }
 
-void SuplaWebServer::sendContent() {
-  sendHeaderStart();
-  sendHeader();
-  sendHeaderEnd();
+void printFreeMemory() {
+  size_t freeMemory = ESP.getFreeHeap();
+
+  Serial.print("Free memory: ");
+  Serial.print(freeMemory);
+  Serial.println(" bytes");
 }
 
 void SuplaWebServer::handleNotFound() {

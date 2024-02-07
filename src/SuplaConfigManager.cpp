@@ -66,18 +66,16 @@ bool ConfigOption::getValueBool() {
   return atoi(this->getValue());
 }
 
-const char *ConfigOption::getValueHex(size_t size) {
-  char *buffer = (char *)malloc(sizeof(char) * (size * 2));
+void ConfigOption::getValueHex(char *buffer, size_t bufferSize) {
   size_t a, b;
 
   buffer[0] = 0;
   b = 0;
 
-  for (a = 0; a < size; a++) {
+  for (a = 0; a < sizeof(_value) && b + 2 < bufferSize; a++) {
     snprintf(&buffer[b], 3, "%02X", (unsigned char)_value[a]);  // NOLINT
     b += 2;
   }
-  return buffer;
 }
 
 int ConfigOption::getValueElement(int element) {
@@ -835,12 +833,16 @@ void SuplaConfigManager::setGUIDandAUTHKEY() {
   this->set(KEY_SUPLA_GUID, GUID);
   this->set(KEY_SUPLA_AUTHKEY, AUTHKEY);
 
-  String GUID_S = ConfigManager->get(KEY_SUPLA_GUID)->getValueHex(SUPLA_GUID_SIZE);
-  String AUTHKEY_S = ConfigManager->get(KEY_SUPLA_AUTHKEY)->getValueHex(SUPLA_AUTHKEY_SIZE);
-  GUID_S.reserve(32);
-  AUTHKEY_S.reserve(32);
+  const size_t GUID_SIZE = SUPLA_GUID_SIZE;
+  const size_t AUTHKEY_SIZE = SUPLA_AUTHKEY_SIZE;
 
-  if (GUID_S.endsWith("0") || AUTHKEY_S.endsWith("0")) {
+  char guidBuffer[GUID_SIZE + 1];
+  char authkeyBuffer[AUTHKEY_SIZE + 1];
+
+  strcpy(guidBuffer, ConfigManager->get(KEY_SUPLA_GUID)->getValue());
+  strcpy(authkeyBuffer, ConfigManager->get(KEY_SUPLA_AUTHKEY)->getValue());
+
+  if (guidBuffer[strlen(guidBuffer) - 1] == '0' || authkeyBuffer[strlen(authkeyBuffer) - 1] == '0') {
     setGUIDandAUTHKEY();
   }
 }

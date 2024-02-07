@@ -99,6 +99,8 @@ class SuplaConfigESP : public Supla::ActionHandler, public Supla::Element {
   void ledBlinkingStop(void);
 
   String getMacAddress(bool formating);
+  void getMacAddress(char *macAddress, bool formating);
+  void getFreeHeapAsString(char *freeHeapStr);
 
   uint8_t configModeESP;
   _supla_status supla_status;

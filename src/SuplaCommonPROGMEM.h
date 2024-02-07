@@ -93,8 +93,8 @@ const char HTTP_LOGO[] PROGMEM =
     "102.1,188.6z "
     "M167.7,88.5c-1,0-2.1,0.1-3.1,0.3c-9,1.7-14.2,10.6-10.8,18.6c2.9,6.8,11.4,10.3,19,7.8c7.1-2.3,11.1-9.1,9.6-15.9C180.9,93,174.8,88.5,167.7,88.5z'/"
     "></svg></a>";
-const char HTTP_SUMMARY[] PROGMEM =
-    "<h1>{h}</h1><span>LAST STATE: {s}<br>Firmware: SuplaDevice {v}<br>GUID: {g}<br>MAC: {m}<br>Free Mem: {f}KB<br>Mode: {c}</span>\n";
+// const char HTTP_SUMMARY[] PROGMEM =
+//     "<h1>{h}</h1><span>LAST STATE: {s}<br>Firmware: SuplaDevice {v}<br>GUID: {g}<br>MAC: {m}<br>Free Mem: {f}KB<br>Mode: {c}</span>\n";
 const char HTTP_IFRAMES[] PROGMEM =
     "<div class='dif difl dift'><iframe class='iframe' src='https://gui-generic-builder.supla.io/f.php?tl' onload='ifl(this)'></iframe></div>"
     "<div class='dif difr dift'><iframe class='iframe' src='https://gui-generic-builder.supla.io/f.php?tr' onload='ifl(this)'></iframe></div>"
