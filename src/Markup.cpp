@@ -18,7 +18,11 @@
 #include "SuplaCommonPROGMEM.h"
 
 void addForm(const String& method, const String& action) {
-  WebServer->sendContent(F("<form method='") + method + F("' action='") + action + F("'>"));
+  WebServer->sendContent(F("<form method='"));
+  WebServer->sendContent(method);
+  WebServer->sendContent(F("' action='"));
+  WebServer->sendContent(action);
+  WebServer->sendContent(F("'>"));
 }
 
 void addFormEnd() {
