@@ -93,8 +93,8 @@ const char HTTP_LOGO[] PROGMEM =
     "102.1,188.6z "
     "M167.7,88.5c-1,0-2.1,0.1-3.1,0.3c-9,1.7-14.2,10.6-10.8,18.6c2.9,6.8,11.4,10.3,19,7.8c7.1-2.3,11.1-9.1,9.6-15.9C180.9,93,174.8,88.5,167.7,88.5z'/"
     "></svg></a>";
-const char HTTP_SUMMARY[] PROGMEM =
-    "<h1>{h}</h1><span>LAST STATE: {s}<br>Firmware: SuplaDevice {v}<br>GUID: {g}<br>MAC: {m}<br>Free Mem: {f}KB<br>Mode: {c}</span>\n";
+// const char HTTP_SUMMARY[] PROGMEM =
+//     "<h1>{h}</h1><span>LAST STATE: {s}<br>Firmware: SuplaDevice {v}<br>GUID: {g}<br>MAC: {m}<br>Free Mem: {f}KB<br>Mode: {c}</span>\n";
 const char HTTP_IFRAMES[] PROGMEM =
     "<div class='dif difl dift'><iframe class='iframe' src='https://gui-generic-builder.supla.io/f.php?tl' onload='ifl(this)'></iframe></div>"
     "<div class='dif difr dift'><iframe class='iframe' src='https://gui-generic-builder.supla.io/f.php?tr' onload='ifl(this)'></iframe></div>"
@@ -223,6 +223,13 @@ const char ADR44[] PROGMEM = "0x44";
 const char ADR45[] PROGMEM = "0x45";
 const char ADR44_ADR45[] PROGMEM = "0x44 & 0x45";
 const char* const SHT3x_P[] PROGMEM = {OFF, ADR44, ADR45, ADR44_ADR45};
+#endif
+
+#if defined(SUPLA_AHTX0)
+const char ADR38[] PROGMEM = "0x38";
+const char ADR39[] PROGMEM = "0x39";
+const char ADR38_ADR39[] PROGMEM = "0x38 & 0x39";
+const char* const AHTX0_P[] PROGMEM = {OFF, ADR38, ADR39, ADR38_ADR39};
 #endif
 
 #if defined(GUI_SENSOR_I2C_EXPENDER) || defined(SUPLA_LCD_HD44780)

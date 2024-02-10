@@ -282,7 +282,7 @@ class ConfigOption {
   int getValueInt();
   float getValueFloat();
   bool getValueBool();
-  const char *getValueHex(size_t size);
+  void getValueHex(char* buffer, size_t bufferSize);
   int getValueElement(int element);
 
   int getLength();

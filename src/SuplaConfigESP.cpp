@@ -111,7 +111,6 @@ void SuplaConfigESP::handleAction(int event, int action) {
 
 void SuplaConfigESP::rebootESP() {
   // WebServer->httpServer->send(302, "text/plain", "");
-  // WebServer->sendContent();
   Serial.println("Restarting ESP...");
   ESP.restart();
 }
@@ -202,6 +201,23 @@ String SuplaConfigESP::getMacAddress(bool formating) {
     sprintf(baseMacChr, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
   return String(baseMacChr);
+}
+
+void SuplaConfigESP::getMacAddress(char *macAddress, bool formating) {
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+
+  if (formating) {
+    snprintf(macAddress, 18, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  }
+  else {
+    snprintf(macAddress, 13, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  }
+}
+
+void SuplaConfigESP::getFreeHeapAsString(char* freeHeapStr) {
+  float freeHeap = ESP.getFreeHeap() / 1024.0;
+  snprintf(freeHeapStr, 10, "%.2f", freeHeap);
 }
 
 void ledBlinkingTicker() {

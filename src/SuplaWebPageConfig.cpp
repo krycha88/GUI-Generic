@@ -83,48 +83,48 @@ void handleConfig(int save) {
   uint8_t selected;
 
   WebServer->sendHeaderStart();
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_CONFIG);
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_CONFIG);
 
-  addForm(webContentBuffer, F("post"), PATH_CONFIG);
-  addFormHeader(webContentBuffer, S_GPIO_SETTINGS_FOR_CONFIG);
-  addListGPIOBox(webContentBuffer, INPUT_CFG_LED_GPIO, F("LED"), FUNCTION_CFG_LED);
+  addForm(F("post"), PATH_CONFIG);
+  addFormHeader(S_GPIO_SETTINGS_FOR_CONFIG);
+  addListGPIOBox(INPUT_CFG_LED_GPIO, F("LED"), FUNCTION_CFG_LED);
 
   selected = ConfigESP->getLevel(ConfigESP->getGpio(FUNCTION_CFG_LED));
-  addListBox(webContentBuffer, INPUT_CFG_LED_LEVEL, S_STATE_CONTROL, LEVEL_P, 2, selected);
+  addListBox(INPUT_CFG_LED_LEVEL, S_STATE_CONTROL, LEVEL_P, 2, selected);
 
-  addListGPIOBox(webContentBuffer, INPUT_CFG_BTN_GPIO, S_BUTTON, FUNCTION_CFG_BUTTON);
+  addListGPIOBox(INPUT_CFG_BTN_GPIO, S_BUTTON, FUNCTION_CFG_BUTTON);
 
   selected = ConfigManager->get(KEY_CFG_MODE)->getValueInt();
-  addListBox(webContentBuffer, INPUT_CFG_MODE, S_CFG_MODE, CFG_MODE_P, 2, selected);
+  addListBox(INPUT_CFG_MODE, S_CFG_MODE, CFG_MODE_P, 2, selected);
 
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 
-  addFormHeader(webContentBuffer, F("Połączenie"));
+  addFormHeader(F("Połączenie"));
   selected = ConfigManager->get(KEY_ENABLE_SSL)->getValueBool();
-  addCheckBox(webContentBuffer, INPUT_CFG_SSL, F("SSL"), selected);
-  addFormHeaderEnd(webContentBuffer);
+  addCheckBox(INPUT_CFG_SSL, F("SSL"), selected);
+  addFormHeaderEnd();
 
-  addFormHeader(webContentBuffer, F("GUI podczas normalnej pracy"));
+  addFormHeader(F("GUI podczas normalnej pracy"));
   selected = ConfigManager->get(KEY_ENABLE_GUI)->getValueBool();
-  addCheckBox(webContentBuffer, INPUT_CFG_AVAILABLE_GUI, F("GUI"), selected);
-  addFormHeaderEnd(webContentBuffer);
+  addCheckBox(INPUT_CFG_AVAILABLE_GUI, F("GUI"), selected);
+  addFormHeaderEnd();
 
-  addFormHeader(webContentBuffer, F("Gdy brak połączenia"));
+  addFormHeader(F("Gdy brak połączenia"));
   selected = ConfigManager->get(KEY_FORCE_RESTART_ESP)->getValueBool();
-  addCheckBox(webContentBuffer, INPUT_FORCE_RESTART_ESP, F("Wymuś reset ESP"), selected);
-  addFormHeaderEnd(webContentBuffer);
+  addCheckBox(INPUT_FORCE_RESTART_ESP, F("Wymuś reset ESP"), selected);
+  addFormHeaderEnd();
 
 #ifdef SUPLA_DEEP_SLEEP
-  addFormHeader(webContentBuffer, String(S_SETTING_FOR) + S_SPACE + "uśpienia");
-  addNumberBox(webContentBuffer, INPUT_DEEP_SLEEP_TIME, F("Czas uśpienia[min]"), KEY_DEEP_SLEEP_TIME, 999);
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeader(String(S_SETTING_FOR) + S_SPACE + "uśpienia");
+  addNumberBox(INPUT_DEEP_SLEEP_TIME, F("Czas uśpienia[min]"), KEY_DEEP_SLEEP_TIME, 999);
+  addFormHeaderEnd();
 #endif
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
 
-  addButton(webContentBuffer, S_RETURN, PATH_DEVICE_SETTINGS);
+  addButton(S_RETURN, PATH_DEVICE_SETTINGS);
   WebServer->sendHeaderEnd();
 }
 #endif

@@ -167,9 +167,9 @@ namespace Supla
             auto driver = this->drivers_[sensor->get_type()];
             auto mapValues = driver->get_values(frame);
             readValue = mapValues[sensor->get_property_to_send()];
-            Serial.print("Meter id as number: ");
-            Serial.println(meterIdRealString.c_str());
             Serial.print("Meter id as string: ");
+            Serial.println(meterIdRealString.c_str());
+            Serial.print("Meter id as number: ");
             Serial.println(meterIdString.c_str());
             Serial.print(readValue);
             Serial.println("m3");

@@ -35,46 +35,46 @@ void createWebConditions() {
 
 void handleConditions(int save) {
   WebServer->sendHeaderStart();
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_CONDITIONS);
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_CONDITIONS);
 
-  addForm(webContentBuffer, F("post"), PATH_CONDITIONS);
+  addForm(F("post"), PATH_CONDITIONS);
   if (COUNT_SENSOR_LIST > 1) {
-    addFormHeader(webContentBuffer, S_CONDITIONING);
-    addNumberBox(webContentBuffer, INPUT_CONDITIONING_MAX, S_QUANTITY, KEY_MAX_CONDITIONS, 10);
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader(S_CONDITIONING);
+    addNumberBox(INPUT_CONDITIONING_MAX, S_QUANTITY, KEY_MAX_CONDITIONS, 10);
+    addFormHeaderEnd();
 
     for (uint8_t nr = 0; nr < ConfigManager->get(KEY_MAX_CONDITIONS)->getValueInt(); nr++) {
-      addFormHeader(webContentBuffer, String(S_CONDITION) + S_SPACE + (nr + 1));
+      addFormHeader(String(S_CONDITION) + S_SPACE + (nr + 1));
       uint8_t selected = ConfigManager->get(KEY_CONDITIONS_CLIENT_TYPE)->getElement(nr).toInt();
 
-      addListBox(webContentBuffer, String(INPUT_CONDITIONS_TYPE_CLIENT) + nr, "Wykonaj dla", CONDITIONS_EXECUTIVE_TYPE_LIST, COUNT_EXECUTIVE_LIST,
+      addListBox(String(INPUT_CONDITIONS_TYPE_CLIENT) + nr, "Wykonaj dla", CONDITIONS_EXECUTIVE_TYPE_LIST, COUNT_EXECUTIVE_LIST,
                  selected, 0, false);
 
       selected = ConfigManager->get(KEY_CONDITIONS_CLIENT_TYPE_NUMBER)->getElement(nr).toInt();
-      addListNumbersBox(webContentBuffer, String(INPUT_CONDITIONS_CLIENT_NUMBER) + nr, "Numer", 20, selected);
+      addListNumbersBox(String(INPUT_CONDITIONS_CLIENT_NUMBER) + nr, "Numer", 20, selected);
 
       selected = ConfigManager->get(KEY_CONDITIONS_SENSOR_TYPE)->getElement(nr).toInt();
-      addListBox(webContentBuffer, String(INPUT_CONDITIONS_SENSOR_TYPE) + nr, "Sensor", CONDITIONS_SENSOR_LIST, COUNT_SENSOR_LIST, selected, 0,
+      addListBox(String(INPUT_CONDITIONS_SENSOR_TYPE) + nr, "Sensor", CONDITIONS_SENSOR_LIST, COUNT_SENSOR_LIST, selected, 0,
                  false);
 
       selected = ConfigManager->get(KEY_CONDITIONS_SENSOR_NUMBER)->getElement(nr).toInt();
-      addListNumbersBox(webContentBuffer, String(INPUT_CONDITIONS_SENSOR_NUMBER) + nr, "Numer", 20, selected);
+      addListNumbersBox(String(INPUT_CONDITIONS_SENSOR_NUMBER) + nr, "Numer", 20, selected);
 
       selected = ConfigManager->get(KEY_CONDITIONS_TYPE)->getElement(nr).toInt();
-      addListBox(webContentBuffer, String(INPUT_CONDITIONS_TYPE) + nr, "Jeżeli wartość", CONDITIONS_TYPE_P, CONDITION_COUNT, selected, 0, false);
+      addListBox(String(INPUT_CONDITIONS_TYPE) + nr, "Jeżeli wartość", CONDITIONS_TYPE_P, CONDITION_COUNT, selected, 0, false);
 
       String value = ConfigManager->get(KEY_CONDITIONS_MIN)->getElement(nr);
-      addNumberBox(webContentBuffer, String(INPUT_CONDITIONS_MIN) + nr, S_ON, S_SWITCH_ON_VALUE, false, value, false);
+      addNumberBox(String(INPUT_CONDITIONS_MIN) + nr, S_ON, S_SWITCH_ON_VALUE, false, value, false);
       value = ConfigManager->get(KEY_CONDITIONS_MAX)->getElement(nr);
-      addNumberBox(webContentBuffer, String(INPUT_CONDITIONS_MAX) + nr, S_OFF, S_SWITCH_OFF_VALUE, false, value, false);
-      addFormHeaderEnd(webContentBuffer);
+      addNumberBox(String(INPUT_CONDITIONS_MAX) + nr, S_OFF, S_SWITCH_OFF_VALUE, false, value, false);
+      addFormHeaderEnd();
     }
   }
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
-  addButton(webContentBuffer, S_RETURN, PATH_DEVICE_SETTINGS);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
+  addButton(S_RETURN, PATH_DEVICE_SETTINGS);
 
   WebServer->sendHeaderEnd();
 }

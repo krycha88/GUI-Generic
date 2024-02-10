@@ -103,25 +103,25 @@ void handleRelay(int save) {
 
   WebServer->sendHeaderStart();
 
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_RELAY);
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_RELAY);
 
-  addForm(webContentBuffer, F("post"), PATH_RELAY);
-  addFormHeader(webContentBuffer, S_GPIO_SETTINGS_FOR_RELAYS);
-  addNumberBox(webContentBuffer, INPUT_MAX_RELAY, S_QUANTITY, KEY_MAX_RELAY, ConfigESP->countFreeGpio(FUNCTION_RELAY));
+  addForm(F("post"), PATH_RELAY);
+  addFormHeader(S_GPIO_SETTINGS_FOR_RELAYS);
+  addNumberBox(INPUT_MAX_RELAY, S_QUANTITY, KEY_MAX_RELAY, ConfigESP->countFreeGpio(FUNCTION_RELAY));
 
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_RELAY)->getValueInt(); nr++) {
 #ifdef GUI_SENSOR_I2C_EXPENDER
-    addListExpanderBox(webContentBuffer, INPUT_RELAY_GPIO, S_RELAY, FUNCTION_RELAY, nr, PATH_RELAY_SET);
+    addListExpanderBox(INPUT_RELAY_GPIO, S_RELAY, FUNCTION_RELAY, nr, PATH_RELAY_SET);
 #else
-    addListGPIOLinkBox(webContentBuffer, INPUT_RELAY_GPIO, S_RELAY, getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER), FUNCTION_RELAY, nr);
+    addListGPIOLinkBox(INPUT_RELAY_GPIO, S_RELAY, getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER), FUNCTION_RELAY, nr);
 #endif
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
-  addButton(webContentBuffer, S_RETURN, PATH_DEVICE_SETTINGS);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
+  addButton(S_RETURN, PATH_DEVICE_SETTINGS);
 
   WebServer->sendHeaderEnd();
 }
@@ -302,80 +302,80 @@ void handleRelaySet(int save) {
   WebServer->sendHeaderStart();
 
   if (!nr_relay.isEmpty()) {
-    webContentBuffer += SuplaSaveResult(save);
-    webContentBuffer += SuplaJavaScript(getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER, nr_relay));
+    SuplaSaveResult(save);
+    SuplaJavaScript(getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER, nr_relay));
 
     gpio = ConfigESP->getGpio(nr_relay.toInt(), FUNCTION_RELAY);
 
-    addForm(webContentBuffer, F("post"), getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER, nr_relay));
-    addFormHeader(webContentBuffer, String(S_RELAY_NR_SETTINGS) + (nr_relay.toInt() + 1));
+    addForm(F("post"), getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER, nr_relay));
+    addFormHeader(String(S_RELAY_NR_SETTINGS) + (nr_relay.toInt() + 1));
 
     if (gpio != GPIO_VIRTUAL_RELAY) {
       selected = ConfigESP->getLevel(gpio);
       input = INPUT_RELAY_LEVEL;
       input += nr_relay;
-      addListBox(webContentBuffer, INPUT_RELAY_LEVEL + nr_relay, S_STATE_CONTROL, LEVEL_P, 2, selected);
+      addListBox(INPUT_RELAY_LEVEL + nr_relay, S_STATE_CONTROL, LEVEL_P, 2, selected);
 
       input = INPUT_LIGHT_RELAY;
       selected = ConfigESP->getLightRelay(gpio);
-      addCheckBox(webContentBuffer, input, S_LIGHT_RELAY, selected);
+      addCheckBox(input, S_LIGHT_RELAY, selected);
     }
 
     selected = ConfigESP->getMemory(gpio, nr_relay.toInt());
     input = INPUT_RELAY_MEMORY;
     input += nr_relay;
-    addListBox(webContentBuffer, input, S_REACTION_AFTER_RESET, MEMORY_P, 3, selected);
+    addListBox(input, S_REACTION_AFTER_RESET, MEMORY_P, 3, selected);
 
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeaderEnd();
 
 #ifdef SUPLA_RF_BRIDGE
     if (nr_relay.toInt() < MAX_BRIDGE_RF) {
       String value;
 
-      addFormHeader(webContentBuffer, F("RF BRIDGE"));
+      addFormHeader(F("RF BRIDGE"));
 
       selected = ConfigManager->get(KEY_RF_BRIDGE_TYPE)->getElement(nr_relay.toInt()).toInt();
-      addListBox(webContentBuffer, INPUT_RF_BRIDGE_TYPE, S_TYPE, RF_BRIDGE_TYPE_P, 2, selected);
+      addListBox(INPUT_RF_BRIDGE_TYPE, S_TYPE, RF_BRIDGE_TYPE_P, 2, selected);
 
       if (ConfigManager->get(KEY_RF_BRIDGE_TYPE)->getElement(nr_relay.toInt()).toInt() == Supla::GUI::RFBridgeType::TRANSMITTER) {
         value = ConfigManager->get(KEY_RF_BRIDGE_PROTOCOL)->getElement(nr_relay.toInt()).c_str();
-        addTextBox(webContentBuffer, INPUT_RF_BRIDGE_PROTOCO, F("PROTOCO"), value, F("1..."), 0, 2, true);
+        addTextBox(INPUT_RF_BRIDGE_PROTOCO, F("PROTOCO"), value, F("1..."), 0, 2, true);
 
         value = ConfigManager->get(KEY_RF_BRIDGE_PULSE_LENGTHINT)->getElement(nr_relay.toInt()).c_str();
-        addTextBox(webContentBuffer, INPUT_RF_BRIDGE_PULSE_LENGTHIN, F("PULSE LENGTHINT"), value, F("320..."), 0, 4, true);
+        addTextBox(INPUT_RF_BRIDGE_PULSE_LENGTHIN, F("PULSE LENGTHINT"), value, F("320..."), 0, 4, true);
 
         value = ConfigManager->get(KEY_RF_BRIDGE_LENGTH)->getElement(nr_relay.toInt()).c_str();
-        addTextBox(webContentBuffer, INPUT_RF_BRIDGE_LENGTH, F("LENGTH"), value, F("24..."), 0, 3, true);
+        addTextBox(INPUT_RF_BRIDGE_LENGTH, F("LENGTH"), value, F("24..."), 0, 3, true);
 
         selected = ConfigManager->get(KEY_RF_BRIDGE_REPEAT)->getElement(nr_relay.toInt()).toInt();
-        addCheckBox(webContentBuffer, INPUT_RF_BRIDGE_REPEAT, F("Powtarzaj[10min]"), selected);
+        addCheckBox(INPUT_RF_BRIDGE_REPEAT, F("Powtarzaj[10min]"), selected);
       }
 
       value = ConfigManager->get(KEY_RF_BRIDGE_CODE_ON)->getElement(nr_relay.toInt()).c_str();
-      addTextBox(webContentBuffer, INPUT_RF_BRIDGE_CODE_ON, S_ON, value, F(""), 0, 10, false);
+      addTextBox(INPUT_RF_BRIDGE_CODE_ON, S_ON, value, F(""), 0, 10, false);
 
       value = ConfigManager->get(KEY_RF_BRIDGE_CODE_OFF)->getElement(nr_relay.toInt()).c_str();
-      addTextBox(webContentBuffer, INPUT_RF_BRIDGE_CODE_OFF, S_OFF, value, F(""), 0, 10, false);
+      addTextBox(INPUT_RF_BRIDGE_CODE_OFF, S_OFF, value, F(""), 0, 10, false);
 
       // this->addKey(KEY_RF_BRIDGE_LENGTH, MAX_BRIDGE_RF * 3, 4);
       ///////// // this->addKey(KEY_RF_BRIDGE_TYPE, MAX_BRIDGE_RF * 2, 4);
       // this->addKey(KEY_RF_BRIDGE_PROTOCOL, MAX_BRIDGE_RF * 3, 4);
       // this->addKey(KEY_RF_BRIDGE_PULSE_LENGTHINT, MAX_BRIDGE_RF * 4, 4);
 
-      addFormHeaderEnd(webContentBuffer);
+      addFormHeaderEnd();
     }
 #endif
 
 #if defined(SUPLA_LED)
     if (gpio != GPIO_VIRTUAL_RELAY) {
-      addFormHeader(webContentBuffer, S_RELAY_ACTIVATION_STATUS);
+      addFormHeader(S_RELAY_ACTIVATION_STATUS);
 
-      addListGPIOBox(webContentBuffer, INPUT_LED + nr_relay, S_LED, FUNCTION_LED, nr_relay.toInt());
+      addListGPIOBox(INPUT_LED + nr_relay, S_LED, FUNCTION_LED, nr_relay.toInt());
 
       selected = ConfigESP->getLevel(ConfigESP->getGpio(nr_relay.toInt(), FUNCTION_LED));
-      addListBox(webContentBuffer, INPUT_LEVEL_LED + nr_relay, S_STATE_CONTROL, LEVEL_P, 2, selected);
+      addListBox(INPUT_LEVEL_LED + nr_relay, S_STATE_CONTROL, LEVEL_P, 2, selected);
 
-      addFormHeaderEnd(webContentBuffer);
+      addFormHeaderEnd();
     }
 #endif
 
@@ -383,29 +383,29 @@ void handleRelaySet(int save) {
     auto thermostatIndex = nr_relay.toInt();
 
     if (thermostatIndex >= 0 && thermostatIndex < MAX_THERMOSTAT) {
-      addFormHeader(webContentBuffer, S_THERMOSTAT);
+      addFormHeader(S_THERMOSTAT);
       selected = ConfigManager->get(KEY_THERMOSTAT_TYPE)->getElement(thermostatIndex).toInt();
-      addListBox(webContentBuffer, INPUT_THERMOSTAT_TYPE, S_TYPE, THERMOSTAT_TYPE_P, COUNT_ELEMENTS_PGM(THERMOSTAT_TYPE_P), selected);
+      addListBox(INPUT_THERMOSTAT_TYPE, S_TYPE, THERMOSTAT_TYPE_P, COUNT_ELEMENTS_PGM(THERMOSTAT_TYPE_P), selected);
 
       if (selected != Supla::GUI::THERMOSTAT_OFF) {
         if (thermostatIndex >= 0) {
           selected = ConfigManager->get(KEY_THERMOSTAT_MAIN_THERMOMETER_CHANNEL)->getElement(thermostatIndex).toInt();
-          addListNumbersSensorBox(webContentBuffer, INPUT_THERMOSTAT_MAIN_THERMOMETER_CHANNEL, S_MAIN_THERMOMETER_CHANNEL, selected);
+          addListNumbersSensorBox(INPUT_THERMOSTAT_MAIN_THERMOMETER_CHANNEL, S_MAIN_THERMOMETER_CHANNEL, selected);
 
           selected = ConfigManager->get(KEY_THERMOSTAT_AUX_THERMOMETER_CHANNEL)->getElement(thermostatIndex).toInt();
-          addListNumbersSensorBox(webContentBuffer, INPUT_THERMOSTAT_AUX_THERMOMETER_CHANNEL, S_AUX_THERMOMETER_CHANNEL, selected);
+          addListNumbersSensorBox(INPUT_THERMOSTAT_AUX_THERMOMETER_CHANNEL, S_AUX_THERMOMETER_CHANNEL, selected);
 
           String value = ConfigManager->get(KEY_THERMOSTAT_HISTERESIS)->getElement(thermostatIndex).c_str();
-          addNumberBox(webContentBuffer, INPUT_THERMOSTAT_HISTERESIS, S_HISTERESIS, S_CELSIUS, false, value, true);
+          addNumberBox(INPUT_THERMOSTAT_HISTERESIS, S_HISTERESIS, S_CELSIUS, false, value, true);
 
           value = ConfigManager->get(KEY_THERMOSTAT_TEMPERATURE_MIN)->getElement(thermostatIndex).c_str();
-          addNumberBox(webContentBuffer, INPUT_THERMOSTAT_TEMPERATURE_MIN, "MIN", S_CELSIUS, false, value, true);
+          addNumberBox(INPUT_THERMOSTAT_TEMPERATURE_MIN, "MIN", S_CELSIUS, false, value, true);
 
           value = ConfigManager->get(KEY_THERMOSTAT_TEMPERATURE_MAX)->getElement(thermostatIndex).c_str();
-          addNumberBox(webContentBuffer, INPUT_THERMOSTAT_TEMPERATURE_MAX, "MAX", S_CELSIUS, false, value, true);
+          addNumberBox(INPUT_THERMOSTAT_TEMPERATURE_MAX, "MAX", S_CELSIUS, false, value, true);
         }
       }
-      addFormHeaderEnd(webContentBuffer);
+      addFormHeaderEnd();
     }
 #endif
 
@@ -413,10 +413,10 @@ void handleRelaySet(int save) {
     directLinksWebPage(nr_relay.toInt());
 #endif
 
-    addButtonSubmit(webContentBuffer, S_SAVE);
-    addFormEnd(webContentBuffer);
+    addButtonSubmit(S_SAVE);
+    addFormEnd();
   }
-  addButton(webContentBuffer, S_RETURN, PATH_RELAY);
+  addButton(S_RETURN, PATH_RELAY);
 
   WebServer->sendHeaderEnd();
 }
@@ -439,26 +439,26 @@ void handleRelaySetMCP23017(int save) {
     gpio = Expander->getGpioExpander(0, FUNCTION_RELAY);
 
   WebServer->sendHeaderStart();
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER, nr_relay));
+  SuplaSaveResult(save);
+  SuplaJavaScript(getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER, nr_relay));
 
-  addForm(webContentBuffer, F("post"), getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER, nr_relay));
+  addForm(F("post"), getParameterRequest(PATH_RELAY_SET, ARG_PARM_NUMBER, nr_relay));
 
   if (!nr_relay.isEmpty()) {
-    addFormHeader(webContentBuffer, String(S_RELAY_NR_SETTINGS) + (nr_relay.toInt() + 1));
+    addFormHeader(String(S_RELAY_NR_SETTINGS) + (nr_relay.toInt() + 1));
   }
   else {
-    addFormHeader(webContentBuffer, S_SETTINGS_FOR_RELAYS);
+    addFormHeader(S_SETTINGS_FOR_RELAYS);
   }
 
   selected = ConfigESP->getLevel(gpio);
   input = INPUT_RELAY_LEVEL;
-  addListBox(webContentBuffer, input, S_STATE_CONTROL, LEVEL_P, 2, selected);
+  addListBox(input, S_STATE_CONTROL, LEVEL_P, 2, selected);
 
   selected = ConfigESP->getMemory(gpio);
   input = INPUT_RELAY_MEMORY;
-  addListBox(webContentBuffer, input, S_REACTION_AFTER_RESET, MEMORY_P, 3, selected);
-  addFormHeaderEnd(webContentBuffer);
+  addListBox(input, S_REACTION_AFTER_RESET, MEMORY_P, 3, selected);
+  addFormHeaderEnd();
 
   if (!nr_relay.isEmpty()) {
 #if defined(SUPLA_DIRECT_LINKS)
@@ -466,9 +466,9 @@ void handleRelaySetMCP23017(int save) {
 #endif
   }
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
-  addButton(webContentBuffer, S_RETURN, PATH_RELAY);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
+  addButton(S_RETURN, PATH_RELAY);
 
   WebServer->sendHeaderEnd();
 }
@@ -525,14 +525,14 @@ void handleRelaySaveSetMCP23017() {
 #ifdef SUPLA_DIRECT_LINKS
 void directLinksWebPage(int nr) {
   if (nr <= MAX_DIRECT_LINK) {
-    addFormHeader(webContentBuffer, S_DIRECT_LINKS);
+    addFormHeader(S_DIRECT_LINKS);
     String massage = ConfigManager->get(KEY_DIRECT_LINKS_ON)->getElement(nr).c_str();
-    addTextBox(webContentBuffer, INPUT_DIRECT_LINK_ON, S_ON, massage, F("xx/xxxxxxxxx/turn-on"), 0, MAX_DIRECT_LINKS_SIZE, false);
+    addTextBox(INPUT_DIRECT_LINK_ON, S_ON, massage, F("xx/xxxxxxxxx/turn-on"), 0, MAX_DIRECT_LINKS_SIZE, false);
 
     massage = ConfigManager->get(KEY_DIRECT_LINKS_OFF)->getElement(nr).c_str();
-    addTextBox(webContentBuffer, INPUT_DIRECT_LINK_OFF, S_OFF, massage, F("xx/xxxxxxxxx/turn-off"), 0, MAX_DIRECT_LINKS_SIZE, false);
+    addTextBox(INPUT_DIRECT_LINK_OFF, S_OFF, massage, F("xx/xxxxxxxxx/turn-off"), 0, MAX_DIRECT_LINKS_SIZE, false);
 
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeaderEnd();
   }
 }
 

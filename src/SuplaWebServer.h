@@ -43,17 +43,14 @@
 #define INPUT_EXPENDER_TYPE   "uet"
 #endif
 
-extern String webContentBuffer;
-
 class SuplaWebServer : public Supla::Element {
  public:
   SuplaWebServer();
   void begin();
   void sendHeaderStart();
-  void sendHeader();
+  void sendContent(const String& content);
+  void sendContent(double content);
   void sendHeaderEnd();
-
-  void sendContent();
 
 #ifdef ARDUINO_ARCH_ESP8266
   ESP8266WebServer* httpServer;
@@ -79,6 +76,7 @@ class SuplaWebServer : public Supla::Element {
   bool chunkedSendHeader = false;
   bool isRunningWebServer = false;
 };
+void printFreeMemory();
 
 #if defined(ESP8266)
 #include <md5.h>

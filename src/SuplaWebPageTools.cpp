@@ -59,47 +59,47 @@ void createWebTools() {
 
 void handleTools(int save) {
   WebServer->sendHeaderStart();
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_TOOLS);
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_TOOLS);
 
 #ifdef TEMPLATE_BOARD_JSON
-  addForm(webContentBuffer, F("post"), PATH_TOOLS);
-  addFormHeader(webContentBuffer, S_TEMPLATE_BOARD);
-  addTextBox(webContentBuffer, INPUT_BOARD, F("JSON"), F(""), 0, 600, false);
-  addButtonSubmit(webContentBuffer, S_LOAD_CONFIGURATION);
-  addTextBox(webContentBuffer, Supla::TanplateBoard::templateBoardWarning);
+  addForm(F("post"), PATH_TOOLS);
+  addFormHeader(S_TEMPLATE_BOARD);
+  addTextBox(INPUT_BOARD, F("JSON"), F(""), 0, 600, false);
+  addButtonSubmit(S_LOAD_CONFIGURATION);
+  addTextBox(Supla::TanplateBoard::templateBoardWarning);
 #ifdef TEMPLATE_JSON
-  addTextBox(webContentBuffer, TEMPLATE_JSON);
+  addTextBox(TEMPLATE_JSON);
 #endif
-  addFormHeaderEnd(webContentBuffer);
-  addFormEnd(webContentBuffer);
+  addFormHeaderEnd();
+  addFormEnd();
 #elif defined(TEMPLATE_BOARD_OLD)
 #if (DEFAULT_TEMPLATE_BOARD == BOARD_OFF)
-  addForm(webContentBuffer, F("post"), PATH_TOOLS);
-  addFormHeader(webContentBuffer, S_TEMPLATE_BOARD);
+  addForm(F("post"), PATH_TOOLS);
+  addFormHeader(S_TEMPLATE_BOARD);
   uint8_t selected = ConfigManager->get(KEY_BOARD)->getValueInt();
-  addListBox(webContentBuffer, INPUT_BOARD, S_TYPE, BOARD_P, MAX_MODULE, selected);
-  addFormHeaderEnd(webContentBuffer);
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
+  addListBox(INPUT_BOARD, S_TYPE, BOARD_P, MAX_MODULE, selected);
+  addFormHeaderEnd();
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
 #else
-  addFormHeader(webContentBuffer, S_DEFAULT_TEMPLATE_BOARD);
-  addLabel(webContentBuffer, FPSTR(BOARD_P[DEFAULT_TEMPLATE_BOARD]));
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeader(S_DEFAULT_TEMPLATE_BOARD);
+  addLabel(FPSTR(BOARD_P[DEFAULT_TEMPLATE_BOARD]));
+  addFormHeaderEnd();
 #endif
 #endif
 
-  addFormHeader(webContentBuffer, S_TOOLS);
-  addButton(webContentBuffer, S_SAVE_CONFIGURATION, getParameterRequest(PATH_TOOLS, ARG_PARM_URL, PATH_DOWNLOAD));
-  addButton(webContentBuffer, S_LOAD_CONFIGURATION, getParameterRequest(PATH_TOOLS, ARG_PARM_URL, PATH_UPLOAD));
+  addFormHeader(S_TOOLS);
+  addButton(S_SAVE_CONFIGURATION, getParameterRequest(PATH_TOOLS, ARG_PARM_URL, PATH_DOWNLOAD));
+  addButton(S_LOAD_CONFIGURATION, getParameterRequest(PATH_TOOLS, ARG_PARM_URL, PATH_UPLOAD));
 #ifdef SUPLA_OTA
-  addButton(webContentBuffer, S_UPDATE, PATH_UPDATE_HENDLE);
+  addButton(S_UPDATE, PATH_UPDATE_HENDLE);
 #endif
-  addButton(webContentBuffer, S_RESET_CONFIGURATION, getParameterRequest(PATH_TOOLS, ARG_PARM_URL, PATH_RESET));
-  addButton(webContentBuffer, S_RESTORE_FACTORY_SETTING, getParameterRequest(PATH_TOOLS, ARG_PARM_URL, PATH_FACTORY_RESET));
-  addFormHeaderEnd(webContentBuffer);
-  addButton(webContentBuffer, S_RETURN, "");
-  addButton(webContentBuffer, S_DEVICE_SETTINGS, PATH_DEVICE_SETTINGS);
+  addButton(S_RESET_CONFIGURATION, getParameterRequest(PATH_TOOLS, ARG_PARM_URL, PATH_RESET));
+  addButton(S_RESTORE_FACTORY_SETTING, getParameterRequest(PATH_TOOLS, ARG_PARM_URL, PATH_FACTORY_RESET));
+  addFormHeaderEnd();
+  addButton(S_RETURN, "");
+  addButton(S_DEVICE_SETTINGS, PATH_DEVICE_SETTINGS);
 
   WebServer->sendHeaderEnd();
 }

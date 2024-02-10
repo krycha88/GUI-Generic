@@ -16,7 +16,7 @@
 
 #include "SuplaWebPageSensorI2c.h"
 
-#if defined(GUI_SENSOR_I2C) || defined(GUI_SENSOR_I2C_ENERGY_METER)
+#if defined(GUI_SENSOR_I2C) || defined(GUI_SENSOR_I2C_2) || defined(GUI_SENSOR_I2C_ENERGY_METER)
 void createWebPageSensorI2c() {
   WebServer->httpServer->on(getURL(PATH_I2C), [&]() {
     if (!WebServer->isLoggedIn()) {
@@ -48,7 +48,7 @@ void webPageI2CScanner(TwoWire* wire) {
       if (address < 16)
         Serial.print("0");
 
-      addLabel(webContentBuffer, String("I2C device found at address 0x") + String(address, HEX));
+      addLabel(String("I2C device found at address 0x") + String(address, HEX));
       Serial.print(address, HEX);
 
       nDevices++;
@@ -56,7 +56,7 @@ void webPageI2CScanner(TwoWire* wire) {
   }
   if (nDevices == 0) {
     Serial.println("No I2C devices found\n");
-    addLabel(webContentBuffer, "No I2C devices found\n");
+    addLabel("No I2C devices found\n");
   }
   else
     Serial.println("done\n");
@@ -66,122 +66,122 @@ void handleSensorI2c(int save) {
   uint8_t selected;
 
   WebServer->sendHeaderStart();
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_I2C);
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_I2C);
 
-  addForm(webContentBuffer, F("post"), PATH_I2C);
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_I2C);
-  addListGPIOBox(webContentBuffer, INPUT_SDA, S_SDA, FUNCTION_SDA);
-  addListGPIOBox(webContentBuffer, INPUT_SCL, S_SCL, FUNCTION_SCL);
+  addForm(F("post"), PATH_I2C);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_I2C);
+  addListGPIOBox(INPUT_SDA, S_SDA, FUNCTION_SDA);
+  addListGPIOBox(INPUT_SCL, S_SCL, FUNCTION_SCL);
 
   if (ConfigESP->getGpio(FUNCTION_SDA) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_SCL) != OFF_GPIO) {
     webPageI2CScanner(&Wire);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 
   if (ConfigESP->getGpio(FUNCTION_SDA) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_SCL) != OFF_GPIO) {
 #ifdef SUPLA_BME280
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_BME280).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_BME280, String(S_ADDRESS) + S_SPACE + S_BME280, BMx280_P, 4, selected);
+    addFormHeader();
+    addListBox(INPUT_BME280, String(S_ADDRESS) + S_SPACE + S_BME280, BMx280_P, 4, selected);
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_BME280).toInt())
-      addNumberBox(webContentBuffer, INPUT_ALTITUDE_BMx280, S_ALTITUDE_ABOVE_SEA_LEVEL, KEY_ALTITUDE_BMX280, 1500);
-    addFormHeaderEnd(webContentBuffer);
+      addNumberBox(INPUT_ALTITUDE_BMx280, S_ALTITUDE_ABOVE_SEA_LEVEL, KEY_ALTITUDE_BMX280, 1500);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_BMP280
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_BMP280).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_BMP280, String(S_ADDRESS) + S_SPACE + S_BMP280, BMx280_P, 4, selected);
+    addFormHeader();
+    addListBox(INPUT_BMP280, String(S_ADDRESS) + S_SPACE + S_BMP280, BMx280_P, 4, selected);
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_BMP280).toInt())
-      addNumberBox(webContentBuffer, INPUT_ALTITUDE_BMx280, S_ALTITUDE_ABOVE_SEA_LEVEL, KEY_ALTITUDE_BMX280, 1500);
-    addFormHeaderEnd(webContentBuffer);
+      addNumberBox(INPUT_ALTITUDE_BMx280, S_ALTITUDE_ABOVE_SEA_LEVEL, KEY_ALTITUDE_BMX280, 1500);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_SHT3x
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_SHT3x).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_SHT3x, S_SHT3X, SHT3x_P, 4, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader();
+    addListBox(INPUT_SHT3x, S_SHT3X, SHT3x_P, 4, selected);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_SHT_AUTODETECT
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_SHT3x).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_SUPLA_SHT_AUTODETECT, F("SHT"), STATE_P, 2, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader();
+    addListBox(INPUT_SUPLA_SHT_AUTODETECT, F("SHT"), STATE_P, 2, selected);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_SI7021
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_SI7021).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_SI7021, S_SI702, STATE_P, 2, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader();
+    addListBox(INPUT_SI7021, S_SI702, STATE_P, 2, selected);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_VL53L0X
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_VL53L0X).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_VL53L0X, F("VL53L0X"), STATE_VL53L0X_P, 5, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader();
+    addListBox(INPUT_VL53L0X, F("VL53L0X"), STATE_VL53L0X_P, 5, selected);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_HDC1080
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_HDC1080).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_HDC1080, F("HDC1080"), STATE_P, 2, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader();
+    addListBox(INPUT_HDC1080, F("HDC1080"), STATE_P, 2, selected);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_BH1750
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_BH1750).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_BH1750, F("BH1750"), STATE_P, 2, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader();
+    addListBox(INPUT_BH1750, F("BH1750"), STATE_P, 2, selected);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_MS5611
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_MS5611).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_MS5611, F("MS5611"), STATE_P, 2, selected);
+    addFormHeader();
+    addListBox(INPUT_MS5611, F("MS5611"), STATE_P, 2, selected);
     if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_MS5611).toInt())
-      addNumberBox(webContentBuffer, INPUT_ALTITUDE_MS5611, S_ALTITUDE_ABOVE_SEA_LEVEL, KEY_ALTITUDE_MS5611, 9000);
-    addFormHeaderEnd(webContentBuffer);
+      addNumberBox(INPUT_ALTITUDE_MS5611, S_ALTITUDE_ABOVE_SEA_LEVEL, KEY_ALTITUDE_MS5611, 9000);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_MAX44009
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_MAX44009).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_MAX44009, F("MAX44009"), STATE_P, 2, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader();
+    addListBox(INPUT_MAX44009, F("MAX44009"), STATE_P, 2, selected);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_AHTX0
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_AHTX0).toInt();
-    addFormHeader(webContentBuffer);
-    addListBox(webContentBuffer, INPUT_AHTX0, F("AHTX0"), STATE_P, 2, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader();
+    addListBox(INPUT_AHTX0, String(S_ADDRESS) + S_SPACE + S_AHTX0, AHTX0_P, 4, selected);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_OLED
-    addFormHeader(webContentBuffer);
+    addFormHeader();
 
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_OLED).toInt();
-    addListBox(webContentBuffer, INPUT_OLED, S_OLED, OLED_P, 4, selected);
+    addListBox(INPUT_OLED, S_OLED, OLED_P, 4, selected);
 
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_OLED).toInt()) {
       String name, sensorName, input;
 
 #ifdef SUPLA_BUTTON
       selected = ConfigESP->getNumberButtonAdditional(BUTTON_OLED);
-      addListNumbersBox(webContentBuffer, INPUT_BUTTON_OLED, S_BUTTON, ConfigManager->get(KEY_MAX_BUTTON)->getValueInt(), selected);
+      addListNumbersBox(INPUT_BUTTON_OLED, S_BUTTON, ConfigManager->get(KEY_MAX_BUTTON)->getValueInt(), selected);
 #endif
 
-      addNumberBox(webContentBuffer, INPUT_OLED_ANIMATION, S_SCREEN_TIME, KEY_OLED_ANIMATION, 99);
-      addNumberBox(webContentBuffer, INPUT_OLED_BRIGHTNESS_TIME, S_BACKLIGHT_S, KEY_OLED_BACK_LIGHT_TIME, 99);
+      addNumberBox(INPUT_OLED_ANIMATION, S_SCREEN_TIME, KEY_OLED_ANIMATION, 99);
+      addNumberBox(INPUT_OLED_BRIGHTNESS_TIME, S_BACKLIGHT_S, KEY_OLED_BACK_LIGHT_TIME, 99);
 
       int value = ConfigESP->getBrightnessLevelOLED();
-      addNumberBox(webContentBuffer, INPUT_OLED_BRIGHTNESS_LVL, S_BACKLIGHT_PERCENT, String(value), 100);
+      addNumberBox(INPUT_OLED_BRIGHTNESS_LVL, S_BACKLIGHT_PERCENT, String(value), 100);
 
       for (uint8_t i = 0; i < getCountSensorChannels(); i++) {
         sensorName = String(ConfigManager->get(KEY_NAME_SENSOR)->getElement(i));
@@ -189,31 +189,31 @@ void handleSensorI2c(int save) {
         input += i;
         name = S_SCREEN;
         name += i + 1;
-        addTextBox(webContentBuffer, input, name, sensorName, 0, 12, false);
+        addTextBox(input, name, sensorName, 0, 12, false);
       }
     }
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_LCD_HD44780
-    addFormHeader(webContentBuffer);
+    addFormHeader();
 
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_HD44780).toInt();
-    addListBox(webContentBuffer, INPUT_LCD, "HD44780", HD44780_P, 11, selected);
+    addListBox(INPUT_LCD, "HD44780", HD44780_P, 11, selected);
 
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_HD44780).toInt()) {
       String name, sensorName, input;
 
       selected = ConfigManager->get(KEY_HD44780_TYPE)->getValueInt();
-      addListBox(webContentBuffer, INPUT_HD44780_TYPE, S_TYPE, HD44780_TYPE_P, 4, selected);
+      addListBox(INPUT_HD44780_TYPE, S_TYPE, HD44780_TYPE_P, 4, selected);
 
 #ifdef SUPLA_BUTTON
       selected = ConfigESP->getNumberButtonAdditional(BUTTON_LCD);
-      addListNumbersBox(webContentBuffer, INPUT_BUTTON_LCD, S_BUTTON, ConfigManager->get(KEY_MAX_BUTTON)->getValueInt(), selected);
+      addListNumbersBox(INPUT_BUTTON_LCD, S_BUTTON, ConfigManager->get(KEY_MAX_BUTTON)->getValueInt(), selected);
 #endif
 
-      addNumberBox(webContentBuffer, INPUT_OLED_ANIMATION, S_SCREEN_TIME, KEY_OLED_ANIMATION, 99);
-      addNumberBox(webContentBuffer, INPUT_OLED_BRIGHTNESS_TIME, S_BACKLIGHT_S, KEY_OLED_BACK_LIGHT_TIME, 99);
+      addNumberBox(INPUT_OLED_ANIMATION, S_SCREEN_TIME, KEY_OLED_ANIMATION, 99);
+      addNumberBox(INPUT_OLED_BRIGHTNESS_TIME, S_BACKLIGHT_S, KEY_OLED_BACK_LIGHT_TIME, 99);
 
       for (uint8_t i = 0; i < getCountSensorChannels(); i++) {
         sensorName = String(ConfigManager->get(KEY_NAME_SENSOR)->getElement(i));
@@ -221,40 +221,40 @@ void handleSensorI2c(int save) {
         input += i;
         name = S_SCREEN;
         name += i + 1;
-        addTextBox(webContentBuffer, input, name, sensorName, 0, 12, false);
+        addTextBox(input, name, sensorName, 0, 12, false);
       }
     }
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_ADE7953
-    addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + F("ADE7953"));
-    addListGPIOBox(webContentBuffer, INPUT_ADE7953_IRQ, F("IRQ"), FUNCTION_ADE7953_IRQ);
+    addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + F("ADE7953"));
+    addListGPIOBox(INPUT_ADE7953_IRQ, F("IRQ"), FUNCTION_ADE7953_IRQ);
     if (ConfigESP->getGpio(FUNCTION_ADE7953_IRQ) != OFF_GPIO) {
       float count = Supla::GUI::couterADE7953->getCounter();
-      addNumberBox(webContentBuffer, INPUT_ADE7953_COUNTER_VALUE, String(S_IMPULSE_COUNTER_CHANGE_VALUE) + S_SPACE + F("[kWh]"), F("kWh"), false,
+      addNumberBox(INPUT_ADE7953_COUNTER_VALUE, String(S_IMPULSE_COUNTER_CHANGE_VALUE) + S_SPACE + F("[kWh]"), F("kWh"), false,
                    String(count / 100 / 1000));
-      // addLinkBox(webContentBuffer, S_CALIBRATION, getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL) + PATH_CSE7766);
+      // addLinkBox(S_CALIBRATION, getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL) + PATH_CSE7766);
     }
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeaderEnd();
 #endif
   }
 
 #ifdef ARDUINO_ARCH_ESP32
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_I2C + "2");
-  addListGPIOBox(webContentBuffer, INPUT_SDA_2, String(S_SDA) + "2", FUNCTION_SDA_2);
-  addListGPIOBox(webContentBuffer, INPUT_SCL_2, String(S_SCL) + "2", FUNCTION_SCL_2);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_I2C + "2");
+  addListGPIOBox(INPUT_SDA_2, String(S_SDA) + "2", FUNCTION_SDA_2);
+  addListGPIOBox(INPUT_SCL_2, String(S_SCL) + "2", FUNCTION_SCL_2);
 
   if (ConfigESP->getGpio(FUNCTION_SDA_2) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_SCL_2) != OFF_GPIO) {
     webPageI2CScanner(&Wire1);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
 
-  addButton(webContentBuffer, S_RETURN, PATH_DEVICE_SETTINGS);
+  addButton(S_RETURN, PATH_DEVICE_SETTINGS);
   WebServer->sendHeaderEnd();
 }
 

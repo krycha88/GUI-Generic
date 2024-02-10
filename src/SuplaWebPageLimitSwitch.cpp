@@ -44,26 +44,26 @@ void handleLimitSwitch(int save) {
 
   WebServer->sendHeaderStart();
 
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_SWITCH);
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_SWITCH);
 
-  addForm(webContentBuffer, F("post"), PATH_SWITCH);
-  addFormHeader(webContentBuffer, S_GPIO_SETTINGS_FOR_LIMIT_SWITCH);
-  addNumberBox(webContentBuffer, INPUT_MAX_LIMIT_SWITCH, S_QUANTITY, KEY_MAX_LIMIT_SWITCH, ConfigESP->countFreeGpio(FUNCTION_LIMIT_SWITCH));
+  addForm(F("post"), PATH_SWITCH);
+  addFormHeader(S_GPIO_SETTINGS_FOR_LIMIT_SWITCH);
+  addNumberBox(INPUT_MAX_LIMIT_SWITCH, S_QUANTITY, KEY_MAX_LIMIT_SWITCH, ConfigESP->countFreeGpio(FUNCTION_LIMIT_SWITCH));
 
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_LIMIT_SWITCH)->getValueInt(); nr++) {
 #ifdef GUI_SENSOR_I2C_EXPENDER
-    addListExpanderBox(webContentBuffer, INPUT_LIMIT_SWITCH_GPIO, S_LIMIT_SWITCH, FUNCTION_LIMIT_SWITCH, nr, PATH_SWITCH_SET);
+    addListExpanderBox(INPUT_LIMIT_SWITCH_GPIO, S_LIMIT_SWITCH, FUNCTION_LIMIT_SWITCH, nr, PATH_SWITCH_SET);
 #else
-    addListGPIOLinkBox(webContentBuffer, INPUT_LIMIT_SWITCH_GPIO, S_LIMIT_SWITCH, getParameterRequest(PATH_SWITCH_SET, ARG_PARM_NUMBER),
+    addListGPIOLinkBox(INPUT_LIMIT_SWITCH_GPIO, S_LIMIT_SWITCH, getParameterRequest(PATH_SWITCH_SET, ARG_PARM_NUMBER),
                        FUNCTION_LIMIT_SWITCH, nr);
 #endif
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
-  addButton(webContentBuffer, S_RETURN, PATH_DEVICE_SETTINGS);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
+  addButton(S_RETURN, PATH_DEVICE_SETTINGS);
 
   WebServer->sendHeaderEnd();
 }
@@ -120,22 +120,22 @@ void handleLimitSwitchSet(int save) {
     gpio = ConfigESP->getGpio(nr.toInt(), FUNCTION_LIMIT_SWITCH);
     url = getParameterRequest(PATH_SWITCH_SET, ARG_PARM_NUMBER, nr);
 
-    webContentBuffer += SuplaSaveResult(save);
-    webContentBuffer += SuplaJavaScript(url);
+    SuplaSaveResult(save);
+    SuplaJavaScript(url);
 
-    addForm(webContentBuffer, F("post"), url);
-    addFormHeader(webContentBuffer, String(S_LIMIT_SWITCH) + S_SPACE + (nr.toInt() + 1));
+    addForm(F("post"), url);
+    addFormHeader(String(S_LIMIT_SWITCH) + S_SPACE + (nr.toInt() + 1));
 
     selected = ConfigESP->getPullUp(gpio);
     input = INPUT_LIMIT_SWITCH_PULLUP;
-    addCheckBox(webContentBuffer, input, S_INTERNAL_PULL_UP, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addCheckBox(input, S_INTERNAL_PULL_UP, selected);
+    addFormHeaderEnd();
   }
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
 
-  addButton(webContentBuffer, S_RETURN, PATH_SWITCH);
+  addButton(S_RETURN, PATH_SWITCH);
 
   WebServer->sendHeaderEnd();
 }

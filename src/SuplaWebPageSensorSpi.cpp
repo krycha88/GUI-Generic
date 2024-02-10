@@ -34,94 +34,94 @@ void handleSensorSpi(int save) {
   uint8_t selected;
 
   WebServer->sendHeaderStart();
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_SPI);
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_SPI);
 
-  addForm(webContentBuffer, F("post"), PATH_SPI);
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_SPI);
-  addListGPIOBox(webContentBuffer, INPUT_CLK_GPIO, S_CLK, FUNCTION_CLK);
-  addListGPIOBox(webContentBuffer, INPUT_CS_GPIO, S_CS, FUNCTION_CS);
-  addListGPIOBox(webContentBuffer, INPUT_MISO_GPIO, S_MISO, FUNCTION_MISO);
-  addListGPIOBox(webContentBuffer, INPUT_MOSI_GPIO, S_MOSI, FUNCTION_MOSI);
-  addFormHeaderEnd(webContentBuffer);
+  addForm(F("post"), PATH_SPI);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_SPI);
+  addListGPIOBox(INPUT_CLK_GPIO, S_CLK, FUNCTION_CLK);
+  addListGPIOBox(INPUT_CS_GPIO, S_CS, FUNCTION_CS);
+  addListGPIOBox(INPUT_MISO_GPIO, S_MISO, FUNCTION_MISO);
+  addListGPIOBox(INPUT_MOSI_GPIO, S_MOSI, FUNCTION_MOSI);
+  addFormHeaderEnd();
 
 #if defined(SUPLA_MAX6675) || defined(SUPLA_MAX31855)
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + "MAX31855/6675");
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + "MAX31855/6675");
   if (ConfigESP->getGpio(FUNCTION_CLK) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_CS) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_MISO) != OFF_GPIO &&
       ConfigESP->getGpio(FUNCTION_MOSI) != OFF_GPIO) {
 #ifdef SUPLA_MAX6675
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_SPI_MAX6675).toInt();
-    addListBox(webContentBuffer, INPUT_MAX6675, S_MAX6675, STATE_P, 2, selected);
+    addListBox(INPUT_MAX6675, S_MAX6675, STATE_P, 2, selected);
 #endif
 #ifdef SUPLA_MAX31855
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_SPI_MAX31855).toInt();
-    addListBox(webContentBuffer, INPUT_MAX31855, S_MAX31855, STATE_P, 2, selected);
+    addListBox(INPUT_MAX31855, S_MAX31855, STATE_P, 2, selected);
 #endif
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_CC1101
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + "CC1101");
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + "CC1101");
 
-  addListGPIOBox(webContentBuffer, INPUT_GDO0_GPIO, S_GDO0, FUNCTION_GDO0);
-  addListGPIOBox(webContentBuffer, INPUT_GDO2_GPIO, S_GDO2, FUNCTION_GDO2);
+  addListGPIOBox(INPUT_GDO0_GPIO, S_GDO0, FUNCTION_GDO0);
+  addListGPIOBox(INPUT_GDO2_GPIO, S_GDO2, FUNCTION_GDO2);
 
   if (ConfigESP->getGpio(FUNCTION_CLK) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_CS) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_MISO) != OFF_GPIO &&
       ConfigESP->getGpio(FUNCTION_MOSI) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_GDO0) != OFF_GPIO &&
       ConfigESP->getGpio(FUNCTION_GDO2) != OFF_GPIO) {
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_SPI_CC1101).toInt();
-    addListBox(webContentBuffer, INPUT_CC1101, S_CC1101, STATE_P, 2, selected);
+    addListBox(INPUT_CC1101, S_CC1101, STATE_P, 2, selected);
     if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_SPI_CC1101).toInt()) {
-      addFormHeader(webContentBuffer, String(S_WMBUS_METER) + " 1");
+      addFormHeader(String(S_WMBUS_METER) + " 1");
       // first sensor
       selected = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_ENABLED1).toInt();
-      addCheckBox(webContentBuffer, INPUT_WMBUS_SENSOR_ENABLED1, S_ON, selected);
+      addCheckBox(INPUT_WMBUS_SENSOR_ENABLED1, S_ON, selected);
       selected = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_TYPE1).toInt();
-      addListBox(webContentBuffer, INPUT_WMBUS_SENSOR_TYPE1, S_WMBUS_SENSOR_TYPE, sensors_types, 27, selected);
+      addListBox(INPUT_WMBUS_SENSOR_TYPE1, S_WMBUS_SENSOR_TYPE, sensors_types, 27, selected);
       String sensorId1 = ConfigManager->get(KEY_WMBUS_SENSOR_ID)->getElement(0);
-      addTextBox(webContentBuffer, INPUT_WMBUS_SENSOR_ID1, S_WMBUS_SENSOR_ID, sensorId1.c_str(), 1, 9, false);
+      addTextBox(INPUT_WMBUS_SENSOR_ID1, S_WMBUS_SENSOR_ID, sensorId1.c_str(), 1, 9, false);
       String sensorKey1 = ConfigManager->get(KEY_WMBUS_SENSOR_KEY)->getElement(0);
-      addTextBox(webContentBuffer, INPUT_WMBUS_SENSOR_KEY1, S_WMBUS_SENSOR_KEY, sensorKey1.c_str(), 1, 50, false);
+      addTextBox(INPUT_WMBUS_SENSOR_KEY1, S_WMBUS_SENSOR_KEY, sensorKey1.c_str(), 1, 50, false);
       selected = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_PROPERTY1).toInt();  
-      addListBox(webContentBuffer, INPUT_WMBUS_SENSOR_PROP1, S_WMBUS_SENSOR_PROP, sensors_properties, 24, selected);
-      addFormHeaderEnd(webContentBuffer);
+      addListBox(INPUT_WMBUS_SENSOR_PROP1, S_WMBUS_SENSOR_PROP, sensors_properties, 24, selected);
+      addFormHeaderEnd();
 
       // second sensor
-      addFormHeader(webContentBuffer, String(S_WMBUS_METER) + " 2");
+      addFormHeader(String(S_WMBUS_METER) + " 2");
       selected = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_ENABLED2).toInt();
-      addCheckBox(webContentBuffer, INPUT_WMBUS_SENSOR_ENABLED2, S_ON, selected);
+      addCheckBox(INPUT_WMBUS_SENSOR_ENABLED2, S_ON, selected);
       selected = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_TYPE2).toInt();
-      addListBox(webContentBuffer, INPUT_WMBUS_SENSOR_TYPE2, S_WMBUS_SENSOR_TYPE, sensors_types, 27, selected);
+      addListBox(INPUT_WMBUS_SENSOR_TYPE2, S_WMBUS_SENSOR_TYPE, sensors_types, 27, selected);
       String sensorId2 = ConfigManager->get(KEY_WMBUS_SENSOR_ID)->getElement(1);
-      addTextBox(webContentBuffer, INPUT_WMBUS_SENSOR_ID2, S_WMBUS_SENSOR_ID, sensorId2.c_str(), 1, 9, false);
+      addTextBox(INPUT_WMBUS_SENSOR_ID2, S_WMBUS_SENSOR_ID, sensorId2.c_str(), 1, 9, false);
       String sensorKey2 = ConfigManager->get(KEY_WMBUS_SENSOR_KEY)->getElement(1);
-      addTextBox(webContentBuffer, INPUT_WMBUS_SENSOR_KEY2, S_WMBUS_SENSOR_KEY, sensorKey2.c_str(), 1, 50, false);
+      addTextBox(INPUT_WMBUS_SENSOR_KEY2, S_WMBUS_SENSOR_KEY, sensorKey2.c_str(), 1, 50, false);
       selected = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_PROPERTY2).toInt();  
-      addListBox(webContentBuffer, INPUT_WMBUS_SENSOR_PROP2, S_WMBUS_SENSOR_PROP, sensors_properties, 24, selected);
-      addFormHeaderEnd(webContentBuffer);
+      addListBox(INPUT_WMBUS_SENSOR_PROP2, S_WMBUS_SENSOR_PROP, sensors_properties, 24, selected);
+      addFormHeaderEnd();
 
       // third sensor
-      addFormHeader(webContentBuffer, String(S_WMBUS_METER) + " 3");
+      addFormHeader(String(S_WMBUS_METER) + " 3");
       selected = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_ENABLED3).toInt();
-      addCheckBox(webContentBuffer, INPUT_WMBUS_SENSOR_ENABLED3, S_ON, selected);
+      addCheckBox(INPUT_WMBUS_SENSOR_ENABLED3, S_ON, selected);
       selected = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_TYPE3).toInt();
-      addListBox(webContentBuffer, INPUT_WMBUS_SENSOR_TYPE3, S_WMBUS_SENSOR_TYPE, sensors_types, 27, selected);
+      addListBox(INPUT_WMBUS_SENSOR_TYPE3, S_WMBUS_SENSOR_TYPE, sensors_types, 27, selected);
       String sensorId3 = ConfigManager->get(KEY_WMBUS_SENSOR_ID)->getElement(2);
-      addTextBox(webContentBuffer, INPUT_WMBUS_SENSOR_ID3, S_WMBUS_SENSOR_ID, sensorId3.c_str(), 1, 9, false);
+      addTextBox(INPUT_WMBUS_SENSOR_ID3, S_WMBUS_SENSOR_ID, sensorId3.c_str(), 1, 9, false);
       String sensorKey3 = ConfigManager->get(KEY_WMBUS_SENSOR_KEY)->getElement(2);
-      addTextBox(webContentBuffer, INPUT_WMBUS_SENSOR_KEY3, S_WMBUS_SENSOR_KEY, sensorKey3.c_str(), 1, 50, false);
+      addTextBox(INPUT_WMBUS_SENSOR_KEY3, S_WMBUS_SENSOR_KEY, sensorKey3.c_str(), 1, 50, false);
       selected = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_PROPERTY3).toInt();  
-      addListBox(webContentBuffer, INPUT_WMBUS_SENSOR_PROP3, S_WMBUS_SENSOR_PROP, sensors_properties, 24, selected);
-      addFormHeaderEnd(webContentBuffer);
+      addListBox(INPUT_WMBUS_SENSOR_PROP3, S_WMBUS_SENSOR_PROP, sensors_properties, 24, selected);
+      addFormHeaderEnd();
     }
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
-  addButton(webContentBuffer, S_RETURN, PATH_DEVICE_SETTINGS);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
+  addButton(S_RETURN, PATH_DEVICE_SETTINGS);
   WebServer->sendHeaderEnd();
 }
 

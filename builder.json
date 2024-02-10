@@ -1408,25 +1408,28 @@
 				"desc": "Cette option permet de désactiver tous les messages de journalisation affichés sur l'interface UART. La désactivation de cette fonction entraîne une taille binaire plus petite. (SUPLA_DISABLE_LOGS)"
 			}
 		},
-		"SUPLA_COMM_DEBUG": {
-			"name": "Logi związane z komunikacją",
-			"desc": "Rejestruje dodatkowe informacje diagnostyczne związane z komunikacją (SUPLA_COMM_DEBUG).",
+		"SUPLA_DEBUG_MODE": {
+			"name": "DEBUG",
+			"desc": "Rejestruje dodatkowe informacje diagnostyczne związane z komunikacją (SUPLA_DEBUG_MODE).",
 			"defOn": false,
+			"depRel": [
+				"SUPLA_DISABLE_LOGS"
+			],
 			"en": {
-				"name": "Comm Debug",
-				"desc": "Logs additional diagnostic information related to communication (SUPLA_COMM_DEBUG)."
+				"name": "DEBUG",
+				"desc": "Logs additional diagnostic information related to communication (SUPLA_DEBUG_MODE)."
 			},
 			"es": {
-				"name": "Comm Debug",
-				"desc": "Registra información diagnóstica adicional relacionada con la comunicación (SUPLA_COMM_DEBUG)."
+				"name": "DEBUG",
+				"desc": "Registra información diagnóstica adicional relacionada con la comunicación (SUPLA_DEBUG_MODE)."
 			},
 			"de": {
-				"name": "Comm Debug",
-				"desc": "Zeichnet zusätzliche diagnostische Informationen zur Kommunikation auf (SUPLA_COMM_DEBUG)."
+				"name": "DEBUG",
+				"desc": "Zeichnet zusätzliche diagnostische Informationen zur Kommunikation auf (SUPLA_DEBUG_MODE)."
 			},
 			"fr": {
-				"name": "Comm Debug",
-				"desc": "Enregistre des informations de diagnostic supplémentaires liées à la communication (SUPLA_COMM_DEBUG)."
+				"name": "DEBUG",
+				"desc": "Enregistre des informations de diagnostic supplémentaires liées à la communication (SUPLA_DEBUG_MODE)."
 			}
 		}
 	},
