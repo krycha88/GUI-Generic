@@ -19,17 +19,17 @@
 
 #include "SuplaDeviceGUI.h"
 
-void addForm(String& html, const String& method, const String& action = "/");
-void addFormEnd(String& html);
+void addForm(const String& method, const String& action = "/");
+void addFormEnd();
 
-void addFormHeader(String& html, const String& name = "\n");
-void addFormHeaderEnd(String& html);
+void addFormHeader(const String& name = "\n");
+void addFormHeader(const String& name);
+void addFormHeaderEnd();
 
-void addBr(String& html);
-void addLabel(String& html, const String& name);
+void addBr();
+void addLabel(const String& name);
 
-void addTextBox(String& html,
-                const String& input_id,
+void addTextBox(const String& input_id,
                 const String& name,
                 const String& value,
                 const String& placeholder,
@@ -40,8 +40,7 @@ void addTextBox(String& html,
                 bool password = false,
                 bool underline = true);
 
-void addTextBox(String& html,
-                const String& input_id,
+void addTextBox(const String& input_id,
                 const String& name,
                 uint8_t value_key,
                 const String& placeholder,
@@ -51,95 +50,59 @@ void addTextBox(String& html,
                 bool readonly = false,
                 bool password = false);
 
-void addTextBox(
-    String& html, const String& input_id, const String& name, uint8_t value_key, int minlength, int maxlength, bool required, bool readonly = false);
+void addTextBox(const String& input_id, const String& name, uint8_t value_key, int minlength, int maxlength, bool required, bool readonly = false);
 
-void addTextBox(String& html,
-                const String& input_id,
-                const String& name,
-                const String& value,
-                int minlength,
-                int maxlength,
-                bool required,
-                bool readonly = false);
+void addTextBox(const String& input_id, const String& name, const String& value, int minlength, int maxlength, bool required, bool readonly = false);
 
-void addTextBox(String& html, const String& value);
+void addTextBox(const String& value);
 
-void addTextBoxPassword(String& html, const String& input_id, const String& name, uint8_t value_key, int minlength, int maxlength, bool required);
+void addTextBoxPassword(const String& input_id, const String& name, uint8_t value_key, int minlength, int maxlength, bool required);
 
-void addCheckBox(String& html, const String& input_id, const String& name, bool checked);
+void addCheckBox(const String& input_id, const String& name, bool checked);
 
-void addNumberBox(String& html, const String& input_id, const String& name, const String& value, int max = -1);
+void addNumberBox(const String& input_id, const String& name, const String& value, int max = -1);
 
-void addNumberBox(String& html, const String& input_id, const String& name, uint8_t value_key, int max = -1);
+void addNumberBox(const String& input_id, const String& name, uint8_t value_key, int max = -1);
 
-void addNumberBox(String& html,
-                  const String& input_id,
-                  const String& name,
-                  const String& placeholder,
-                  bool required,
-                  const String& value = "",
-                  bool underline = false);
+void addNumberBox(
+    const String& input_id, const String& name, const String& placeholder, bool required, const String& value = "", bool underline = false);
 
-void addLinkBox(String& html, const String& name, const String& url);
+void addLinkBox(const String& name, const String& url);
 
-void addHyperlink(String& html, const String& name, const String& url);
+void addHyperlink(const String& name, const String& url);
 
-void addListGPIOLinkBox(String& html, const String& input_id, const String& name, const String& url, uint8_t function, uint8_t nr);
+void addListGPIOLinkBox(const String& input_id, const String& name, const String& url, uint8_t function, uint8_t nr);
 
-void addListGPIOLinkBox(String& html, const String& input_id, const String& name, const String& url, uint8_t function, uint8_t nr, bool no_number);
+void addListGPIOLinkBox(const String& input_id, const String& name, const String& url, uint8_t function, uint8_t nr, bool no_number);
 
-void addListGPIOLinkBox(String& html, const String& input_id, const String& name, const String& url, uint8_t function);
+void addListGPIOLinkBox(const String& input_id, const String& name, const String& url, uint8_t function);
 
-void addListGPIOBox(String& html, const String& input_id, const String& name, uint8_t function);
+void addListGPIOBox(const String& input_id, const String& name, uint8_t function);
 
-void addListGPIOBox(String& html,
-                    const String& input_id,
-                    const String& name,
-                    uint8_t function,
-                    uint8_t nr,
-                    bool underline = true,
-                    const String& url = "",
-                    bool no_number = false);
-void addListNumbersSensorBox(String& html, const String& input_id, const String& name, uint8_t selected);
-void addListNumbersBox(String& html, const String& input_id, const String& name, uint8_t size, uint8_t selected);
+void addListGPIOBox(
+    const String& input_id, const String& name, uint8_t function, uint8_t nr, bool underline = true, const String& url = "", bool no_number = false);
+void addListNumbersSensorBox(const String& input_id, const String& name, uint8_t selected);
+void addListNumbersBox(const String& input_id, const String& name, uint8_t size, uint8_t selected);
 
-void addGPIOOptionValue(String& html, uint8_t gpio, uint8_t selectedGpio, const String& name);
+void addGPIOOptionValue(uint8_t gpio, uint8_t selectedGpio, const String& name, String& content);
 
 #ifdef GUI_SENSOR_I2C_EXPENDER
-void addListExpanderBox(String& html, const String& input_id, const String& name, uint8_t function, uint8_t nr, const String& url);
-void addListExpanderGPIOBox(String& html, const String& input_id, const String& name, uint8_t function, uint8_t nr = 0, const String& url = "");
-void addListExpanderGPIO(String& html,
-                         const String& input_id,
-                         const String& name,
-                         uint8_t function,
-                         uint8_t nr,
-                         const char* const* array_P,
-                         uint8_t size,
-                         const String& url);
+void addListExpanderBox(const String& input_id, const String& name, uint8_t function, uint8_t nr, const String& url);
+void addListExpanderGPIOBox(const String& input_id, const String& name, uint8_t function, uint8_t nr = 0, const String& url = "");
+void addListExpanderGPIO(
+    const String& input_id, const String& name, uint8_t function, uint8_t nr, const char* const* array_P, uint8_t size, const String& url);
 #endif
 
-void addListBox(String& html,
-                const String& input_id,
-                const String& name,
-                const char* const* list_P,
-                uint8_t size,
-                uint8_t selected,
-                uint8_t nr = 0,
-                bool underline = true);
+void addListBox(
+    const String& input_id, const String& name, const char* const* list_P, uint8_t size, uint8_t selected, uint8_t nr = 0, bool underline = true);
 
-void addListLinkBox(String& html,
-                    const String& input_id,
-                    const String& name,
-                    const char* const* array_P,
-                    uint8_t size,
-                    uint8_t selected,
-                    const String& url,
-                    uint8_t nr = 0);
+void addListLinkBox(
+    const String& input_id, const String& name, const char* const* array_P, uint8_t size, uint8_t selected, const String& url, uint8_t nr = 0);
 
-void addButton(String& html, const String& name, const String& url);
+void addButton(const String& name, const String& url);
+void addButton(const String& name, const String& url);
 
-void addButtonSubmit(String& html, const String& name);
+void addButtonSubmit(const String& name);
 
 String getURL(const String& url);
 
@@ -149,8 +112,8 @@ String getInput(const String& input, uint8_t nr);
 
 String getParameterRequest(const String& url, const String& param, const String& value = emptyString);
 
-const String SuplaJavaScript(const String& java_return = PATH_START);
+void SuplaJavaScript(const String& java_return = PATH_START);
 
-const String SuplaSaveResult(int save);
+void SuplaSaveResult(int save);
 
 #endif  // Markup_h

@@ -53,26 +53,26 @@ void handleUpload(int save) {
     return;
   }
 
+  WebServer->sendHeaderStart();
+
   String upload = FPSTR(uploadIndex);
   upload.replace("{g}", S_GENERATE_GUID_AND_KEY);
   upload.replace("{u}", S_UPLOAD);
 
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_UPLOAD);
-  webContentBuffer += F("<div class='w'>");
-  webContentBuffer += F("<h3>");
-  webContentBuffer += S_LOAD_CONFIGURATION;
-  webContentBuffer += F("</h3>");
-  webContentBuffer += F("<br>");
-  webContentBuffer += upload;
-  webContentBuffer += F("</div>");
-  webContentBuffer += F("<a href='");
-  webContentBuffer += getURL(PATH_TOOLS);
-  webContentBuffer += F("'><button>");
-  webContentBuffer += S_RETURN;
-  webContentBuffer += F("</button></a><br><br>");
-
-  WebServer->sendContent();
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_UPLOAD);
+  WebServer->sendContent(F("<div class='w'>"));
+  WebServer->sendContent(F("<h3>"));
+  WebServer->sendContent(S_LOAD_CONFIGURATION);
+  WebServer->sendContent(F("</h3><br>"));
+  WebServer->sendContent(upload);
+  WebServer->sendContent(F("</div>"));
+  WebServer->sendContent(F("<a href='"));
+  WebServer->sendContent(getURL(PATH_TOOLS));
+  WebServer->sendContent(F("'><button>"));
+  WebServer->sendContent(S_RETURN);
+  WebServer->sendContent(F("</button></a><br><br>"));
+  WebServer->sendHeaderEnd();
 }
 
 void handleFileUpload() {

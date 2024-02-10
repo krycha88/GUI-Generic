@@ -61,9 +61,9 @@ Supla::Channel *Supla::Sensor::ThermHygroPressMeter::getSecondaryChannel() {
   return &pressureChannel;
 }
 
-void Supla::Sensor::ThermHygroPressMeter::addAction(uint16_t action,
+void Supla::Sensor::ThermHygroPressMeter::addAction(int action,
                                             ActionHandler &client,
-                                            uint16_t event,
+                                            int event,
                                             bool alwaysEnabled) {
   // delegate secondary channel event registration to secondary channel
   switch (event) {
@@ -76,9 +76,9 @@ void Supla::Sensor::ThermHygroPressMeter::addAction(uint16_t action,
   channel.addAction(action, client, event, alwaysEnabled);
 }
 
-void Supla::Sensor::ThermHygroPressMeter::addAction(uint16_t action,
+void Supla::Sensor::ThermHygroPressMeter::addAction(int action,
                                             ActionHandler *client,
-                                            uint16_t event,
+                                            int event,
                                             bool alwaysEnabled) {
   ThermHygroPressMeter::addAction(action, *client, event, alwaysEnabled);
 }

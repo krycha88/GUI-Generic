@@ -106,8 +106,17 @@ void Supla::Sensor::ThermHygroMeter::onLoadConfig(SuplaDeviceClass *sdc) {
       getChannelNumber(), correction);
 
   // load config changed offline flags
-  loadConfigChangeFlag();
-  lastReadTime = 0;
+  char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
+  generateKey(key, "cfg_chng");
+  uint8_t flag = 0;
+  cfg->getUInt8(key, &flag);
+  SUPLA_LOG_INFO(
+      "Channel[%d] config changed offline flag %d", getChannelNumber(), flag);
+  if (flag) {
+    setChannelStateFlag = 1;
+  } else {
+    setChannelStateFlag = 0;
+  }
 }
 
 int16_t Supla::Sensor::ThermHygroMeter::readCorrectionFromIndex(int index) {
@@ -167,17 +176,14 @@ void Supla::Sensor::ThermHygroMeter::setRefreshIntervalMs(int intervalMs) {
 
 void Supla::Sensor::ThermHygroMeter::onRegistered(
     Supla::Protocol::SuplaSrpc *suplaSrpc) {
+  setChannelResult = 0;
   configFinishedReceived = false;
+  defaultConfigReceived = false;
   Supla::Element::onRegistered(suplaSrpc);
-  switch (channelConfigState) {
-    case Supla::ChannelConfigState::None:
-    case Supla::ChannelConfigState::WaitForConfigFinished: {
-      channelConfigState = Supla::ChannelConfigState::WaitForConfigFinished;
-      break;
-    }
-    default: {
-      channelConfigState = Supla::ChannelConfigState::LocalChangePending;
-      break;
+  if (Supla::Storage::ConfigInstance()) {
+    if (setChannelStateFlag) {
+      setChannelStateFlag = 1;
+      waitForChannelConfigAndIgnoreIt = true;
     }
   }
 }
@@ -190,18 +196,11 @@ uint8_t Supla::Sensor::ThermHygroMeter::handleChannelConfig(
       result->Func,
       result->ConfigType,
       result->ConfigSize);
-
-  if (result->Func == 0) {
-    SUPLA_LOG_DEBUG("Channel[%d] disabled on server", getChannelNumber());
-    channelConfigState = Supla::ChannelConfigState::None;
-    return SUPLA_CONFIG_RESULT_TRUE;
-  }
-
-  if (channelConfigState == Supla::ChannelConfigState::LocalChangePending &&
-      !local) {
+  if (waitForChannelConfigAndIgnoreIt && !local) {
     SUPLA_LOG_INFO(
         "Ignoring config for channel %d (local config changed offline)",
         getChannelNumber());
+    waitForChannelConfigAndIgnoreIt = false;
     return SUPLA_CONFIG_RESULT_TRUE;
   }
 
@@ -209,23 +208,20 @@ uint8_t Supla::Sensor::ThermHygroMeter::handleChannelConfig(
   if (!cfg) {
     return SUPLA_CONFIG_RESULT_TRUE;
   }
-
-  // thermomters and hygrometers support only default config
   if (result->ConfigType != 0) {
     SUPLA_LOG_DEBUG("Channel[%d] invalid configtype", getChannelNumber());
     return SUPLA_CONFIG_RESULT_FALSE;
   }
+  defaultConfigReceived = true;
 
   if (result->ConfigSize == 0) {
     // server doesn't have channel configuration, so we'll send it
     // But don't send it if it failed in previous attempt
-    if (channelConfigState !=
-        Supla::ChannelConfigState::SetChannelConfigFailed) {
-      channelConfigState = Supla::ChannelConfigState::LocalChangePending;
+    if (setChannelResult == 0) {
+      setChannelStateFlag = 1;
     }
     return SUPLA_CONFIG_RESULT_TRUE;
   }
-
   if (result->Func == SUPLA_CHANNELFNC_THERMOMETER ||
       result->Func == SUPLA_CHANNELFNC_HUMIDITYANDTEMPERATURE ||
       result->Func == SUPLA_CHANNELFNC_HUMIDITY) {
@@ -262,9 +258,9 @@ void Supla::Sensor::ThermHygroMeter::setHumidityCorrection(int32_t correction) {
 void Supla::Sensor::ThermHygroMeter::applyCorrectionsAndStoreIt(
     int32_t temperatureCorrection, int32_t humidityCorrection, bool local) {
   if (local) {
-    channelConfigState = Supla::ChannelConfigState::LocalChangePending;
+    setChannelStateFlag = 1;
   } else {
-    channelConfigState = Supla::ChannelConfigState::None;
+    setChannelStateFlag = 0;
   }
 
   setTemperatureCorrection(temperatureCorrection);
@@ -275,7 +271,14 @@ void Supla::Sensor::ThermHygroMeter::applyCorrectionsAndStoreIt(
     return;
   }
 
-  saveConfigChangeFlag();
+  char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
+  generateKey(key, "cfg_chng");
+  if (setChannelStateFlag) {
+    cfg->setUInt8(key, 1);
+  } else {
+    cfg->setUInt8(key, 0);
+  }
+  cfg->saveWithDelay(5000);
 
   // reload config
   onLoadConfig(nullptr);
@@ -289,7 +292,7 @@ bool Supla::Sensor::ThermHygroMeter::iterateConnected() {
   }
 
   if (configFinishedReceived) {
-    if (channelConfigState == Supla::ChannelConfigState::LocalChangePending) {
+    if (setChannelStateFlag == 1) {
       for (auto proto = Supla::Protocol::ProtocolLayer::first();
            proto != nullptr;
            proto = proto->next()) {
@@ -306,7 +309,7 @@ bool Supla::Sensor::ThermHygroMeter::iterateConnected() {
                 sizeof(TChannelConfig_TemperatureAndHumidity),
                 SUPLA_CONFIG_TYPE_DEFAULT)) {
           SUPLA_LOG_INFO("Sending channel config for %d", getChannelNumber());
-          channelConfigState = Supla::ChannelConfigState::SetChannelConfigSend;
+          setChannelStateFlag = 2;
           return true;
         }
       }
@@ -323,15 +326,12 @@ void Supla::Sensor::ThermHygroMeter::handleSetChannelConfigResult(
   }
 
   bool success = (result->Result == SUPLA_CONFIG_RESULT_TRUE);
-
-  if (!success) {
-    channelConfigState = Supla::ChannelConfigState::SetChannelConfigFailed;
-  }
+  (void)(success);
+  setChannelResult = result->Result;
 
   switch (result->ConfigType) {
     case SUPLA_CONFIG_TYPE_DEFAULT: {
-      SUPLA_LOG_INFO("ThermHygroMeter[%d] Set channel config %s (%d)",
-                     getChannelNumber(),
+      SUPLA_LOG_INFO("set channel config %s (%d)",
                      success ? "succeeded" : "failed",
                      result->Result);
       clearChannelConfigChangedFlag();
@@ -343,16 +343,23 @@ void Supla::Sensor::ThermHygroMeter::handleSetChannelConfigResult(
 }
 
 void Supla::Sensor::ThermHygroMeter::clearChannelConfigChangedFlag() {
-  if (channelConfigState != Supla::ChannelConfigState::None) {
-    channelConfigState = Supla::ChannelConfigState::None;
-    saveConfigChangeFlag();
+  if (setChannelStateFlag) {
+    setChannelStateFlag = 0;
+    auto cfg = Supla::Storage::ConfigInstance();
+    if (cfg) {
+      char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
+      generateKey(key, "cfg_chng");
+      cfg->setUInt8(key, 0);
+      cfg->saveWithDelay(1000);
+    }
   }
 }
 
 void Supla::Sensor::ThermHygroMeter::handleChannelConfigFinished() {
   configFinishedReceived = true;
-  if (channelConfigState == Supla::ChannelConfigState::WaitForConfigFinished) {
-    channelConfigState = Supla::ChannelConfigState::None;
+  if (!defaultConfigReceived) {
+    // trigger sending channel config to server
+    setChannelStateFlag = 1;
   }
 }
 

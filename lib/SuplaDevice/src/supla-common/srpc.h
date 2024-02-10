@@ -189,8 +189,10 @@ union TsrpcDataPacketData {
   TSCS_ChannelConfig *scs_channel_config;
   TCS_GetChannelConfigRequest *cs_get_channel_config_request;
   TSC_ChannelConfigUpdateOrResult *sc_channel_config_update_or_result;
-  TSC_DeviceConfigUpdateOrResult *sc_device_config_update_or_result;
+  TSCS_DeviceConfig *scs_device_config;
   TCS_GetDeviceConfigRequest *cs_get_device_config_request;
+  TSC_DeviceConfigUpdate *sc_device_config_update;
+  TSC_SetDeviceConfigResult *sc_set_device_config_result;
 };
 
 typedef struct {
@@ -473,10 +475,14 @@ _supla_int_t SRPC_ICACHE_FLASH srpc_sc_async_channel_config_update_or_result(
     void *_srpc, TSC_ChannelConfigUpdateOrResult *config);
 _supla_int_t SRPC_ICACHE_FLASH srpc_cs_async_set_channel_config_request(
     void *_srpc, TSCS_ChannelConfig *config);
+_supla_int_t SRPC_ICACHE_FLASH
+srpc_cs_async_set_device_config_request(void *_srpc, TSCS_DeviceConfig *config);
+_supla_int_t SRPC_ICACHE_FLASH srpc_sc_async_set_device_config_result(
+    void *_srpc, TSC_SetDeviceConfigResult *result);
 _supla_int_t SRPC_ICACHE_FLASH srpc_cs_async_get_device_config_request(
     void *_srpc, TCS_GetDeviceConfigRequest *request);
-_supla_int_t SRPC_ICACHE_FLASH srpc_sc_async_device_config_update_or_result(
-    void *_srpc, TSC_DeviceConfigUpdateOrResult *config);
+_supla_int_t SRPC_ICACHE_FLASH
+srpc_sc_async_device_config_update(void *_srpc, TSC_DeviceConfigUpdate *update);
 #endif /*SRPC_EXCLUDE_CLIENT*/
 
 #ifndef SRPC_EXCLUDE_EXTENDEDVALUE_TOOLS

@@ -43,7 +43,6 @@ class Network {
   static bool GetMacAddr(uint8_t *);
   static void SetHostname(const char *);
   static bool IsSuplaSSLEnabled();
-  static bool IsIpSetupTimeout();
 
   static void printData(const char *prefix, const void *buf, const int count);
 
@@ -57,7 +56,6 @@ class Network {
   virtual bool getMacAddr(uint8_t *);
   virtual void setHostname(const char *);
   virtual bool isSuplaSSLEnabled();
-  virtual bool isIpSetupTimeout();
 
   virtual bool isReady() = 0;
   virtual bool iterate();

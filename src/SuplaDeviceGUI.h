@@ -54,7 +54,6 @@
 #include "SuplaWebPageDownload.h"
 #include "SuplaWebPageUpload.h"
 #include "SuplaWebPageTools.h"
-#include "SuplaWebCorrection.h"
 
 #include "Markup.h"
 #include "SuplaConditions.h"
@@ -112,7 +111,7 @@
 #include <supla/sensor/impulse_counter.h>
 #include <supla/control/internal_pin_output.h>
 #endif
-#ifdef DEBUG_MODE
+#ifdef SUPLA_DEBUG_MODE
 #include <supla/sensor/esp_free_heap.h>
 #endif
 #ifdef SUPLA_HLW8012
@@ -149,6 +148,10 @@
 #include <supla/sensor/AnalogReadingMap.h>
 #endif
 
+#ifdef SUPLA_ANALOG_READING_KPOP
+#include "src/sensor/AnalogReading.h"
+#endif
+
 #ifdef SUPLA_VL53L0X
 #include <supla/sensor/VL_53L0X.h>
 #endif
@@ -173,7 +176,7 @@
 #endif
 
 #ifdef SUPLA_BH1750
-#include <supla/sensor/BH1750.h>
+#include <supla/sensor/BH_1750.h>
 #endif
 
 #ifdef SUPLA_MS5611
@@ -277,7 +280,7 @@ extern ActionTrigger *actionTrigger;
 
 void addButtonActionTrigger(uint8_t nr);
 void addActionTriggerRelatedChannel(
-    uint8_t nr, Supla::Control::Button *button, int eventButton, Supla::Element *element, int muliclickTimeMs = 0, int holdTimeMs = 0);
+    uint8_t nr, Supla::Control::Button *button, int eventButton, Supla::Element *element);
 int calculateElementCountActionTrigger();
 #endif
 
@@ -344,6 +347,10 @@ extern Supla::Sensor::MPX_5XXX *mpx;
 
 #ifdef SUPLA_ANALOG_READING_MAP
 extern Supla::Sensor::AnalogRedingMap **analog;
+#endif
+
+#ifdef SUPLA_ANALOG_READING_KPOP
+extern Supla::Sensor::AnalogReding **analog;
 #endif
 
 #ifdef SUPLA_MODBUS_SDM

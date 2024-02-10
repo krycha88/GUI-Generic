@@ -32,7 +32,6 @@ class Thermometer : public ThermHygroMeter {
   virtual double getValue();
   void onInit() override;
   void iterateAlways() override;
-  double getTemp() override;
 
  protected:
   void setHumidityCorrection(int32_t correction) override;

@@ -59,10 +59,10 @@
 #define MAX_VIRTUAL_RELAY    10
 #define MAX_BRIDGE_RF        10
 
-#define MAX_THERMOSTAT       5
+#define MAX_THERMOSTAT 5
 
-#define MAX_ANALOG_BUTTON    5
-#define MAX_WAKE_ON_LAN      5
+#define MAX_ANALOG_BUTTON 5
+#define MAX_WAKE_ON_LAN   5
 
 #ifdef ARDUINO_ARCH_ESP8266
 #define MAX_GPIO 17
@@ -282,7 +282,7 @@ class ConfigOption {
   int getValueInt();
   float getValueFloat();
   bool getValueBool();
-  const char *getValueHex(size_t size);
+  void getValueHex(char* buffer, size_t bufferSize);
   int getValueElement(int element);
 
   int getLength();
@@ -330,6 +330,8 @@ class SuplaConfigManager : public Supla::KeyValue {
   void setGUIDandAUTHKEY();
 
   bool init() override;
+  void commit() override;
+  void removeAll() override;
 
   // Supla protocol config
   virtual bool setSuplaServer(const char *server) override;

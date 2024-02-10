@@ -60,10 +60,6 @@ void setup() {
   ImprovSerialComponent *improvSerialComponent = new ImprovSerialComponent();
   improvSerialComponent->enable();
 
-#if defined(GUI_SENSOR_SPI) || defined(GUI_SENSOR_I2C) || defined(GUI_SENSOR_1WIRE) || defined(GUI_SENSOR_OTHER) || defined(GUI_SENSOR_I2C_2)
-  ThermHygroMeterCorrectionHandler &correctionHandler = ThermHygroMeterCorrectionHandler::getInstance();
-#endif
-
 #ifdef SUPLA_BONEIO
   new Supla::boneIO();
 #endif
@@ -244,7 +240,6 @@ void setup() {
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_DHT11)->getValueInt(); nr++) {
     if (ConfigESP->getGpio(nr, FUNCTION_DHT11) != OFF_GPIO) {
       auto dht11 = new Supla::Sensor::DHT(ConfigESP->getGpio(nr, FUNCTION_DHT11), DHT11);
-      correctionHandler.addThermHygroMeter(dht11);
 
 #ifdef SUPLA_CONDITIONS
       Supla::GUI::Conditions::addConditionsSensor(SENSOR_DHT11, S_DHT11, dht11, nr);
@@ -257,7 +252,6 @@ void setup() {
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_DHT22)->getValueInt(); nr++) {
     if (ConfigESP->getGpio(nr, FUNCTION_DHT22) != OFF_GPIO) {
       auto dht22 = new Supla::Sensor::DHT(ConfigESP->getGpio(nr, FUNCTION_DHT22), DHT22);
-      correctionHandler.addThermHygroMeter(dht22);
 
 #ifdef SUPLA_CONDITIONS
       Supla::GUI::Conditions::addConditionsSensor(SENSOR_DHT22, S_DHT22, dht22, nr);
@@ -269,7 +263,6 @@ void setup() {
 #ifdef SUPLA_SI7021_SONOFF
   if (ConfigESP->getGpio(FUNCTION_SI7021_SONOFF) != OFF_GPIO) {
     auto si7021sonoff = new Supla::Sensor::Si7021Sonoff(ConfigESP->getGpio(FUNCTION_SI7021_SONOFF));
-    correctionHandler.addThermHygroMeter(si7021sonoff);
     improvSerialComponent->disable();
 
 #ifdef SUPLA_CONDITIONS
@@ -301,7 +294,7 @@ void setup() {
 #ifdef SUPLA_MAX6675
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_SPI_MAX6675).toInt()) {
       auto thermocouple =
-          new Supla::Sensor::MAX6675_K(ConfigESP->getGpio(FUNCTION_CLK), ConfigESP->getGpio(FUNCTION_CS), ConfigESP->getGpio(FUNCTION_MISO));
+          new Supla::Sensor::MAX6675K(ConfigESP->getGpio(FUNCTION_CLK), ConfigESP->getGpio(FUNCTION_CS), ConfigESP->getGpio(FUNCTION_MISO));
 #ifdef SUPLA_CONDITIONS
       Supla::GUI::Conditions::addConditionsSensor(SENSOR_MAX6675, S_MAX6675, thermocouple);
 #endif
@@ -320,29 +313,27 @@ void setup() {
 
 #ifdef SUPLA_CC1101
     if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_SPI_CC1101).toInt()) {
-
       int indexOfSensorType = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_TYPE1).toInt();
       std::string sensorType = sensors_types[indexOfSensorType];
       std::string sensorId = ConfigManager->get(KEY_WMBUS_SENSOR_ID)->getElement(0).c_str();
       std::string sensorKey = ConfigManager->get(KEY_WMBUS_SENSOR_KEY)->getElement(0).c_str();
       int indexOfSensorProperty = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_PROPERTY1).toInt();
       std::string sensorProperty = sensors_properties[indexOfSensorProperty];
-      meter = new Supla::Sensor::WmbusMeter(ConfigESP->getGpio(FUNCTION_MOSI), ConfigESP->getGpio(FUNCTION_MISO), ConfigESP->getGpio(FUNCTION_CLK), ConfigESP->getGpio(FUNCTION_CS), ConfigESP->getGpio(FUNCTION_GDO0), ConfigESP->getGpio(FUNCTION_GDO2));
+      meter = new Supla::Sensor::WmbusMeter(ConfigESP->getGpio(FUNCTION_MOSI), ConfigESP->getGpio(FUNCTION_MISO), ConfigESP->getGpio(FUNCTION_CLK),
+                                            ConfigESP->getGpio(FUNCTION_CS), ConfigESP->getGpio(FUNCTION_GDO0), ConfigESP->getGpio(FUNCTION_GDO2));
       Serial.println("wMBus-lib: Registered sensors:");
       meter->add_sensor(new Supla::Sensor::SensorInfo(sensorId, sensorType, sensorProperty, sensorKey));
-      if(ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_ENABLED2).toInt()==1)
-      {
-          indexOfSensorType = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_TYPE2).toInt();
-          sensorType = sensors_types[indexOfSensorType];
-          sensorId = ConfigManager->get(KEY_WMBUS_SENSOR_ID)->getElement(1).c_str();
-          sensorKey = ConfigManager->get(KEY_WMBUS_SENSOR_KEY)->getElement(1).c_str();
-          indexOfSensorProperty = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_PROPERTY2).toInt();
-          sensorProperty = sensors_properties[indexOfSensorProperty];
-          meter->add_sensor(new Supla::Sensor::SensorInfo(sensorId, sensorType, sensorProperty, sensorKey));
+      if (ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_ENABLED2).toInt() == 1) {
+        indexOfSensorType = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_TYPE2).toInt();
+        sensorType = sensors_types[indexOfSensorType];
+        sensorId = ConfigManager->get(KEY_WMBUS_SENSOR_ID)->getElement(1).c_str();
+        sensorKey = ConfigManager->get(KEY_WMBUS_SENSOR_KEY)->getElement(1).c_str();
+        indexOfSensorProperty = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_PROPERTY2).toInt();
+        sensorProperty = sensors_properties[indexOfSensorProperty];
+        meter->add_sensor(new Supla::Sensor::SensorInfo(sensorId, sensorType, sensorProperty, sensorKey));
       }
 
-      if(ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_ENABLED3).toInt()==1)
-      {
+      if (ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_ENABLED3).toInt() == 1) {
         indexOfSensorType = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_TYPE3).toInt();
         sensorType = sensors_types[indexOfSensorType];
         sensorId = ConfigManager->get(KEY_WMBUS_SENSOR_ID)->getElement(2).c_str();
@@ -385,7 +376,6 @@ void setup() {
 #ifdef SUPLA_NTC_10K
   if (ConfigESP->getGpio(FUNCTION_NTC_10K) != OFF_GPIO) {
     auto ntc10k = new Supla::Sensor::NTC10K(ConfigESP->getGpio(FUNCTION_NTC_10K));
-    correctionHandler.addThermHygroMeter(ntc10k);
 
 #ifdef SUPLA_CONDITIONS
     Supla::GUI::Conditions::addConditionsSensor(SENSOR_NTC_10K, S_NTC_10K, ntc10k);
@@ -435,6 +425,35 @@ void setup() {
     gpio = ConfigESP->getGpio(nr, FUNCTION_ANALOG_READING);
     if (gpio != OFF_GPIO) {
       Supla::GUI::analog[nr] = new Supla::Sensor::AnalogRedingMap(gpio);
+#ifdef SUPLA_CONDITIONS
+      Supla::GUI::Conditions::addConditionsSensor(SENSOR_ANALOG_READING_MAP, S_ANALOG_READING_MAP, Supla::GUI::analog[nr], nr);
+#endif
+    }
+  }
+#endif
+#endif
+
+#ifdef SUPLA_ANALOG_READING_KPOP
+#ifdef ARDUINO_ARCH_ESP8266
+  Supla::GUI::analog = new Supla::Sensor::AnalogReding *[ConfigManager->get(KEY_MAX_ANALOG_READING)->getValueInt()];
+  gpio = ConfigESP->getGpio(FUNCTION_ANALOG_READING);
+
+  if (gpio != OFF_GPIO) {
+    for (nr = 0; nr < ConfigManager->get(KEY_MAX_ANALOG_READING)->getValueInt(); nr++) {
+      Supla::GUI::analog[nr] = new Supla::Sensor::AnalogReding(gpio);
+#ifdef SUPLA_CONDITIONS
+      Supla::GUI::Conditions::addConditionsSensor(SENSOR_ANALOG_READING_MAP, S_ANALOG_READING_MAP, Supla::GUI::analog[nr], nr);
+#endif
+    }
+  }
+#endif
+#ifdef ARDUINO_ARCH_ESP32
+  Supla::GUI::analog = new Supla::Sensor::AnalogReding *[ConfigManager->get(KEY_MAX_ANALOG_READING)->getValueInt()];
+
+  for (nr = 0; nr < ConfigManager->get(KEY_MAX_ANALOG_READING)->getValueInt(); nr++) {
+    gpio = ConfigESP->getGpio(nr, FUNCTION_ANALOG_READING);
+    if (gpio != OFF_GPIO) {
+      Supla::GUI::analog[nr] = new Supla::Sensor::AnalogReding(gpio);
 #ifdef SUPLA_CONDITIONS
       Supla::GUI::Conditions::addConditionsSensor(SENSOR_ANALOG_READING_MAP, S_ANALOG_READING_MAP, Supla::GUI::analog[nr], nr);
 #endif
@@ -621,9 +640,6 @@ void setup() {
 #endif
           break;
       }
-      if (bme280) {
-        correctionHandler.addThermHygroMeter(bme280);
-      }
     }
 #endif
 
@@ -656,9 +672,6 @@ void setup() {
 #endif
           break;
       }
-      if (bmp280) {
-        correctionHandler.addThermHygroMeter(bmp280);
-      }
     }
 #endif
 
@@ -684,14 +697,12 @@ void setup() {
 #ifdef SUPLA_CONDITIONS
         Supla::GUI::Conditions::addConditionsSensor(SENSOR_SHT3x, S_SHT3X, sht3x);
 #endif
-        correctionHandler.addThermHygroMeter(sht3x);
       }
 
       if (sht3x_1) {
 #ifdef SUPLA_CONDITIONS
         Supla::GUI::Conditions::addConditionsSensor(SENSOR_SHT3x, S_SHT3X, sht3x_1, 1);
 #endif
-        correctionHandler.addThermHygroMeter(sht3x_1);
       }
     }
 #endif
@@ -700,7 +711,6 @@ void setup() {
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_SHT3x).toInt()) {
       Supla::Sensor::SHTAutoDetect *shtAutoDetect = new Supla::Sensor::SHTAutoDetect();
 
-      correctionHandler.addThermHygroMeter(shtAutoDetect);
 #ifdef SUPLA_CONDITIONS
       Supla::GUI::Conditions::addConditionsSensor(SENSOR_SHT3x, S_SHT3X, shtAutoDetect);
 #endif
@@ -710,7 +720,6 @@ void setup() {
 #ifdef SUPLA_SI7021
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_SI7021).toInt()) {
       auto si7021 = new Supla::Sensor::Si7021();
-      correctionHandler.addThermHygroMeter(si7021);
 
 #ifdef SUPLA_CONDITIONS
       Supla::GUI::Conditions::addConditionsSensor(SENSOR_SI7021, S_SI702, si7021);
@@ -757,7 +766,7 @@ void setup() {
 
 #ifdef SUPLA_BH1750
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_BH1750).toInt()) {
-      auto bh1750 = new Supla::Sensor::BH1750();
+      auto bh1750 = new Supla::Sensor::BH_1750();
 
 #ifdef SUPLA_CONDITIONS
       Supla::GUI::Conditions::addConditionsSensor(SENSOR_BH1750, S_BH1750, bh1750);
@@ -915,7 +924,7 @@ void setup() {
   delete Supla::GUI::actionTrigger;
 #endif
 
-#ifdef DEBUG_MODE
+#ifdef SUPLA_DEBUG_MODE
   new Supla::Sensor::EspFreeHeap();
 #endif
 
@@ -936,7 +945,7 @@ void loop() {
   const uint32_t now = millis();
   SuplaDevice.iterate();
 
-  #ifndef SUPLA_CC1101
+#ifndef SUPLA_CC1101
   uint32_t delay_time = LOOP_INTERVAL;
   if (now - last_loop < LOOP_INTERVAL)
     delay_time = LOOP_INTERVAL - (now - last_loop);
@@ -944,5 +953,5 @@ void loop() {
   delay(delay_time);
 
   last_loop = now;
-  #endif
+#endif
 }

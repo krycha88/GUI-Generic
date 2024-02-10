@@ -58,7 +58,3 @@ void Supla::Sensor::Thermometer::iterateAlways() {
 void Supla::Sensor::Thermometer::setHumidityCorrection(int32_t correction) {
   (void)(correction);
 }
-
-double Supla::Sensor::Thermometer::getTemp() {
-  return getValue();
-}

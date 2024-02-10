@@ -47,48 +47,48 @@ void handleSensor1Wire(int save) {
   uint8_t nr;
 
   WebServer->sendHeaderStart();
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_1WIRE);
-  addForm(webContentBuffer, F("post"), PATH_1WIRE);
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_1WIRE);
+  addForm(F("post"), PATH_1WIRE);
 #ifdef SUPLA_DHT11
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_DHT11);
-  addNumberBox(webContentBuffer, INPUT_MAX_DHT11, S_QUANTITY, KEY_MAX_DHT11, ConfigESP->countFreeGpio(FUNCTION_DHT11));
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_DHT11);
+  addNumberBox(INPUT_MAX_DHT11, S_QUANTITY, KEY_MAX_DHT11, ConfigESP->countFreeGpio(FUNCTION_DHT11));
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_DHT11)->getValueInt(); nr++) {
-    addListGPIOBox(webContentBuffer, INPUT_DHT11_GPIO, S_DHT11, FUNCTION_DHT11, nr);
+    addListGPIOBox(INPUT_DHT11_GPIO, S_DHT11, FUNCTION_DHT11, nr);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_DHT22
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_DHT22);
-  addNumberBox(webContentBuffer, INPUT_MAX_DHT22, S_QUANTITY, KEY_MAX_DHT22, ConfigESP->countFreeGpio(FUNCTION_DHT22));
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_DHT22);
+  addNumberBox(INPUT_MAX_DHT22, S_QUANTITY, KEY_MAX_DHT22, ConfigESP->countFreeGpio(FUNCTION_DHT22));
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_DHT22)->getValueInt(); nr++) {
-    addListGPIOBox(webContentBuffer, INPUT_DHT22_GPIO, S_DHT22, FUNCTION_DHT22, nr);
+    addListGPIOBox(INPUT_DHT22_GPIO, S_DHT22, FUNCTION_DHT22, nr);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_SI7021_SONOFF
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_SI7021_SONOFF);
-  addListGPIOBox(webContentBuffer, INPUT_SI7021_SONOFF, S_SI7021_SONOFF, FUNCTION_SI7021_SONOFF);
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_SI7021_SONOFF);
+  addListGPIOBox(INPUT_SI7021_SONOFF, S_SI7021_SONOFF, FUNCTION_SI7021_SONOFF);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_DS18B20
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_DS18B20);
-  addNumberBox(webContentBuffer, INPUT_MAX_DS18B20, S_QUANTITY, KEY_MULTI_MAX_DS18B20, MAX_DS18B20);
-  addListGPIOBox(webContentBuffer, INPUT_MULTI_DS_GPIO, S_SENSORS_1WIRE, FUNCTION_DS18B20, 0, false, "", true);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_DS18B20);
+  addNumberBox(INPUT_MAX_DS18B20, S_QUANTITY, KEY_MULTI_MAX_DS18B20, MAX_DS18B20);
+  addListGPIOBox(INPUT_MULTI_DS_GPIO, S_SENSORS_1WIRE, FUNCTION_DS18B20, 0, false, "", true);
 
   if (ConfigManager->get(KEY_MULTI_MAX_DS18B20)->getValueInt() > 1) {
-    addLinkBox(webContentBuffer, String(S_CONFIGURATION) + S_SPACE + S_DS18B20, PATH_MULTI_DS);
+    addLinkBox(String(S_CONFIGURATION) + S_SPACE + S_DS18B20, PATH_MULTI_DS);
   }
 
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
-  addButton(webContentBuffer, S_RETURN, PATH_DEVICE_SETTINGS);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
+  addButton(S_RETURN, PATH_DEVICE_SETTINGS);
 
   WebServer->sendHeaderEnd();
 }
@@ -183,19 +183,20 @@ void handleSensorDs18b20(int save) {
   String s_temp;
   s_temp.reserve(12);
 
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(getURL(PATH_MULTI_DS));
+  WebServer->sendHeaderStart();
+  SuplaSaveResult(save);
+  SuplaJavaScript(getURL(PATH_MULTI_DS));
 
   if (ConfigESP->getGpio(FUNCTION_DS18B20) < OFF_GPIO) {
-    addForm(webContentBuffer, F("post"), getURL(PATH_MULTI_DS));
+    addForm(F("post"), getURL(PATH_MULTI_DS));
 
     if (ConfigESP->getGpio(FUNCTION_DS18B20) != OFF_GPIO) {
-      addFormHeader(webContentBuffer, S_TEMPERATURE);
+      addFormHeader(S_TEMPERATURE);
       for (uint8_t i = 0; i < ConfigManager->get(KEY_MULTI_MAX_DS18B20)->getValueInt(); i++) {
         temp = Supla::GUI::sensorDS[i]->getValue();
 
-        addTextBox(webContentBuffer, getInput(INPUT_DS18B20_NAME, i), String(S_NAME) + (i + 1), ConfigManager->get(KEY_NAME_SENSOR)->getElement(i),
-                   emptyString, 0, MAX_DS18B20_NAME, false, false, false, false);
+        addTextBox(getInput(INPUT_DS18B20_NAME, i), String(S_NAME) + (i + 1), ConfigManager->get(KEY_NAME_SENSOR)->getElement(i), emptyString, 0,
+                   MAX_DS18B20_NAME, false, false, false, false);
 
         s_temp = emptyString;
         if (temp != -275) {
@@ -206,20 +207,20 @@ void handleSensorDs18b20(int save) {
         }
         s_temp += F(" <b>&deg;C</b> ");
 
-        addTextBox(webContentBuffer, getInput(INPUT_DS18B20_ADDR, i), s_temp, ConfigManager->get(KEY_ADDR_DS18B20)->getElement(i), emptyString, 0,
+        addTextBox(getInput(INPUT_DS18B20_ADDR, i), s_temp, ConfigManager->get(KEY_ADDR_DS18B20)->getElement(i), emptyString, 0,
                    MAX_DS18B20_ADDRESS_HEX, false);
         delay(0);
       }
-      addFormHeaderEnd(webContentBuffer);
+      addFormHeaderEnd();
     }
 
-    addButtonSubmit(webContentBuffer, S_SAVE);
-    addFormEnd(webContentBuffer);
-    addBr(webContentBuffer);
+    addButtonSubmit(S_SAVE);
+    addFormEnd();
+    addBr();
   }
 
-  addForm(webContentBuffer, F("post"), getURL(PATH_MULTI_DS));
-  addFormHeader(webContentBuffer, String(S_FOUND) + S_SPACE + S_DS18B20);
+  addForm(F("post"), getURL(PATH_MULTI_DS));
+  addFormHeader(String(S_FOUND) + S_SPACE + S_DS18B20);
   sensors.setOneWire(&ow);
   sensors.begin();
   if (sensors.isParasitePowerMode()) {
@@ -237,22 +238,21 @@ void handleSensorDs18b20(int save) {
               address[7]);
       supla_log(LOG_DEBUG, "Index %d - address %s", i, strAddr);
 
-      addTextBox(webContentBuffer, getInput(INPUT_DS18B20_ADDR, count), emptyString, String(strAddr), emptyString, 0, MAX_DS18B20_ADDRESS_HEX, false,
-                 true);
+      addTextBox(getInput(INPUT_DS18B20_ADDR, count), emptyString, String(strAddr), emptyString, 0, MAX_DS18B20_ADDRESS_HEX, false, true);
       count++;
     }
     delay(0);
   }
 
   if (count == 0) {
-    addLabel(webContentBuffer, S_NO_SENSORS_CONNECTED);
+    addLabel(S_NO_SENSORS_CONNECTED);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 
-  addButtonSubmit(webContentBuffer, String(S_SAVE_FOUND) + S_DS18B20);
-  addFormEnd(webContentBuffer);
-  addButton(webContentBuffer, S_RETURN, PATH_1WIRE);
-  WebServer->sendContent();
+  addButtonSubmit(String(S_SAVE_FOUND) + S_DS18B20);
+  addFormEnd();
+  addButton(S_RETURN, PATH_1WIRE);
+  WebServer->sendHeaderEnd();
 }
 
 void handleSensorDs18b20Save() {

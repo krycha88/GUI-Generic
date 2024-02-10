@@ -16,6 +16,7 @@
 
 #include <Arduino.h>
 #include "DirectLinksConnect.h"
+#include "../../GUIGenericCommon.h"
 
 namespace Supla {
 namespace Sensor {
@@ -109,11 +110,27 @@ void DirectLinksConnect::send() {
     delete client;
     client = nullptr;
   }
+  printFreeMemory("DirectLinksConnect");
 }
 
-String DirectLinksConnect::getRequest() {
-  String request = String("GET /direct/") + _url + " HTTP/1.1\r\n" + "Host: " + _host + "\r\n" + "User-Agent: BuildFailureDetectorESP8266\r\n" +
-                   "Connection: close\r\n\r\n";
+const char *DirectLinksConnect::getRequest() {
+  static char result[1088];
+  char request[256];
+
+  if (static_cast<unsigned int>(snprintf(request, sizeof(request),
+                                         "GET /direct/%s HTTP/1.1\r\n"
+                                         "Host: %s\r\n"
+                                         "User-Agent: BuildFailureDetectorESP8266\r\n"
+                                         "Connection: close\r\n\r\n",
+                                         _url, _host)) >= sizeof(request)) {
+    Serial.println(F("Error: URL or host too long"));
+    return nullptr;
+  }
+
+  if (!client || !client->connected()) {
+    Serial.println(F("Error: Client not connected"));
+    return nullptr;
+  }
 
   client->print(request);
 
@@ -122,28 +139,30 @@ String DirectLinksConnect::getRequest() {
       Serial.println(F("Direct links - Headers received"));
       break;
     }
-    yield();
+    delay(0);
   }
 
-  const int bufferSize = 1200;
-  char result[bufferSize];
-  int i = 0;
+  size_t i = 0;
 
   while (client->connected() || client->available()) {
-    if (i < bufferSize - 1) {  // Avoid buffer overflow
-      result[i++] = (char)client->read();
+    char c = client->read();
+    if (i < sizeof(result) - 1) {  // Avoid buffer overflow
+      result[i++] = c;
+      // Check for the end of response
+      if (c == '}' && client->peek() == -1) {
+        break;
+      }
     }
     else {
       break;  // Stop reading to prevent buffer overflow
     }
-    yield();
+    delay(0);
   }
 
   result[i] = '\0';  // Null-terminate the result string
-
   Serial.println(result);
 
-  return String(result);
+  return result;
 }
 
 void DirectLinksConnect::sendRequest() {

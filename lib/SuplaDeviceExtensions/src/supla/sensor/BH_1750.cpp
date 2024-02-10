@@ -13,28 +13,22 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
-#ifndef _bh1750_h
-#define _bh1750_h
-#include <BH1750_WE.h>
-
-#include <Arduino.h>
-#include <Wire.h>
-#include <supla/sensor/thermometer.h>
+#include "BH_1750.h"
 
 namespace Supla {
 namespace Sensor {
-class BH1750 : public Thermometer {
- public:
-  BH1750(int8_t address = 0x23);
-  double getValue();
+BH_1750::BH_1750(int8_t address) {
+  myBH1750 = new BH1750_WE(address);
+}
 
- private:
-  void onInit();
+double BH_1750::getValue() {
+  return myBH1750->getLux() / 1000;
+}
 
- protected:
-  BH1750_WE *myBH1750;
-};
+void BH_1750::onInit() {
+  myBH1750->init();
+
+  channel.setNewValue(getValue());
+}
 }  // namespace Sensor
 }  // namespace Supla
-
-#endif

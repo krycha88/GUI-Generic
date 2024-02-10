@@ -16,13 +16,13 @@
  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-#include "esp_ds18b20.h"
 
 #include <string.h>
 #include <supla/log_wrapper.h>
-#include <supla/storage/config.h>
 #include <supla/time.h>
+#include <supla/storage/config.h>
 
+#include "esp_ds18b20.h"
 #include "supla/sensor/one_phase_electricity_meter.h"
 #include "supla/sensor/thermometer.h"
 
@@ -33,14 +33,13 @@ void Supla::Sensor::DS18B20::onLoadConfig(SuplaDeviceClass *sdc) {
     char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
     generateKey(key, "address");
     if (!cfg->getBlob(
-            key, reinterpret_cast<char *>(address), SUPLA_DS_ADDRESS_SIZE)) {
+          key, reinterpret_cast<char*>(address), SUPLA_DS_ADDRESS_SIZE)) {
       SUPLA_LOG_DEBUG("Failed to read DS address");
     }
     if (address[0] == 0) {
       getChannel()->setDefault(0);
     }
   }
-  myBus->lastReadTime = 0;
 }
 
 void Supla::Sensor::DS18B20::onInit() {
@@ -68,20 +67,20 @@ void Supla::Sensor::OneWireBus::init() {
 
 void Supla::Sensor::DS18B20::assignAddressIfNeeded() {
   if (address[0] == 0) {
-    if (myBus->assignAddress(address)) {
-      auto cfg = Supla::Storage::ConfigInstance();
-      if (cfg) {
-        char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
-        generateKey(key, "address");
-        if (!cfg->setBlob(key,
-                          reinterpret_cast<char *>(address),
-                          SUPLA_DS_ADDRESS_SIZE)) {
-          SUPLA_LOG_WARNING("Failed to write DS address to config");
+      if (myBus->assignAddress(address)) {
+        auto cfg = Supla::Storage::ConfigInstance();
+        if (cfg) {
+          char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
+          generateKey(key, "address");
+          if (!cfg->setBlob(
+                key,
+                reinterpret_cast<char*>(address), SUPLA_DS_ADDRESS_SIZE)) {
+            SUPLA_LOG_WARNING("Failed to write DS address to config");
+          }
+          cfg->saveWithDelay(2000);
+          getChannel()->setDefault(SUPLA_CHANNELFNC_THERMOMETER);
         }
-        cfg->saveWithDelay(2000);
-        getChannel()->setDefault(SUPLA_CHANNELFNC_THERMOMETER);
       }
-    }
   }
 }
 
@@ -92,8 +91,7 @@ bool Supla::Sensor::OneWireBus::assignAddress(uint8_t *address) {
     bool found = false;
     while (dsPtr && !found) {
       for (int j = 0; j < SUPLA_DS_ADDRESS_SIZE; j++) {
-        if (dsPtr->address[j] !=
-            devices[i]->rom_code.bytes[SUPLA_DS_ADDRESS_SIZE - 1 - j]) {
+        if (dsPtr->address[j] != devices[i]->rom_code.bytes[SUPLA_DS_ADDRESS_SIZE - 1 - j]) {
           break;
         }
         if (j == SUPLA_DS_ADDRESS_SIZE - 1) {
@@ -105,8 +103,7 @@ bool Supla::Sensor::OneWireBus::assignAddress(uint8_t *address) {
     }
     if (!found) {
       char romCodeStr[17];
-      owb_string_from_rom_code(
-          devices[i]->rom_code, romCodeStr, sizeof(romCodeStr));
+      owb_string_from_rom_code(devices[i]->rom_code, romCodeStr, sizeof(romCodeStr));
       SUPLA_LOG_DEBUG("DS assigned to channel: %s", romCodeStr);
       for (int j = 0; j < SUPLA_DS_ADDRESS_SIZE; j++) {
         address[j] = devices[i]->rom_code.bytes[SUPLA_DS_ADDRESS_SIZE - 1 - j];
@@ -144,20 +141,20 @@ void Supla::Sensor::OneWireBus::scanBus() {
   bool found = false;
   OneWireBus_SearchState searchState = {};
   owb_search_first(owb, &searchState, &found);
-  while (found) {
+  while (found)
+  {
     bool alreadyAdded = false;
     for (int i = 0; i < configuredDeviceCount; i++) {
       if (memcmp(devices[i]->rom_code.bytes,
-                 searchState.rom_code.bytes,
-                 SUPLA_DS_ADDRESS_SIZE) == 0) {
+            searchState.rom_code.bytes,
+            SUPLA_DS_ADDRESS_SIZE) == 0) {
         alreadyAdded = true;
         break;
       }
     }
     if (!alreadyAdded) {
       char romCodeStr[17];
-      owb_string_from_rom_code(
-          searchState.rom_code, romCodeStr, sizeof(romCodeStr));
+      owb_string_from_rom_code(searchState.rom_code, romCodeStr, sizeof(romCodeStr));
       SUPLA_LOG_DEBUG("  %d : %s", deviceCount, romCodeStr);
       deviceRomCodes[deviceCount] = searchState.rom_code;
       ++deviceCount;
@@ -165,15 +162,13 @@ void Supla::Sensor::OneWireBus::scanBus() {
     owb_search_next(owb, &searchState, &found);
     delay(0);
   }
-  SUPLA_LOG_DEBUG(
-      "Found %d new device%s", deviceCount, deviceCount == 1 ? "" : "s");
+  SUPLA_LOG_DEBUG("Found %d new device%s", deviceCount, deviceCount == 1 ? "" : "s");
 
   for (int i = 0; i < deviceCount; ++i) {
     devices[configuredDeviceCount + i] = ds18b20_malloc();
     ds18b20_init(devices[configuredDeviceCount + i], owb, deviceRomCodes[i]);
     ds18b20_use_crc(devices[configuredDeviceCount + i], true);
-    ds18b20_set_resolution(devices[configuredDeviceCount + i],
-                           DS18B20_RESOLUTION);
+    ds18b20_set_resolution(devices[configuredDeviceCount + i], DS18B20_RESOLUTION);
     delay(0);
   }
 
@@ -193,8 +188,8 @@ void Supla::Sensor::OneWireBus::scanBus() {
   const int maxConversionTimeMs = 750;
   int divisor = 1 << (DS18B20_RESOLUTION_12_BIT - DS18B20_RESOLUTION);
 
-  conversionTimeMs =
-      maxConversionTimeMs / divisor + 50;  // add 50 ms just in case
+  conversionTimeMs = maxConversionTimeMs / divisor;
+
 }
 
 bool Supla::Sensor::OneWireBus::isMeasurementReady() {
@@ -210,8 +205,7 @@ int Supla::Sensor::OneWireBus::getIndex(const uint8_t *deviceAddress) {
     for (int i = 0; i < MAX_DEVICES && devices[i]; i++) {
       bool found = false;
       for (int j = 0; j < SUPLA_DS_ADDRESS_SIZE; j++) {
-        if (deviceAddress[j] !=
-            devices[i]->rom_code.bytes[SUPLA_DS_ADDRESS_SIZE - 1 - j]) {
+        if (deviceAddress[j] != devices[i]->rom_code.bytes[SUPLA_DS_ADDRESS_SIZE - 1 - j]) {
           break;
         }
         if (j == SUPLA_DS_ADDRESS_SIZE - 1) {
@@ -300,8 +294,7 @@ void Supla::Sensor::OneWireBus::addDsToList(Supla::Sensor::DS18B20 *ptr) {
 }
 
 void Supla::Sensor::DS18B20::iterateAlways() {
-  if (!myBus->lastReadTime ||
-      millis() - myBus->lastReadTime > refreshIntervalMs) {
+  if (!myBus->lastReadTime || millis() - myBus->lastReadTime > 10000) {
     myBus->requestTemperatures();
     myBus->lastReadTime = millis();
   }
@@ -380,7 +373,8 @@ void Supla::Sensor::DS18B20::releaseAddress() {
       generateKey(key, "address");
       memset(address, 0, sizeof(address));
       if (!cfg->setBlob(
-              key, reinterpret_cast<char *>(address), SUPLA_DS_ADDRESS_SIZE)) {
+            key,
+            reinterpret_cast<char*>(address), SUPLA_DS_ADDRESS_SIZE)) {
         SUPLA_LOG_WARNING("Failed to write DS address to config");
       }
       cfg->saveWithDelay(2000);
@@ -389,3 +383,4 @@ void Supla::Sensor::DS18B20::releaseAddress() {
 }
 
 Supla::Sensor::OneWireBus *Supla::Sensor::DS18B20::firstOneWireBus = nullptr;
+

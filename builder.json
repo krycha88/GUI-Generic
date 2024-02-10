@@ -234,53 +234,6 @@
 				"name": "WT32-ETH01",
 				"desc": ""
 			}
-		},
-		"SUPLA_EXCLUDE_LITTLEFS_CONFIG": {
-			"name": "Wyłączenie LittleFS",
-			"desc": "Wyklucza dodanie includa LITTLEFS, dzięki czemu kompilacja oszczędza prawie 100KB binarki.",
-			"alertOff": "Wyłączenie tej opcji zwiększy o 100KB binarkę, zmniejszając ilość dostępnego miejsca np. dla OTA.",
-			"defOn": true,
-			"en": {
-				"name": "Disabling LittleFS",
-				"desc": "It excludes the addition of the LITTLEFS includa, which saves the compilation almost 100KB.",
-				"alertOff": "Disabling this option will increase the compilation by almost 100KB, reducing the amount of space available, e.g. for OTA."
-			},
-			"es": {
-				"name": "Deshabilitar LittleFS",
-				"desc": "Excluye la adición de LITTLEFS includa, lo que ahorra la compilación casi 100 KB.",
-				"alertOff": "Deshabilitar esta opción aumentará la compilación en casi 100 KB, reduciendo la cantidad de espacio disponible, por ejemplo, para OTA."
-			},
-			"de": {
-				"name": "LittleFS deaktivieren",
-				"desc": "Es schließt das Hinzufügen der LITTLEFS-Includa aus, wodurch die Kompilierung fast 100 KB einspart.",
-				"alertOff": "Durch Deaktivieren dieser Option wird die Kompilierung um fast 100 KB erhöht, wodurch der verfügbare Speicherplatz, z. B. für OTA, verringert wird."
-			},
-			"fr": {
-				"name": "Désactivation de LittleFS",
-				"desc": "Il exclut l'ajout du LITTLEFS includa, qui permet d'économiser près de 100 Ko sur la compilation.",
-				"alertOff": "La désactivation de cette option augmentera la compilation de près de 100 Ko, réduisant ainsi la quantité d'espace disponible, par exemple pour l'OTA."
-			}
-		},
-		"SUPLA_COMM_DEBUG": {
-			"name": "Debugowanie zdalne",
-			"desc": "Debugowanie zdalne.",
-			"defOn": false,
-			"en": {
-				"name": "Comm Debug",
-				"desc": ""
-			},
-			"es": {
-				"name": "Comm Debug",
-				"desc": ""
-			},
-			"de": {
-				"name": "Comm Debug",
-				"desc": ""
-			},
-			"fr": {
-				"name": "Comm Debug",
-				"desc": ""
-			}
 		}
 	},
 	"CONTROL": {
@@ -1407,6 +1360,79 @@
 			}
 		}
 	},
+	"DEBUG": {
+		"SUPLA_EXCLUDE_LITTLEFS_CONFIG": {
+			"name": "Wyłączenie LittleFS",
+			"desc": "Wyklucza dodanie includa LITTLEFS, dzięki czemu kompilacja oszczędza prawie 100KB binarki.",
+			"alertOff": "Wyłączenie tej opcji zwiększy o 100KB binarkę, zmniejszając ilość dostępnego miejsca np. dla OTA.",
+			"defOn": true,
+			"en": {
+				"name": "Disabling LittleFS",
+				"desc": "It excludes the addition of the LITTLEFS includa, which saves the compilation almost 100KB.",
+				"alertOff": "Disabling this option will increase the compilation by almost 100KB, reducing the amount of space available, e.g. for OTA."
+			},
+			"es": {
+				"name": "Deshabilitar LittleFS",
+				"desc": "Excluye la adición de LITTLEFS includa, lo que ahorra la compilación casi 100 KB.",
+				"alertOff": "Deshabilitar esta opción aumentará la compilación en casi 100 KB, reduciendo la cantidad de espacio disponible, por ejemplo, para OTA."
+			},
+			"de": {
+				"name": "LittleFS deaktivieren",
+				"desc": "Es schließt das Hinzufügen der LITTLEFS-Includa aus, wodurch die Kompilierung fast 100 KB einspart.",
+				"alertOff": "Durch Deaktivieren dieser Option wird die Kompilierung um fast 100 KB erhöht, wodurch der verfügbare Speicherplatz, z. B. für OTA, verringert wird."
+			},
+			"fr": {
+				"name": "Désactivation de LittleFS",
+				"desc": "Il exclut l'ajout du LITTLEFS includa, qui permet d'économiser près de 100 Ko sur la compilation.",
+				"alertOff": "La désactivation de cette option augmentera la compilation de près de 100 Ko, réduisant ainsi la quantité d'espace disponible, par exemple pour l'OTA."
+			}
+		},
+		"SUPLA_DISABLE_LOGS": {
+			"name": "Wyłączenie wszystkich logów",
+			"desc": "Opcja pozwala na wyłączenie wszystkich komunikatów logowania wyświetlanych na interfejsie UART. Wyłączenie tej funkcji skutkuje mniejszym rozmiarem binarki. (SUPLA_DISABLE_LOGS)",
+			"defOn": true,
+			"en": {
+				"name": "Disable All Logs",
+				"desc": "This option allows for the disabling of all logging messages displayed on the UART interface. Disabling this feature results in a smaller binary size. (SUPLA_DISABLE_LOGS)"
+			},
+			"es": {
+				"name": "Desactivar todos los registros",
+				"desc": "Esta opción permite desactivar todos los mensajes de registro que se muestran en la interfaz UART. Desactivar esta función resulta en un tamaño binario más pequeño. (SUPLA_DISABLE_LOGS)"
+			},
+			"de": {
+				"name": "Alle Protokolle deaktivieren",
+				"desc": "Diese Option ermöglicht das Deaktivieren aller Protokollnachrichten, die auf der UART-Schnittstelle angezeigt werden. Das Deaktivieren dieser Funktion führt zu einer kleineren Binärgröße. (SUPLA_DISABLE_LOGS)"
+			},
+			"fr": {
+				"name": "Désactiver tous les journaux",
+				"desc": "Cette option permet de désactiver tous les messages de journalisation affichés sur l'interface UART. La désactivation de cette fonction entraîne une taille binaire plus petite. (SUPLA_DISABLE_LOGS)"
+			}
+		},
+		"SUPLA_DEBUG_MODE": {
+			"name": "DEBUG",
+			"desc": "Rejestruje dodatkowe informacje diagnostyczne związane z komunikacją (SUPLA_DEBUG_MODE).",
+			"defOn": false,
+			"depRel": [
+				"SUPLA_DISABLE_LOGS"
+			],
+			"en": {
+				"name": "DEBUG",
+				"desc": "Logs additional diagnostic information related to communication (SUPLA_DEBUG_MODE)."
+			},
+			"es": {
+				"name": "DEBUG",
+				"desc": "Registra información diagnóstica adicional relacionada con la comunicación (SUPLA_DEBUG_MODE)."
+			},
+			"de": {
+				"name": "DEBUG",
+				"desc": "Zeichnet zusätzliche diagnostische Informationen zur Kommunikation auf (SUPLA_DEBUG_MODE)."
+			},
+			"fr": {
+				"name": "DEBUG",
+				"desc": "Enregistre des informations de diagnostic supplémentaires liées à la communication (SUPLA_DEBUG_MODE)."
+			}
+		}
+	},
 	"SECTIONS": {
 		"BASIC": {
 			"pl": "Podstawowe",
@@ -1491,14 +1517,20 @@
 			"es": "Medidor de energía eléctrica",
 			"de": "Stromzähler",
 			"fr": "Compteur d'énergie électrique"
-		}
-	,
+		},
 		"BONEIO": {
 			"pl": "boneIO",
 			"en": "boneIO",
 			"es": "boneIO",
 			"de": "boneIO",
 			"fr": "boneIO"
+		},
+		"DEBUG": {
+			"pl": "Debug",
+			"en": "Debug",
+			"es": "Debug",
+			"de": "Debug",
+			"fr": "Debug"
 		}
 	}
 }

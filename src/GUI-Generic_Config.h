@@ -16,7 +16,7 @@
 #define DEFAULT_TEMPLATE_BOARD BOARD_SHELLY2
 #endif
 
-// #define DEBUG_MODE
+// #define SUPLA_DEBUG_MODE
 // #define SUPLA_OTA
 // #define SUPLA_MDNS
 // #define SUPLA_ENABLE_GUI

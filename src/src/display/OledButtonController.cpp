@@ -36,71 +36,91 @@ OledButtonController::OledButtonController(SuplaOled* oled) : oled(oled) {
 }
 
 void OledButtonController::initializeThermostatButtons() {
+  if (getCountActiveThermostat() == 0) {
+    uint8_t nrButton = ConfigESP->getNumberButtonAdditional(BUTTON_OLED);
+    uint8_t pinButton = ConfigESP->getGpio(nrButton, FUNCTION_BUTTON);
+
+    if (pinButton != OFF_GPIO) {
+      bool pullUp = ConfigESP->getPullUp(pinButton);
+      bool invertLogic = ConfigESP->getInversed(pinButton);
+
+      Supla::Control::Button* button = Supla::Control::GUI::Button(pinButton, pullUp, invertLogic, nrButton);
+      button->addAction(OLED_NEXT_FRAME, this, Supla::Event::ON_CLICK_1);
+    }
+  }
+
 #if defined(SUPLA_BUTTON) && defined(SUPLA_THERMOSTAT)
   if (getCountActiveThermostat() != 0) {
     Supla::GUI::addButtonToRelay(0, thermostat[0], this);
-  }
-#endif
 
-  for (uint8_t nr = 0; nr < ConfigManager->get(KEY_MAX_BUTTON)->getValueInt(); nr++) {
-    uint8_t pinButton = ConfigESP->getGpio(nr, FUNCTION_BUTTON);
+    for (uint8_t nr = 0; nr < ConfigManager->get(KEY_MAX_BUTTON)->getValueInt(); nr++) {
+      uint8_t pinButton = ConfigESP->getGpio(nr, FUNCTION_BUTTON);
 
-    if (pinButton != OFF_GPIO) {
-      Supla::Control::Button* button = Supla::Control::GUI::Button(pinButton, ConfigESP->getPullUp(pinButton), ConfigESP->getInversed(pinButton), nr);
+      if (pinButton != OFF_GPIO) {
+        bool pullUp = ConfigESP->getPullUp(pinButton);
+        bool invertLogic = ConfigESP->getInversed(pinButton);
 
-      button->addAction(OLED_NEXT_FRAME, this, Supla::Event::ON_HOLD);
-      button->addAction(OLED_NEXT_FRAME, this, Supla::Event::ON_RELEASE);
-
-      int muliclickTimeMs = ConfigManager->get(KEY_AT_MULTICLICK_TIME)->getValueFloat() * 1000;
-      int holdTimeMs = ConfigManager->get(KEY_AT_HOLD_TIME)->getValueFloat() * 1000;
-
-      button->setHoldTime(holdTimeMs);
-      button->setMulticlickTime(muliclickTimeMs);
-      button->repeatOnHoldEvery(250);
+        Supla::Control::Button* button = Supla::Control::GUI::Button(pinButton, pullUp, invertLogic, nr);
+        button->addAction(OLED_NEXT_FRAME, this, Supla::Event::ON_HOLD);
+        button->addAction(OLED_NEXT_FRAME, this, Supla::Event::ON_RELEASE);
+      }
+      delay(0);
     }
   }
+#endif
 }
 
 void OledButtonController::handleAction(int event, int action) {
-  if (holdCounter == 0 && action == OLED_NEXT_FRAME && event == Supla::Event::ON_RELEASE) {
-    return;
-  }
-
-  if (!oled->isDisplayEnabled()) {
-    oled->enableDisplay(true);
-  }
-  else {
-    oled->enableDisplay(true);
-
-    if (action == OLED_NEXT_FRAME && event == Supla::Event::ON_HOLD) {
-      holdCounter++;
+  if (getCountActiveThermostat() == 0 && action == OLED_NEXT_FRAME) {
+    if (!oled->isDisplayEnabled()) {
+      oled->enableDisplay(true);
     }
+    else {
+      oled->enableDisplay(true);
+      oled->handleAction(Supla::Event::ON_CLICK_1, OLED_NEXT_FRAME);
+    }
+  }
 
 #ifdef SUPLA_THERMOSTAT
-    bool skipThermostatAction = false;
-
-    if (holdCounter < 8 && event == Supla::Event::ON_HOLD) {
-      skipThermostatAction = true;
+  if (getCountActiveThermostat() != 0) {
+    if (holdCounter == 0 && action == OLED_NEXT_FRAME && event == Supla::Event::ON_RELEASE) {
+      return;
     }
 
-    int activeCurrentFrame = oled->getCurrentFrame();
-
-    if (thermostat[activeCurrentFrame] != nullptr && !skipThermostatAction) {
-      if (action == Supla::GUI::Action::TOGGLE_MANUAL_WEEKLY_SCHEDULE_MODES_HOLD_OFF && holdCounter == 8) {
-        thermostat[activeCurrentFrame]->handleAction(Supla::Event::ON_CLICK_1, Supla::Action::TOGGLE);
-      }
-      thermostat[activeCurrentFrame]->handleAction(event, action);
+    if (!oled->isDisplayEnabled()) {
+      oled->enableDisplay(true);
     }
-#endif
+    else {
+      oled->enableDisplay(true);
 
-    if (event == Supla::Event::ON_RELEASE) {
-      if (holdCounter > 0 && holdCounter < 8 && oled->getFrameCount() > 1) {
-        oled->handleAction(Supla::Event::ON_RELEASE, OLED_NEXT_FRAME);
+      if (action == OLED_NEXT_FRAME && event == Supla::Event::ON_HOLD) {
+        holdCounter++;
+      }
+      bool skipThermostatAction = false;
+
+      if (holdCounter < 8 && event == Supla::Event::ON_HOLD) {
+        skipThermostatAction = true;
       }
 
-      holdCounter = 0;
+      int activeCurrentFrame = oled->getCurrentFrame();
+
+      if (thermostat[activeCurrentFrame] != nullptr && !skipThermostatAction) {
+        if (action == Supla::GUI::Action::TOGGLE_MANUAL_WEEKLY_SCHEDULE_MODES_HOLD_OFF && holdCounter == 8) {
+          thermostat[activeCurrentFrame]->handleAction(Supla::Event::ON_CLICK_1, Supla::Action::TOGGLE);
+        }
+        thermostat[activeCurrentFrame]->handleAction(event, action);
+      }
+
+      if (event == Supla::Event::ON_RELEASE) {
+        if (holdCounter > 0 && holdCounter < 8 && oled->getFrameCount() > 1) {
+          oled->handleAction(Supla::Event::ON_RELEASE, OLED_NEXT_FRAME);
+        }
+
+        holdCounter = 0;
+      }
     }
   }
+#endif
 }
 }  // namespace GUI
 }  // namespace Control

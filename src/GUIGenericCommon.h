@@ -18,6 +18,7 @@
 #define GUI_GENERIC_COMMON_H
 
 #include "GUI-Generic_Config.h"
+#include "GUIGenericCommonDefined.h"
 #include "src/language/common.h"
 #include "Arduino.h"
 
@@ -34,5 +35,6 @@ uint8_t getCountSensorChannels();
 uint8_t getCountActiveThermostat();
 int getCountChannels();
 const String getAPName();
+void printFreeMemory(const char* location = "");
 
 #endif  // GUI_GENERIC_COMMON_H

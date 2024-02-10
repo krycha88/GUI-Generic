@@ -92,9 +92,9 @@ class SuplaDeviceClass : public Supla::ActionHandler,
              const char *Server,
              const char *email,
              const char authkey[SUPLA_AUTHKEY_SIZE],
-             unsigned char protoVersion = 21);
+             unsigned char protoVersion = 20);
 
-  bool begin(unsigned char protoVersion = 21);
+  bool begin(unsigned char protoVersion = 20);
 
   // Use ASCII only in name
   void setName(const char *Name);
@@ -141,8 +141,6 @@ class SuplaDeviceClass : public Supla::ActionHandler,
   bool prepareLastStateLog();
   char *getLastStateLog();
   void addLastStateLog(const char*);
-  void enableLastStateLog();
-  void disableLastStateLog();
   void setRsaPublicKeyPtr(const uint8_t *ptr);
   const uint8_t *getRsaPublicKey();
   enum Supla::DeviceMode getDeviceMode();
@@ -183,9 +181,6 @@ class SuplaDeviceClass : public Supla::ActionHandler,
   // 0 - no offline mode
   void allowWorkInOfflineMode(int mode = 1);
 
-  bool isRemoteDeviceConfigEnabled() const;
-  void setShowUptimeInChannelState(bool value);
-
  protected:
   int networkIsNotReadyCounter = 0;
 
@@ -209,7 +204,6 @@ class SuplaDeviceClass : public Supla::ActionHandler,
   bool storageInitResult = false;
   int allowOfflineMode = 0;
   bool configEmpty = true;
-  bool showUptimeInChannelState = true;
   Supla::Protocol::SuplaSrpc *srpcLayer = nullptr;
   Supla::Device::SwUpdate *swUpdate = nullptr;
   const uint8_t *rsaPublicKey = nullptr;
@@ -218,7 +212,6 @@ class SuplaDeviceClass : public Supla::ActionHandler,
   _impl_arduino_status impl_arduino_status = nullptr;
 
   Supla::Device::LastStateLogger *lastStateLogger = nullptr;
-  bool lastStateLogEnabled = true;
 
   char *customHostnamePrefix = nullptr;
 

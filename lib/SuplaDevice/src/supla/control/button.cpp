@@ -185,22 +185,18 @@ void Button::onTimer() {
   }
 }
 
-void Button::addAction(uint16_t action, ActionHandler *client, uint16_t event,
+void Button::addAction(int action, ActionHandler *client, int event,
       bool alwaysEnabled) {
   SimpleButton::addAction(action, client, event, alwaysEnabled);
   evaluateMaxMulticlickValue();
 }
 
-void Button::disableAction(int32_t action,
-                           ActionHandler *client,
-                           int32_t event) {
+void Button::disableAction(int action, ActionHandler *client, int event) {
   SimpleButton::disableAction(action, client, event);
   evaluateMaxMulticlickValue();
 }
 
-void Button::enableAction(int32_t action,
-                          ActionHandler *client,
-                          int32_t event) {
+void Button::enableAction(int action, ActionHandler *client, int event) {
   SimpleButton::enableAction(action, client, event);
   evaluateMaxMulticlickValue();
 }
@@ -273,7 +269,7 @@ void Button::evaluateMaxMulticlickValue() {
   }
 }
 
-void Button::addAction(uint16_t action, ActionHandler &client, uint16_t event,
+void Button::addAction(int action, ActionHandler &client, int event,
       bool alwaysEnabled) {
   Button::addAction(action, &client, event, alwaysEnabled);
 }
@@ -315,7 +311,7 @@ bool Button::isMotionSensor() const {
 }
 
 void Button::onLoadConfig(SuplaDeviceClass *sdc) {
-  if (onLoadConfigType == OnLoadConfigType::DONT_LOAD_CONFIG) {
+  if (!useOnLoadConfig) {
     SUPLA_LOG_DEBUG("Button[%d]::onLoadConfig: skip", getButtonNumber());
     return;
   }
@@ -373,26 +369,24 @@ void Button::onLoadConfig(SuplaDeviceClass *sdc) {
       saveConfig = true;
     }
 
-    if (onLoadConfigType == OnLoadConfigType::LOAD_FULL_CONFIG) {
-      int32_t useInputAsConfigButtonValue = 0;
-      Supla::Config::generateKey(
-          key, getButtonNumber(), Supla::Html::BtnConfigTag);
-      if (!cfg->getInt32(key, &useInputAsConfigButtonValue)) {
-        cfg->getInt32(Supla::Html::BtnConfigTag, &useInputAsConfigButtonValue);
-      }
+    int32_t useInputAsConfigButtonValue = 0;
+    Supla::Config::generateKey(
+        key, getButtonNumber(), Supla::Html::BtnConfigTag);
+    if (!cfg->getInt32(key, &useInputAsConfigButtonValue)) {
+      cfg->getInt32(Supla::Html::BtnConfigTag, &useInputAsConfigButtonValue);
+    }
 
-      if (useInputAsConfigButtonValue == 0) {
-        // ON is "0", which is default value
-        SUPLA_LOG_DEBUG("Button[%d] enabling IN as config button",
-            getButtonNumber());
-        configButton = true;
-        addAction(Supla::ENTER_CONFIG_MODE_OR_RESET_TO_FACTORY,
-                  sdc,
-                  Supla::ON_CLICK_10,
-                  true);
-        addAction(
-            Supla::LEAVE_CONFIG_MODE_AND_RESET, sdc, Supla::ON_CLICK_1, true);
-      }
+    if (useInputAsConfigButtonValue == 0) {
+      // ON is "0", which is default value
+      SUPLA_LOG_DEBUG("Button[%d] enabling IN as config button",
+                      getButtonNumber());
+      configButton = true;
+      addAction(Supla::ENTER_CONFIG_MODE_OR_RESET_TO_FACTORY,
+                sdc,
+                Supla::ON_CLICK_10,
+                true);
+      addAction(
+          Supla::LEAVE_CONFIG_MODE_AND_RESET, sdc, Supla::ON_CLICK_1, true);
     }
 
     if (saveConfig) {
@@ -404,7 +398,7 @@ void Button::onLoadConfig(SuplaDeviceClass *sdc) {
 void Button::configureAsConfigButton(SuplaDeviceClass *sdc) {
   SUPLA_LOG_DEBUG("Button[%d]::configureAsConfigButton", getButtonNumber());
   configButton = true;
-  dontUseOnLoadConfig();
+  useOnLoadConfig = false;
   setHoldTime(CFG_MODE_ON_HOLD_TIME);
   setMulticlickTime(300, isBistable());
   addAction(Supla::ENTER_CONFIG_MODE_OR_RESET_TO_FACTORY,
@@ -437,11 +431,7 @@ void Button::setButtonNumber(int8_t btnNumber) {
 }
 
 void Button::dontUseOnLoadConfig() {
-  onLoadConfigType = OnLoadConfigType::DONT_LOAD_CONFIG;
-}
-
-void Button::setOnLoadConfigType(OnLoadConfigType type) {
-  onLoadConfigType = type;
+  useOnLoadConfig = false;
 }
 
 void Button::disableRepeatOnHold(uint32_t threshold) {

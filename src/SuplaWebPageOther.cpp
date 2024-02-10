@@ -78,104 +78,104 @@ void handleOther(int save) {
   uint8_t nr = 0, selected = 0;
 
   WebServer->sendHeaderStart();
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(PATH_OTHER);
+  SuplaSaveResult(save);
+  SuplaJavaScript(PATH_OTHER);
 
-  addForm(webContentBuffer, F("post"), PATH_OTHER);
+  addForm(F("post"), PATH_OTHER);
 #ifdef SUPLA_IMPULSE_COUNTER
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_IMPULSE_COUNTER);
-  addNumberBox(webContentBuffer, INPUT_MAX_IMPULSE_COUNTER, S_QUANTITY, KEY_MAX_IMPULSE_COUNTER, ConfigESP->countFreeGpio(FUNCTION_IMPULSE_COUNTER));
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_IMPULSE_COUNTER);
+  addNumberBox(INPUT_MAX_IMPULSE_COUNTER, S_QUANTITY, KEY_MAX_IMPULSE_COUNTER, ConfigESP->countFreeGpio(FUNCTION_IMPULSE_COUNTER));
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_IMPULSE_COUNTER)->getValueInt(); nr++) {
-    addListGPIOLinkBox(webContentBuffer, INPUT_IMPULSE_COUNTER_GPIO, F("IC GPIO"), getParameterRequest(PATH_IMPULSE_COUNTER_SET, ARG_PARM_NUMBER),
+    addListGPIOLinkBox(INPUT_IMPULSE_COUNTER_GPIO, F("IC GPIO"), getParameterRequest(PATH_IMPULSE_COUNTER_SET, ARG_PARM_NUMBER),
                        FUNCTION_IMPULSE_COUNTER, nr);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_HLW8012
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_HLW8012);
-  addListGPIOBox(webContentBuffer, INPUT_CF, F("CF"), FUNCTION_CF);
-  addListGPIOBox(webContentBuffer, INPUT_CF1, F("CF1"), FUNCTION_CF1);
-  addListGPIOBox(webContentBuffer, INPUT_SEL, F("SELi"), FUNCTION_SEL);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_HLW8012);
+  addListGPIOBox(INPUT_CF, F("CF"), FUNCTION_CF);
+  addListGPIOBox(INPUT_CF1, F("CF1"), FUNCTION_CF1);
+  addListGPIOBox(INPUT_SEL, F("SELi"), FUNCTION_SEL);
   if (ConfigESP->getGpio(FUNCTION_CF) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_CF1) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_SEL) != OFF_GPIO) {
     selected = Supla::GUI::counterHLW8012->getMode();
-    addListBox(webContentBuffer, INPUT_MODE_HLW8012, "Mode", LEVEL_P, 2, selected);
+    addListBox(INPUT_MODE_HLW8012, "Mode", LEVEL_P, 2, selected);
     float count = Supla::GUI::counterHLW8012->getCounter();
-    addNumberBox(webContentBuffer, INPUT_COUNTER_CHANGE_VALUE_HLW8012, String(S_IMPULSE_COUNTER_CHANGE_VALUE) + S_SPACE + F("[kWh]"), F("kWh"), false,
+    addNumberBox(INPUT_COUNTER_CHANGE_VALUE_HLW8012, String(S_IMPULSE_COUNTER_CHANGE_VALUE) + S_SPACE + F("[kWh]"), F("kWh"), false,
                  String(count / 100 / 1000));
-    addLinkBox(webContentBuffer, S_CALIBRATION, getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL) + PATH_HLW8012);
+    addLinkBox(S_CALIBRATION, getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL) + PATH_HLW8012);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_CSE7766
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + F("CSE7766"));
-  addListGPIOBox(webContentBuffer, INPUT_CSE7766_RX, S_RX, FUNCTION_CSE7766_RX);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + F("CSE7766"));
+  addListGPIOBox(INPUT_CSE7766_RX, S_RX, FUNCTION_CSE7766_RX);
   if (ConfigESP->getGpio(FUNCTION_CSE7766_RX) != OFF_GPIO) {
     float count = Supla::GUI::counterCSE7766->getCounter();
-    addNumberBox(webContentBuffer, INPUT_COUNTER_CHANGE_VALUE_CSE7766, String(S_IMPULSE_COUNTER_CHANGE_VALUE) + S_SPACE + F("[kWh]"), F("kWh"), false,
+    addNumberBox(INPUT_COUNTER_CHANGE_VALUE_CSE7766, String(S_IMPULSE_COUNTER_CHANGE_VALUE) + S_SPACE + F("[kWh]"), F("kWh"), false,
                  String(count / 100 / 1000));
-    addLinkBox(webContentBuffer, S_CALIBRATION, getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL) + PATH_CSE7766);
+    addLinkBox(S_CALIBRATION, getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL) + PATH_CSE7766);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_PZEM_V_3
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + F("PZEM-004T V3") + S_SPACE + S_ELECTRIC_PHASE);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + F("PZEM-004T V3") + S_SPACE + S_ELECTRIC_PHASE);
   for (nr = 1; nr <= 3; nr++) {
     if (nr >= 2)
-      addListGPIOBox(webContentBuffer, INPUT_PZEM_RX, String(F("L")) + nr + F(" - RX") + S_OPTIONAL, FUNCTION_PZEM_RX, nr, true, "", true);
+      addListGPIOBox(INPUT_PZEM_RX, String(F("L")) + nr + F(" - RX") + S_OPTIONAL, FUNCTION_PZEM_RX, nr, true, "", true);
     else
-      addListGPIOBox(webContentBuffer, INPUT_PZEM_RX, String(F("L")) + nr + F(" - RX"), FUNCTION_PZEM_RX, nr, true, "", true);
+      addListGPIOBox(INPUT_PZEM_RX, String(F("L")) + nr + F(" - RX"), FUNCTION_PZEM_RX, nr, true, "", true);
 
-    addListGPIOBox(webContentBuffer, INPUT_PZEM_TX, String(F("L")) + nr + F(" - TX"), FUNCTION_PZEM_TX, nr, true, "", true);
+    addListGPIOBox(INPUT_PZEM_TX, String(F("L")) + nr + F(" - TX"), FUNCTION_PZEM_TX, nr, true, "", true);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #if defined(SUPLA_MODBUS_SDM) || defined(SUPLA_MODBUS_SDM_ONE_PHASE)
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + "MODBUS SDM");
-  addListGPIOBox(webContentBuffer, INPUT_SDM630_RX, S_RX, FUNCTION_SDM_RX);
-  addListGPIOBox(webContentBuffer, INPUT_SDM630_TX, S_TX, FUNCTION_SDM_TX);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + "MODBUS SDM");
+  addListGPIOBox(INPUT_SDM630_RX, S_RX, FUNCTION_SDM_RX);
+  addListGPIOBox(INPUT_SDM630_TX, S_TX, FUNCTION_SDM_TX);
 
   if (ConfigESP->getGpio(FUNCTION_SDM_RX) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_SDM_TX) != OFF_GPIO) {
     selected = ConfigESP->getBaudRate(ConfigESP->getGpio(FUNCTION_SDM_RX));
-    addListBox(webContentBuffer, INPUT_SDM630_BAUDRATE, S_BAUDRATE, BAUDRATE_UART_LIST_P, 6, selected);
+    addListBox(INPUT_SDM630_BAUDRATE, S_BAUDRATE, BAUDRATE_UART_LIST_P, 6, selected);
   }
 
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_HC_SR04
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_HC_SR04);
-  addListGPIOBox(webContentBuffer, INPUT_TRIG_GPIO, F("TRIG"), FUNCTION_TRIG);
-  addListGPIOBox(webContentBuffer, INPUT_ECHO_GPIO, F("ECHO"), FUNCTION_ECHO);
-  addNumberBox(webContentBuffer, INPUT_HC_SR04_MAX_SENSOR_READ, S_DEPTH_CM, S_SENSOR_READING_DISTANCE, false,
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_HC_SR04);
+  addListGPIOBox(INPUT_TRIG_GPIO, F("TRIG"), FUNCTION_TRIG);
+  addListGPIOBox(INPUT_ECHO_GPIO, F("ECHO"), FUNCTION_ECHO);
+  addNumberBox(INPUT_HC_SR04_MAX_SENSOR_READ, S_DEPTH_CM, S_SENSOR_READING_DISTANCE, false,
                ConfigManager->get(KEY_HC_SR04_MAX_SENSOR_READ)->getValue());
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_VINDRIKTNING_IKEA
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_VINDRIKTNING_IKEA);
-  addListGPIOBox(webContentBuffer, INPUT_VINDRIKTNING_IKEA_RX, S_RX, FUNCTION_VINDRIKTNING_IKEA);
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_VINDRIKTNING_IKEA);
+  addListGPIOBox(INPUT_VINDRIKTNING_IKEA_RX, S_RX, FUNCTION_VINDRIKTNING_IKEA);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_PMSX003
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_PMSX003);
-  addListGPIOBox(webContentBuffer, INPUT_PMSX003_RX, S_RX, FUNCTION_PMSX003_RX);
-  addListGPIOBox(webContentBuffer, INPUT_PMSX003_TX, S_TX, FUNCTION_PMSX003_TX);
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_PMSX003);
+  addListGPIOBox(INPUT_PMSX003_RX, S_RX, FUNCTION_PMSX003_RX);
+  addListGPIOBox(INPUT_PMSX003_TX, S_TX, FUNCTION_PMSX003_TX);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_RGBW
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_RGBW_RGB_DIMMER);
-  addNumberBox(webContentBuffer, INPUT_RGBW_MAX, S_QUANTITY, KEY_MAX_RGBW, ConfigESP->countFreeGpio(FUNCTION_RGBW_BRIGHTNESS));
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_RGBW_RGB_DIMMER);
+  addNumberBox(INPUT_RGBW_MAX, S_QUANTITY, KEY_MAX_RGBW, ConfigESP->countFreeGpio(FUNCTION_RGBW_BRIGHTNESS));
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_RGBW)->getValueInt(); nr++) {
-    addListGPIOBox(webContentBuffer, INPUT_RGBW_RED, F("RED"), FUNCTION_RGBW_RED, nr, false);
-    addListGPIOBox(webContentBuffer, INPUT_RGBW_GREEN, F("GREEN"), FUNCTION_RGBW_GREEN, nr, false);
-    addListGPIOBox(webContentBuffer, INPUT_RGBW_BLUE, F("BLUE"), FUNCTION_RGBW_BLUE, nr, false);
-    addListGPIOBox(webContentBuffer, INPUT_RGBW_BRIGHTNESS, F("WHITE / DIMMER"), FUNCTION_RGBW_BRIGHTNESS, nr, false);
+    addListGPIOBox(INPUT_RGBW_RED, F("RED"), FUNCTION_RGBW_RED, nr, false);
+    addListGPIOBox(INPUT_RGBW_GREEN, F("GREEN"), FUNCTION_RGBW_GREEN, nr, false);
+    addListGPIOBox(INPUT_RGBW_BLUE, F("BLUE"), FUNCTION_RGBW_BLUE, nr, false);
+    addListGPIOBox(INPUT_RGBW_BRIGHTNESS, F("WHITE / DIMMER"), FUNCTION_RGBW_BRIGHTNESS, nr, false);
 
     uint8_t redPin = ConfigESP->getGpio(nr, FUNCTION_RGBW_RED);
     uint8_t brightnessPin = ConfigESP->getGpio(nr, FUNCTION_RGBW_BRIGHTNESS);
@@ -189,93 +189,93 @@ void handleOther(int save) {
     else {
       selected = OFF_GPIO;
     }
-    addListBox(webContentBuffer, String(INPUT_RGBW_MEMORY) + nr, S_REACTION_AFTER_RESET, MEMORY_P, 3, selected, 0, false);
+    addListBox(String(INPUT_RGBW_MEMORY) + nr, S_REACTION_AFTER_RESET, MEMORY_P, 3, selected, 0, false);
 
 #ifdef SUPLA_BUTTON
     selected = ConfigESP->getNumberButtonAdditional(BUTTON_RGBW, nr);
-    addListNumbersBox(webContentBuffer, String(INPUT_BUTTON_RGBW) + nr, S_BUTTON, ConfigManager->get(KEY_MAX_BUTTON)->getValueInt(), selected);
+    addListNumbersBox(String(INPUT_BUTTON_RGBW) + nr, S_BUTTON, ConfigManager->get(KEY_MAX_BUTTON)->getValueInt(), selected);
 #endif
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_PUSHOVER
-  addFormHeader(webContentBuffer, String(S_SETTING_FOR) + S_SPACE + S_PUSHOVER);
-  addTextBox(webContentBuffer, INPUT_PUSHOVER_USER, F("Your User Key"), KEY_PUSHOVER_USER, 0, MAX_USER_SIZE, false);
-  addTextBox(webContentBuffer, INPUT_PUSHOVER_TOKEN, F("API Token"), KEY_PUSHOVER_TOKEN, 0, MAX_TOKEN_SIZE, false);
+  addFormHeader(String(S_SETTING_FOR) + S_SPACE + S_PUSHOVER);
+  addTextBox(INPUT_PUSHOVER_USER, F("Your User Key"), KEY_PUSHOVER_USER, 0, MAX_USER_SIZE, false);
+  addTextBox(INPUT_PUSHOVER_TOKEN, F("API Token"), KEY_PUSHOVER_TOKEN, 0, MAX_TOKEN_SIZE, false);
 
   for (uint8_t nr = 0; nr < MAX_PUSHOVER_MESSAGE; nr++) {
     uint8_t selected = ConfigManager->get(KEY_PUSHOVER_SOUND)->getElement(nr).toInt();
-    addListBox(webContentBuffer, String(INPUT_PUSHOVER_SOUND) + nr, String(S_SOUND) + S_SPACE + (nr + 1), PUSHOVER_SOUND_LIST_P,
-               Supla::PushoverSound::SOUND_COUNT, selected, false, false);
+    addListBox(String(INPUT_PUSHOVER_SOUND) + nr, String(S_SOUND) + S_SPACE + (nr + 1), PUSHOVER_SOUND_LIST_P, Supla::PushoverSound::SOUND_COUNT,
+               selected, false, false);
 
     String massage = ConfigManager->get(KEY_PUSHOVER_MASSAGE)->getElement(nr).c_str();
-    addTextBox(webContentBuffer, String(INPUT_PUSHOVER_MESSAGE) + nr, String(S_MESSAGE) + S_SPACE + (nr + 1), massage, 0, 0, false);
+    addTextBox(String(INPUT_PUSHOVER_MESSAGE) + nr, String(S_MESSAGE) + S_SPACE + (nr + 1), massage, 0, 0, false);
   }
 
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_DIRECT_LINKS_SENSOR_THERMOMETR
   String input;
 
-  addFormHeader(webContentBuffer, String(S_DIRECT_LINKS) + S_SPACE + "-" + S_SPACE + S_TEMPERATURE);
-  addNumberBox(webContentBuffer, INPUT_MAX_DIRECT_LINKS_SENSOR_THERMOMETR, S_QUANTITY, KEY_MAX_DIRECT_LINKS_SENSOR, MAX_DIRECT_LINK);
+  addFormHeader(String(S_DIRECT_LINKS) + S_SPACE + "-" + S_SPACE + S_TEMPERATURE);
+  addNumberBox(INPUT_MAX_DIRECT_LINKS_SENSOR_THERMOMETR, S_QUANTITY, KEY_MAX_DIRECT_LINKS_SENSOR, MAX_DIRECT_LINK);
 
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_DIRECT_LINKS_SENSOR)->getValueInt(); nr++) {
     input = INPUT_DIRECT_LINKS_SENSOR_THERMOMETR;
     input = input + nr;
     String massage = ConfigManager->get(KEY_DIRECT_LINKS_SENSOR)->getElement(nr).c_str();
-    addTextBox(webContentBuffer, input, String(S_SENSOR) + S_SPACE + (nr + 1), massage, F("xx/xxxxxxxxx/read"), 0, MAX_DIRECT_LINKS_SIZE, false);
+    addTextBox(input, String(S_SENSOR) + S_SPACE + (nr + 1), massage, F("xx/xxxxxxxxx/read"), 0, MAX_DIRECT_LINKS_SIZE, false);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_DIRECT_LINKS_MULTI_SENSOR
-  addFormHeader(webContentBuffer, S_DIRECT_LINKS);
-  addNumberBox(webContentBuffer, INPUT_MAX_DIRECT_LINKS_SENSOR, S_QUANTITY, KEY_MAX_DIRECT_LINKS_SENSOR, MAX_DIRECT_LINK);
+  addFormHeader(S_DIRECT_LINKS);
+  addNumberBox(INPUT_MAX_DIRECT_LINKS_SENSOR, S_QUANTITY, KEY_MAX_DIRECT_LINKS_SENSOR, MAX_DIRECT_LINK);
 
   for (nr = 0; nr < ConfigManager->get(KEY_MAX_DIRECT_LINKS_SENSOR)->getValueInt(); nr++) {
     uint8_t selected = ConfigManager->get(KEY_DIRECT_LINKS_TYPE)->getElement(nr).toInt();
 
     String input = INPUT_DIRECT_LINKS_TYPE;
     input += nr;
-    addListBox(webContentBuffer, input, String(S_TYPE) + S_SPACE + (nr + 1), DIRECT_LINKS_TYPE_LIST_P, DIRECT_LINKS_TYPE_COUNT, selected);
+    addListBox(input, String(S_TYPE) + S_SPACE + (nr + 1), DIRECT_LINKS_TYPE_LIST_P, DIRECT_LINKS_TYPE_COUNT, selected);
 
     input = INPUT_DIRECT_LINKS_SENSOR;
     input += nr;
-    addTextBox(webContentBuffer, input, String(S_SENSOR) + S_SPACE + (nr + 1), ConfigManager->get(KEY_DIRECT_LINKS_SENSOR)->getElement(nr).c_str(),
+    addTextBox(input, String(S_SENSOR) + S_SPACE + (nr + 1), ConfigManager->get(KEY_DIRECT_LINKS_SENSOR)->getElement(nr).c_str(),
                F("xx/xxxxxxxxx/read"), 0, MAX_DIRECT_LINKS_SIZE, false);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_RF_BRIDGE
-  addFormHeader(webContentBuffer, String(S_GPIO_SETTINGS_FOR) + S_SPACE + F("RF BRIDGE"));
-  addListGPIOBox(webContentBuffer, INPUT_RF_BRIDGE_TX, String(S_TRANSMITTER) + S_SPACE + "-" + S_SPACE + S_TX, FUNCTION_RF_BRIDGE_TRANSMITTER);
-  addListGPIOBox(webContentBuffer, INPUT_RF_BRIDGE_RX, String(S_RECEIVER) + S_SPACE + "-" + S_SPACE + S_RX, FUNCTION_RF_BRIDGE_RECEIVE);
+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + F("RF BRIDGE"));
+  addListGPIOBox(INPUT_RF_BRIDGE_TX, String(S_TRANSMITTER) + S_SPACE + "-" + S_SPACE + S_TX, FUNCTION_RF_BRIDGE_TRANSMITTER);
+  addListGPIOBox(INPUT_RF_BRIDGE_RX, String(S_RECEIVER) + S_SPACE + "-" + S_SPACE + S_RX, FUNCTION_RF_BRIDGE_RECEIVE);
   if (ConfigESP->getGpio(FUNCTION_RF_BRIDGE_RECEIVE) != OFF_GPIO) {
-    addLinkBox(webContentBuffer, String(S_CALIBRATION) + S_SPACE + S_CODES, PATH_BRIDGE);
+    addLinkBox(String(S_CALIBRATION) + S_SPACE + S_CODES, PATH_BRIDGE);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_WAKE_ON_LAN
-  addFormHeader(webContentBuffer, "Wake on LAN");
-  addNumberBox(webContentBuffer, INPUT_WAKE_ON_LAN_MAX, S_QUANTITY, KEY_WAKE_ON_LAN_MAX, MAX_WAKE_ON_LAN);
+  addFormHeader("Wake on LAN");
+  addNumberBox(INPUT_WAKE_ON_LAN_MAX, S_QUANTITY, KEY_WAKE_ON_LAN_MAX, MAX_WAKE_ON_LAN);
 
   for (nr = 0; nr < ConfigManager->get(KEY_WAKE_ON_LAN_MAX)->getValueInt(); nr++) {
     String input = INPUT_WAKE_ON_LAN_MAC;
     input += nr;
-    addTextBox(webContentBuffer, input, String("MAC") + S_SPACE + (nr + 1), ConfigManager->get(KEY_WAKE_ON_LAN_MAC)->getElement(nr).c_str(),
-               F("XX:XX:XX:XX:XX:XX"), 0, 17, false);
+    addTextBox(input, String("MAC") + S_SPACE + (nr + 1), ConfigManager->get(KEY_WAKE_ON_LAN_MAC)->getElement(nr).c_str(), F("XX:XX:XX:XX:XX:XX"), 0,
+               17, false);
   }
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeaderEnd();
 #endif
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
-  addButton(webContentBuffer, S_RETURN, PATH_DEVICE_SETTINGS);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
+  addButton(S_RETURN, PATH_DEVICE_SETTINGS);
   WebServer->sendHeaderEnd();
 }
 
@@ -383,7 +383,7 @@ void handleOtherSave() {
     String input = INPUT_BUTTON_RGBW;
     input += nr;
     if (strcmp(WebServer->httpServer->arg(input).c_str(), "") != 0) {
-      ConfigManager->setElement(KEY_NUMBER_BUTTON_ADDITIONAL, BUTTON_RGBW + nr,  static_cast<int>(WebServer->httpServer->arg(input).toInt()));
+      ConfigManager->setElement(KEY_NUMBER_BUTTON_ADDITIONAL, BUTTON_RGBW + nr, static_cast<int>(WebServer->httpServer->arg(input).toInt()));
     }
 
     uint8_t redPin = ConfigESP->getGpio(nr, FUNCTION_RGBW_RED);
@@ -493,20 +493,21 @@ void handleImpulseCounterSet(int save) {
   nr = WebServer->httpServer->arg(ARG_PARM_NUMBER);
   gpio = ConfigESP->getGpio(nr.toInt(), FUNCTION_IMPULSE_COUNTER);
 
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(getParameterRequest(PATH_IMPULSE_COUNTER_SET, ARG_PARM_NUMBER, nr));
+  WebServer->sendHeaderStart();
+  SuplaSaveResult(save);
+  SuplaJavaScript(getParameterRequest(PATH_IMPULSE_COUNTER_SET, ARG_PARM_NUMBER, nr));
 
   if (nr.toInt() <= ConfigManager->get(KEY_MAX_IMPULSE_COUNTER)->getValueInt() && gpio != OFF_GPIO) {
-    addForm(webContentBuffer, F("post"), getParameterRequest(PATH_IMPULSE_COUNTER_SET, ARG_PARM_NUMBER, nr));
-    addFormHeader(webContentBuffer, String(S_SETTING_FOR) + S_SPACE + S_IMPULSE_COUNTER);
+    addForm(F("post"), getParameterRequest(PATH_IMPULSE_COUNTER_SET, ARG_PARM_NUMBER, nr));
+    addFormHeader(String(S_SETTING_FOR) + S_SPACE + S_IMPULSE_COUNTER);
 
     selected = ConfigESP->getMemory(gpio);
-    addCheckBox(webContentBuffer, INPUT_IMPULSE_COUNTER_PULL_UP, S_IMPULSE_COUNTER_PULL_UP, selected);
+    addCheckBox(INPUT_IMPULSE_COUNTER_PULL_UP, S_IMPULSE_COUNTER_PULL_UP, selected);
 
     selected = ConfigESP->getLevel(gpio);
-    addCheckBox(webContentBuffer, INPUT_IMPULSE_COUNTER_RAISING_EDGE, S_IMPULSE_COUNTER_RAISING_EDGE, selected);
+    addCheckBox(INPUT_IMPULSE_COUNTER_RAISING_EDGE, S_IMPULSE_COUNTER_RAISING_EDGE, selected);
 
-    addNumberBox(webContentBuffer, INPUT_IMPULSE_COUNTER_DEBOUNCE_TIMEOUT, String(S_IMPULSE_COUNTER_DEBOUNCE_TIMEOUT) + S_SPACE + S_UNIT_MS,
+    addNumberBox(INPUT_IMPULSE_COUNTER_DEBOUNCE_TIMEOUT, String(S_IMPULSE_COUNTER_DEBOUNCE_TIMEOUT) + S_SPACE + S_UNIT_MS,
                  KEY_IMPULSE_COUNTER_DEBOUNCE_TIMEOUT);
 
     if (Supla::GUI::impulseCounter.size() < ConfigManager->get(KEY_MAX_IMPULSE_COUNTER)->getValueInt()) {
@@ -514,23 +515,23 @@ void handleImpulseCounterSet(int save) {
     }
 
     uint32_t count = Supla::GUI::impulseCounter[nr.toInt()]->getCounter();
-    addNumberBox(webContentBuffer, INPUT_IMPULSE_COUNTER_CHANGE_VALUE, S_IMPULSE_COUNTER_CHANGE_VALUE, F(""), false, String(count));
-    addFormHeaderEnd(webContentBuffer);
+    addNumberBox(INPUT_IMPULSE_COUNTER_CHANGE_VALUE, S_IMPULSE_COUNTER_CHANGE_VALUE, F(""), false, String(count));
+    addFormHeaderEnd();
 
     // LED STATUS COUNTER
-    addFormHeader(webContentBuffer, S_STATUS_LED);
-    addListGPIOBox(webContentBuffer, INPUT_LED_IMPULSE_COUNTER, S_LED, FUNCTION_LED, nr.toInt());
+    addFormHeader(S_STATUS_LED);
+    addListGPIOBox(INPUT_LED_IMPULSE_COUNTER, S_LED, FUNCTION_LED, nr.toInt());
 
     selected = ConfigESP->getInversed(ConfigESP->getGpio(nr.toInt(), FUNCTION_LED));
-    addListBox(webContentBuffer, INPUT_LED_INVERSED_IMPULSE_COUNTER, S_STATE_CONTROL, LEVEL_P, 2, selected);
-    addFormHeaderEnd(webContentBuffer);
+    addListBox(INPUT_LED_INVERSED_IMPULSE_COUNTER, S_STATE_CONTROL, LEVEL_P, 2, selected);
+    addFormHeaderEnd();
 
-    addButtonSubmit(webContentBuffer, S_SAVE);
-    addFormEnd(webContentBuffer);
+    addButtonSubmit(S_SAVE);
+    addFormEnd();
   }
 
-  addButton(webContentBuffer, S_RETURN, PATH_OTHER);
-  WebServer->sendContent();
+  addButton(S_RETURN, PATH_OTHER);
+  WebServer->sendHeaderEnd();
 }
 
 void handleImpulseCounterSaveSet() {
@@ -584,9 +585,9 @@ void handleCounterCalibrate(int save) {
   double curent = 0, voltage = 0, power = 0;
 
   couter = WebServer->httpServer->arg(ARG_PARM_URL);
-
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript(getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL, couter));
+  WebServer->sendHeaderStart();
+  SuplaSaveResult(save);
+  SuplaJavaScript(getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL, couter));
 
 #ifdef SUPLA_HLW8012
   if (couter == PATH_HLW8012) {
@@ -604,27 +605,27 @@ void handleCounterCalibrate(int save) {
   }
 #endif
 
-  addFormHeader(webContentBuffer);
-  webContentBuffer += F("<p style='color:#000;'>Current Multi: ");
-  webContentBuffer += curent;
-  webContentBuffer += F("<br>Voltage Multi: ");
-  webContentBuffer += voltage;
-  webContentBuffer += F("<br>Power Multi: ");
-  webContentBuffer += power;
-  webContentBuffer += F("</p>");
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeader();
+  F("<p style='color:#000;'>Current Multi: ");
+  curent;
+  F("<br>Voltage Multi: ");
+  voltage;
+  F("<br>Power Multi: ");
+  power;
+  F("</p>");
+  addFormHeaderEnd();
 
-  addForm(webContentBuffer, F("post"), getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL, couter));
-  addFormHeader(webContentBuffer, S_CALIBRATION_SETTINGS);
-  addNumberBox(webContentBuffer, INPUT_CALIB_POWER, S_BULB_POWER_W, F("25"), true);
-  addNumberBox(webContentBuffer, INPUT_CALIB_VOLTAGE, S_VOLTAGE_V, F("230"), true);
-  addFormHeaderEnd(webContentBuffer);
+  addForm(F("post"), getParameterRequest(PATH_CALIBRATE, ARG_PARM_URL, couter));
+  addFormHeader(S_CALIBRATION_SETTINGS);
+  addNumberBox(INPUT_CALIB_POWER, S_BULB_POWER_W, F("25"), true);
+  addNumberBox(INPUT_CALIB_VOLTAGE, S_VOLTAGE_V, F("230"), true);
+  addFormHeaderEnd();
 
-  addButtonSubmit(webContentBuffer, S_CALIBRATION);
-  addFormEnd(webContentBuffer);
+  addButtonSubmit(S_CALIBRATION);
+  addFormEnd();
 
-  addButton(webContentBuffer, S_RETURN, PATH_OTHER);
-  WebServer->sendContent();
+  addButton(S_RETURN, PATH_OTHER);
+  WebServer->sendHeaderEnd();
 }
 
 void handleCounterCalibrateSave() {
@@ -677,11 +678,9 @@ void handleCounterCalibrateSave() {
 
 void receiveCodeRFBridge() {
   String code;
-
   if (WebServer->httpServer->arg(ARG_PARM_URL) == "read") {
     RCSwitch mySwitch;
     mySwitch.enableReceive(ConfigESP->getGpio(FUNCTION_RF_BRIDGE_RECEIVE));
-
     unsigned long timeout = millis();
     while ((millis() - timeout) < 5000) {
       if (mySwitch.available()) {
@@ -693,21 +692,20 @@ void receiveCodeRFBridge() {
     }
   }
 
-  addFormHeader(webContentBuffer, String(S_SETTING_FOR) + S_SPACE + S_CODES);
-  webContentBuffer += F("<p style='color:#000;'>");
+  addFormHeader(String(S_SETTING_FOR) + S_SPACE + S_CODES);
+  F("<p style='color:#000;'>");
   if (!code.isEmpty()) {
-    webContentBuffer += code;
+    code;
   }
   else {
-    webContentBuffer += "<br>";
-    webContentBuffer += String(S_NO) + S_SPACE + S_CODES;
-    webContentBuffer += "<br>";
+    "<br>";
+    String(S_NO) + S_SPACE + S_CODES;
+    "<br>";
   }
-  webContentBuffer += F("</p>");
-  addButton(webContentBuffer, S_READ, getParameterRequest(PATH_BRIDGE, ARG_PARM_URL, "read"));
-  addFormHeaderEnd(webContentBuffer);
+  F("</p>");
+  addButton(S_READ, getParameterRequest(PATH_BRIDGE, ARG_PARM_URL, "read"));
+  addFormHeaderEnd();
 
-  addButton(webContentBuffer, S_RETURN, PATH_OTHER);
-  WebServer->sendContent();
+  addButton(S_RETURN, PATH_OTHER);
 }
 #endif

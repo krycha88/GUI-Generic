@@ -19,7 +19,7 @@
 
 #include "SuplaDeviceGUI.h"
 
-#if defined(SUPLA_NTC_10K) || defined(SUPLA_MPX_5XXX) || defined(SUPLA_ANALOG_READING_MAP)
+#if defined(SUPLA_NTC_10K) || defined(SUPLA_MPX_5XXX) || defined(SUPLA_ANALOG_READING_MAP) || defined(SUPLA_ANALOG_READING_KPOP)
 #define GUI_SENSOR_ANALOG
 #endif
 
@@ -47,7 +47,7 @@ void handleSensorAnalogSave();
 
 #endif
 
-#ifdef SUPLA_ANALOG_READING_MAP
+#if defined(SUPLA_ANALOG_READING_MAP) || defined(SUPLA_ANALOG_READING_KPOP)
 #define INPUT_MAX_ANALOG_READING             "imar"
 #define PATH_ANALOG_READING_MAP_MIN          "armin"
 #define PATH_ANALOG_READING_MAP_MAX          "armax"

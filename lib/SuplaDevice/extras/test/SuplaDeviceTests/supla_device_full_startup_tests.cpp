@@ -31,9 +31,6 @@
 #include <timer_mock.h>
 #include <simple_time.h>
 
-// Update this value if you change default Proto Version
-const int defaultProtoVersion = 21;
-
 using ::testing::_;
 using ::testing::Assign;
 using ::testing::DoAll;
@@ -158,7 +155,7 @@ TEST_F(SuplaDeviceTestsFullStartup, SrpcFailureShouldCallDisconnect) {
   EXPECT_CALL(srpc, srpc_params_init(_));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillOnce(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20));
   EXPECT_CALL(srpc, srpc_free(_));
 
   EXPECT_CALL(*client, stop()).Times(1);
@@ -182,7 +179,7 @@ TEST_F(SuplaDeviceTestsFullStartup, NoReplyForDeviceRegistrationShoudResetConnec
   EXPECT_CALL(srpc, srpc_params_init(_)).Times(AtLeast(1));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillRepeatedly(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion)).Times(AtLeast(1));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20)).Times(AtLeast(1));
   EXPECT_CALL(srpc, srpc_free(_));
 
   EXPECT_CALL(el1, iterateAlways()).Times(AtLeast(1));
@@ -217,7 +214,7 @@ TEST_F(SuplaDeviceTestsFullStartup, SuccessfulStartup) {
   EXPECT_CALL(srpc, srpc_params_init(_));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillOnce(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20));
 
   EXPECT_CALL(el1, iterateAlways()).Times(35);
   EXPECT_CALL(el2, iterateAlways()).Times(35);
@@ -837,7 +834,7 @@ TEST_F(SuplaDeviceElementWithSecondaryChannel, SuccessfulStartup) {
   EXPECT_CALL(srpc, srpc_params_init(_)).Times(AtLeast(1));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillRepeatedly(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion)).Times(AtLeast(1));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20)).Times(AtLeast(1));
   EXPECT_CALL(srpc, srpc_free(_)).Times(0);
 
   EXPECT_CALL(el1, iterateAlways()).Times(35);
@@ -897,7 +894,7 @@ TEST_F(SuplaDeviceElementWithSecondaryChannel, SleepingChannel) {
   EXPECT_CALL(srpc, srpc_params_init(_)).Times(AtLeast(1));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillRepeatedly(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion)).Times(AtLeast(1));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20)).Times(AtLeast(1));
   EXPECT_CALL(srpc, srpc_free(_)).Times(0);
 
   EXPECT_CALL(el1, iterateAlways()).Times(35);

@@ -22,12 +22,16 @@ void createWebPageHome() {
       return;
     }
 
-    const String rebotArg = WebServer->httpServer->arg(PATH_REBOT);
+    String rebotArg = WebServer->httpServer->arg(PATH_REBOT);
+
     if (!rebotArg.isEmpty()) {
-      if (rebotArg.equals("3")) {
+      if (rebotArg == "3") {
         handlePageHome(SaveResult::RESTART_MODULE);
       }
-      ConfigESP->rebootESP();
+
+      if (rebotArg == "1" || rebotArg == "2" || rebotArg == "3") {
+        ConfigESP->rebootESP();
+      }
     }
 
     if (WebServer->httpServer->method() == HTTP_GET)
@@ -40,21 +44,21 @@ void createWebPageHome() {
 void handlePageHome(int save) {
   WebServer->sendHeaderStart();
 
-  webContentBuffer += SuplaSaveResult(save);
-  webContentBuffer += SuplaJavaScript();
+  SuplaSaveResult(save);
+  SuplaJavaScript();
 
   if (getCountSensorChannels() > 0) {
-    addFormHeader(webContentBuffer);
+    addFormHeader();
 #ifdef SUPLA_MODBUS_SDM
     if (Supla::GUI::smd) {
-      addLabel(webContentBuffer, "SuccCount:" + String(Supla::GUI::smd->getSuccCount()) + " ErrCount:" + String(Supla::GUI::smd->getErrCount()) +
-                                     " ErrCode:" + String(Supla::GUI::smd->getErrCode()));
+      addLabel("SuccCount:" + String(Supla::GUI::smd->getSuccCount()) + " ErrCount:" + String(Supla::GUI::smd->getErrCount()) +
+               " ErrCode:" + String(Supla::GUI::smd->getErrCode()));
     }
 #endif
 #ifdef SUPLA_MODBUS_SDM_ONE_PHASE
     if (Supla::GUI::smd120) {
-      addLabel(webContentBuffer, "SuccCount:" + String(Supla::GUI::smd120->getSuccCount()) + " ErrCount:" +
-                                     String(Supla::GUI::smd120->getErrCount()) + " ErrCode:" + String(Supla::GUI::smd120->getErrCode()));
+      addLabel("SuccCount:" + String(Supla::GUI::smd120->getSuccCount()) + " ErrCount:" + String(Supla::GUI::smd120->getErrCount()) +
+               " ErrCode:" + String(Supla::GUI::smd120->getErrCode()));
     }
 #endif
     for (auto element = Supla::Element::begin(); element != nullptr; element = element->next()) {
@@ -62,22 +66,20 @@ void handlePageHome(int save) {
         auto channel = element->getChannel();
 
         if (channel->getChannelType() == SUPLA_CHANNELTYPE_THERMOMETER) {
-          addLabel(webContentBuffer,
-                   String(element->getChannelNumber()) + S_SPACE + "-" + S_SPACE + String(channel->getValueDouble(), 2) + S_CELSIUS);
+          addLabel(String(element->getChannelNumber()) + S_SPACE + "-" + S_SPACE + String(channel->getValueDouble(), 2) + S_CELSIUS);
         }
 
         if (channel->getChannelType() == SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR) {
-          addLabel(webContentBuffer, String(element->getChannelNumber()) + S_SPACE + "-" + S_SPACE + String(channel->getValueDoubleFirst(), 2) +
-                                         S_CELSIUS + S_SPACE + String(channel->getValueDoubleSecond(), 2) + "%");
+          addLabel(String(element->getChannelNumber()) + S_SPACE + "-" + S_SPACE + String(channel->getValueDoubleFirst(), 2) + S_CELSIUS + S_SPACE +
+                   String(channel->getValueDoubleSecond(), 2) + "%");
         }
 
         if (channel->getChannelType() == SUPLA_CHANNELTYPE_HUMIDITYSENSOR) {
-          addLabel(webContentBuffer,
-                   String(element->getChannelNumber()) + S_SPACE + "-" + S_SPACE + String(channel->getValueDoubleSecond(), 2) + "%");
+          addLabel(String(element->getChannelNumber()) + S_SPACE + "-" + S_SPACE + String(channel->getValueDoubleSecond(), 2) + "%");
         }
 
         if (channel->getChannelType() == SUPLA_CHANNELTYPE_DISTANCESENSOR) {
-          addLabel(webContentBuffer, String(element->getChannelNumber()) + S_SPACE + "-" + S_SPACE + String(channel->getValueDouble(), 2) + "m");
+          addLabel(String(element->getChannelNumber()) + S_SPACE + "-" + S_SPACE + String(channel->getValueDouble(), 2) + "m");
         }
 
 #ifdef GUI_ALL_ENERGY
@@ -113,71 +115,71 @@ void handlePageHome(int save) {
           power_active.setCharAt(power_active.length() - 2, 'W');
           current.setCharAt(current.length() - 2, 'A');
 
-          addLabel(webContentBuffer, voltage);
-          addLabel(webContentBuffer, power_active);
-          addLabel(webContentBuffer, current);
+          addLabel(voltage);
+          addLabel(power_active);
+          addLabel(current);
         }
 #endif
 
         if (channel->getChannelType() == SUPLA_CHANNELTYPE_PRESSURESENSOR) {
-          addLabel(webContentBuffer, String(channel->getValueDouble()) + "hPa");
+          addLabel(String(channel->getValueDouble()) + "hPa");
         }
       }
 
       if (element->getSecondaryChannel()) {
         auto channel = element->getSecondaryChannel();
         if (channel->getChannelType() == SUPLA_CHANNELTYPE_PRESSURESENSOR) {
-          addLabel(webContentBuffer, String(channel->getValueDouble()) + "hPa");
+          addLabel(String(channel->getValueDouble()) + "hPa");
         }
       }
     }
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeaderEnd();
   }
 
-  addForm(webContentBuffer, F("post"));
+  addForm(F("post"));
 
 #ifdef SUPLA_WT32_ETH01_LAN8720
 
 #else
-  addFormHeader(webContentBuffer, S_SETTING_WIFI_SSID);
-  addTextBox(webContentBuffer, INPUT_WIFI_SSID, S_WIFI_SSID, KEY_WIFI_SSID, 0, MAX_SSID, true);
-  addTextBoxPassword(webContentBuffer, INPUT_WIFI_PASS, S_WIFI_PASS, KEY_WIFI_PASS, 0, MAX_PASSWORD, false);
-  addTextBox(webContentBuffer, INPUT_HOSTNAME, S_HOST_NAME, KEY_HOST_NAME, 0, MAX_HOSTNAME, true);
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeader(S_SETTING_WIFI_SSID);
+  addTextBox(INPUT_WIFI_SSID, S_WIFI_SSID, KEY_WIFI_SSID, 0, MAX_SSID, true);
+  addTextBoxPassword(INPUT_WIFI_PASS, S_WIFI_PASS, KEY_WIFI_PASS, 0, MAX_PASSWORD, false);
+  addTextBox(INPUT_HOSTNAME, S_HOST_NAME, KEY_HOST_NAME, 0, MAX_HOSTNAME, true);
+  addFormHeaderEnd();
 #endif
 
-  addFormHeader(webContentBuffer, S_SETTING_SUPLA);
-  addTextBox(webContentBuffer, INPUT_SERVER, S_SUPLA_SERVER, KEY_SUPLA_SERVER, DEFAULT_SERVER, 0, MAX_SUPLA_SERVER, true);
-  addTextBox(webContentBuffer, INPUT_EMAIL, S_SUPLA_EMAIL, KEY_SUPLA_EMAIL, DEFAULT_EMAIL, 0, MAX_EMAIL, true);
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeader(S_SETTING_SUPLA);
+  addTextBox(INPUT_SERVER, S_SUPLA_SERVER, KEY_SUPLA_SERVER, DEFAULT_SERVER, 0, MAX_SUPLA_SERVER, true);
+  addTextBox(INPUT_EMAIL, S_SUPLA_EMAIL, KEY_SUPLA_EMAIL, DEFAULT_EMAIL, 0, MAX_EMAIL, true);
+  addFormHeaderEnd();
 
-  addFormHeader(webContentBuffer, S_SETTING_ADMIN);
-  addTextBox(webContentBuffer, INPUT_MODUL_LOGIN, S_LOGIN, KEY_LOGIN, 0, MAX_MLOGIN, true);
-  addTextBoxPassword(webContentBuffer, INPUT_MODUL_PASS, S_LOGIN_PASS, KEY_LOGIN_PASS, MIN_PASSWORD, MAX_MPASSWORD, true);
-  addFormHeaderEnd(webContentBuffer);
+  addFormHeader(S_SETTING_ADMIN);
+  addTextBox(INPUT_MODUL_LOGIN, S_LOGIN, KEY_LOGIN, 0, MAX_MLOGIN, true);
+  addTextBoxPassword(INPUT_MODUL_PASS, S_LOGIN_PASS, KEY_LOGIN_PASS, MIN_PASSWORD, MAX_MPASSWORD, true);
+  addFormHeaderEnd();
 
 #ifdef SUPLA_BONEIO
-  addFormHeader(webContentBuffer, String(S_SETTINGS_FOR) + S_SPACE + S_BONEIO);
+  addFormHeader(String(S_SETTINGS_FOR) + S_SPACE + S_BONEIO);
   uint8_t selected = ConfigESP->getLevel(BONEIO_RELAY_CONFIG);
-  addListBox(webContentBuffer, INPUT_RELAY_LEVEL, S_STATE_CONTROL, LEVEL_P, 2, selected);
+  addListBox(INPUT_RELAY_LEVEL, S_STATE_CONTROL, LEVEL_P, 2, selected);
   selected = ConfigESP->getMemory(BONEIO_RELAY_CONFIG);
-  addListBox(webContentBuffer, INPUT_RELAY_MEMORY, S_REACTION_AFTER_RESET, MEMORY_P, 3, selected);
-  addFormHeaderEnd(webContentBuffer);
+  addListBox(INPUT_RELAY_MEMORY, S_REACTION_AFTER_RESET, MEMORY_P, 3, selected);
+  addFormHeaderEnd();
 #endif
 
 #ifdef SUPLA_ROLLERSHUTTER
   uint8_t maxrollershutter = ConfigManager->get(KEY_MAX_RELAY)->getValueInt();
   if (maxrollershutter >= 2) {
-    addFormHeader(webContentBuffer, S_ROLLERSHUTTERS);
-    addNumberBox(webContentBuffer, INPUT_ROLLERSHUTTER, S_QUANTITY, KEY_MAX_ROLLERSHUTTER, (maxrollershutter / 2));
-    addFormHeaderEnd(webContentBuffer);
+    addFormHeader(S_ROLLERSHUTTERS);
+    addNumberBox(INPUT_ROLLERSHUTTER, S_QUANTITY, KEY_MAX_ROLLERSHUTTER, (maxrollershutter / 2));
+    addFormHeaderEnd();
   }
 #endif
 
-  addButtonSubmit(webContentBuffer, S_SAVE);
-  addFormEnd(webContentBuffer);
+  addButtonSubmit(S_SAVE);
+  addFormEnd();
 
-  addButton(webContentBuffer, S_DEVICE_SETTINGS, PATH_DEVICE_SETTINGS);
+  addButton(S_DEVICE_SETTINGS, PATH_DEVICE_SETTINGS);
   WebServer->sendHeaderEnd();
 }
 

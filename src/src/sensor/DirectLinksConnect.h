@@ -44,7 +44,7 @@ class DirectLinksConnect : public Element {
   bool openConnection();
   bool closeConnection();
   void send();
-  String getRequest();
+  const char *getRequest();
   virtual void sendRequest();
   void iterateAlways();
   void onInitNetworkConnected();

@@ -21,9 +21,9 @@
 #include <supla/log_wrapper.h>
 #include <supla/storage/config.h>
 
-void Supla::ElementWithChannelActions::addAction(uint16_t action,
+void Supla::ElementWithChannelActions::addAction(int action,
     Supla::ActionHandler &client,
-    uint16_t event,
+    int event,
     bool alwaysEnabled) {
   auto channel = getChannel();
   if (channel) {
@@ -31,30 +31,29 @@ void Supla::ElementWithChannelActions::addAction(uint16_t action,
   }
 }
 
-void Supla::ElementWithChannelActions::addAction(uint16_t action,
+void Supla::ElementWithChannelActions::addAction(int action,
     Supla::ActionHandler *client,
-    uint16_t event,
+    int event,
     bool alwaysEnabled) {
   ElementWithChannelActions::addAction(action, *client, event, alwaysEnabled);
 }
 
-void Supla::ElementWithChannelActions::runAction(uint16_t event) {
+void Supla::ElementWithChannelActions::runAction(int event) {
   auto channel = getChannel();
   if (channel) {
     channel->runAction(event);
   }
 }
 
-bool Supla::ElementWithChannelActions::isEventAlreadyUsed(
-    uint16_t event, bool ignoreAlwaysEnabled) {
+bool Supla::ElementWithChannelActions::isEventAlreadyUsed(int event) {
   auto channel = getChannel();
   if (channel) {
-    return channel->isEventAlreadyUsed(event, ignoreAlwaysEnabled);
+    return channel->isEventAlreadyUsed(event);
   }
   return false;
 }
 
-void Supla::ElementWithChannelActions::addAction(uint16_t action,
+void Supla::ElementWithChannelActions::addAction(int action,
     Supla::ActionHandler &client,
     Supla::Condition *condition,
     bool alwaysEnabled) {
@@ -66,7 +65,7 @@ void Supla::ElementWithChannelActions::addAction(uint16_t action,
   }
 }
 
-void Supla::ElementWithChannelActions::addAction(uint16_t action,
+void Supla::ElementWithChannelActions::addAction(int action,
     Supla::ActionHandler *client,
     Supla::Condition *condition,
     bool alwaysEnabled) {
@@ -95,51 +94,6 @@ bool Supla::ElementWithChannelActions::loadFunctionFromConfig() {
   return false;
 }
 
-bool Supla::ElementWithChannelActions::loadConfigChangeFlag() {
-  if (getChannelNumber() < 0) {
-    return false;
-  }
-  auto cfg = Supla::Storage::ConfigInstance();
-  if (cfg) {
-    char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
-    generateKey(key, "cfg_chng");
-    uint8_t cfgChangeFlag = 0;
-    if (cfg->getUInt8(key, &cfgChangeFlag)) {
-      SUPLA_LOG_INFO("Channel[%d] config changed offline flag %d",
-                     getChannelNumber(),
-                     cfgChangeFlag);
-      if (cfgChangeFlag) {
-        channelConfigState = Supla::ChannelConfigState::LocalChangePending;
-      } else {
-        channelConfigState = Supla::ChannelConfigState::None;
-      }
-      return true;
-    }
-  }
-  return false;
-}
-
-bool Supla::ElementWithChannelActions::saveConfigChangeFlag() {
-  if (getChannelNumber() < 0) {
-    return false;
-  }
-  auto cfg = Supla::Storage::ConfigInstance();
-  if (cfg) {
-    char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
-    generateKey(key, "cfg_chng");
-    if (channelConfigState == Supla::ChannelConfigState::None ||
-        channelConfigState ==
-            Supla::ChannelConfigState::WaitForConfigFinished) {
-      cfg->setUInt8(key, 0);
-    } else {
-      cfg->setUInt8(key, 1);
-    }
-    cfg->saveWithDelay(5000);
-    return true;
-  }
-  return false;
-}
-
 bool Supla::ElementWithChannelActions::setAndSaveFunction(
     _supla_int_t channelFunction) {
   auto channel = getChannel();
@@ -157,24 +111,5 @@ bool Supla::ElementWithChannelActions::setAndSaveFunction(
     }
     return true;
   }
-  return false;
-}
-
-bool Supla::ElementWithChannelActions::isAnyUpdatePending() {
-  auto channel = getChannel();
-  if (!channel) {
-    return false;
-  }
-
-  if (channelConfigState == Supla::ChannelConfigState::LocalChangePending ||
-      channelConfigState == Supla::ChannelConfigState::SetChannelConfigSend ||
-      channelConfigState == Supla::ChannelConfigState::WaitForConfigFinished) {
-    return true;
-  }
-
-  if (channel->isUpdateReady()) {
-    return true;
-  }
-
   return false;
 }

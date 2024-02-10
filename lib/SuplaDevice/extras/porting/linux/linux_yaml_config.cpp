@@ -684,6 +684,12 @@ bool Supla::LinuxYamlConfig::addHvac(const YAML::Node& ch, int channelNumber) {
   if (ch["aux_thermometer_channel_no"]) {
     paramCount++;
     auxThermometerChannelNo = ch["aux_thermometer_channel_no"].as<int>();
+  } else {
+    SUPLA_LOG_ERROR(
+        "Channel[%d] config: missing mandatory \"aux_thermometer_channel_no\" "
+        "parameter",
+        channelNumber);
+    return false;
   }
 
   if (ch["binary_sensor_channel_no"]) {
@@ -698,10 +704,7 @@ bool Supla::LinuxYamlConfig::addHvac(const YAML::Node& ch, int channelNumber) {
   if (binarySensorChannelNo >= 0) {
     hvac->setBinarySensorChannelNo(binarySensorChannelNo);
   }
-  hvac->setAuxThermometerType(SUPLA_HVAC_AUX_THERMOMETER_TYPE_NOT_SET);
-  if (hvac->getChannelNumber() != auxThermometerChannelNo) {
-    hvac->setAuxThermometerType(SUPLA_HVAC_AUX_THERMOMETER_TYPE_FLOOR);
-  }
+  hvac->setAuxThermometerType(SUPLA_HVAC_AUX_THERMOMETER_TYPE_FLOOR);
   hvac->setTemperatureHisteresisMin(20);  // 0.2 degree
   hvac->setTemperatureHisteresisMax(1000);  // 10 degree
   hvac->setTemperatureAutoOffsetMin(200);   // 2 degrees

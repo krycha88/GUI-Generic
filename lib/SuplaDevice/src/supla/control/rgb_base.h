@@ -31,11 +31,10 @@ class RGBBase : public RGBWBase {
                int blue,
                int colorBrightness,
                int brightness,
-               bool toggle = false,
-               bool instant = false) override;
+               bool toggle = false);
 
-  void onLoadState() override;
-  void onSaveState() override;
+  void onLoadState();
+  void onSaveState();
 };
 
 };  // namespace Control

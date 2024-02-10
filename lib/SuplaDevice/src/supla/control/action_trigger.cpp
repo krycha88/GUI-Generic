@@ -338,9 +338,9 @@ void Supla::Control::ActionTrigger::onInit() {
   if (attachedButton) {
     if (attachedButton->isBistable()) {
       bool isOnChangeUsed = attachedButton->isEventAlreadyUsed(
-          Supla::ON_CHANGE, false);
-      bool isConditionlOnChangeUsed = attachedButton->isEventAlreadyUsed(
-          Supla::CONDITIONAL_ON_CHANGE, false);
+          Supla::ON_CHANGE);
+      bool isConditionlOnChangeUsed =
+          attachedButton->isEventAlreadyUsed(Supla::CONDITIONAL_ON_CHANGE);
 
       if (isOnChangeUsed != isConditionlOnChangeUsed) {
         // for bistable button use on_change <-> on_click_1
@@ -349,15 +349,14 @@ void Supla::Control::ActionTrigger::onInit() {
       }
     } else if (attachedButton->isMonostable()) {
       // for monostable button use on_press/on_release <-> on_click_1
-      bool isOnPressUsed =
-          attachedButton->isEventAlreadyUsed(Supla::ON_PRESS, false);
+      bool isOnPressUsed = attachedButton->isEventAlreadyUsed(Supla::ON_PRESS);
       bool isOnReleaseUsed =
-          attachedButton->isEventAlreadyUsed(Supla::ON_RELEASE, false);
+          attachedButton->isEventAlreadyUsed(Supla::ON_RELEASE);
 
-      bool isConditionalOnPressUsed = attachedButton->isEventAlreadyUsed(
-          Supla::CONDITIONAL_ON_PRESS, false);
+      bool isConditionalOnPressUsed =
+          attachedButton->isEventAlreadyUsed(Supla::CONDITIONAL_ON_PRESS);
       bool isConditionalOnReleaseUsed = attachedButton->isEventAlreadyUsed(
-          Supla::CONDITIONAL_ON_RELEASE, false);
+          Supla::CONDITIONAL_ON_RELEASE);
       // check if only one of those bool values are set to true:
       if (isOnPressUsed && !isOnReleaseUsed && !isConditionalOnPressUsed &&
           !isConditionalOnReleaseUsed) {
@@ -395,32 +394,29 @@ void Supla::Control::ActionTrigger::onInit() {
   if (attachedButton) {
     // Configure default actions for bistable button
     if (attachedButton->isBistable()) {
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_PRESS, true) ||
-          attachedButton->isEventAlreadyUsed(Supla::CONDITIONAL_ON_PRESS,
-                                             true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_PRESS) ||
+          attachedButton->isEventAlreadyUsed(Supla::CONDITIONAL_ON_PRESS)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TURN_ON;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_RELEASE, true) ||
-          attachedButton->isEventAlreadyUsed(Supla::CONDITIONAL_ON_RELEASE,
-                                             true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_RELEASE) ||
+          attachedButton->isEventAlreadyUsed(Supla::CONDITIONAL_ON_RELEASE)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TURN_OFF;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_1, true) ||
-          attachedButton->isEventAlreadyUsed(Supla::ON_CHANGE, true) ||
-          attachedButton->isEventAlreadyUsed(Supla::CONDITIONAL_ON_CHANGE,
-                                             true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_1) ||
+          attachedButton->isEventAlreadyUsed(Supla::ON_CHANGE) ||
+          attachedButton->isEventAlreadyUsed(Supla::CONDITIONAL_ON_CHANGE)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TOGGLE_x1;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_2, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_2)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TOGGLE_x2;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_3, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_3)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TOGGLE_x3;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_4, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_4)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TOGGLE_x4;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_5, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_5)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TOGGLE_x5;
       }
 
@@ -461,22 +457,22 @@ void Supla::Control::ActionTrigger::onInit() {
         addActionToButtonAndDisableIt(Supla::SEND_AT_TURN_OFF,
                                       Supla::ON_RELEASE);
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_HOLD, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_HOLD)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_HOLD;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_1, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_1)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_SHORT_PRESS_x1;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_2, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_2)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_SHORT_PRESS_x2;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_3, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_3)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_SHORT_PRESS_x3;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_4, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_4)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_SHORT_PRESS_x4;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_5, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_CLICK_5)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_SHORT_PRESS_x5;
       }
 
@@ -506,10 +502,10 @@ void Supla::Control::ActionTrigger::onInit() {
 
     } else if (attachedButton->isMotionSensor()) {
       // Configure default actions for motion sensor button
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_PRESS, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_PRESS)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TURN_ON;
       }
-      if (attachedButton->isEventAlreadyUsed(Supla::ON_RELEASE, true)) {
+      if (attachedButton->isEventAlreadyUsed(Supla::ON_RELEASE)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TURN_OFF;
       }
       if (!(disabledCapabilities & SUPLA_ACTION_CAP_TURN_ON)) {

@@ -85,10 +85,8 @@ LocalAction::~LocalAction() {
   }
 }
 
-void LocalAction::addAction(uint16_t action,
-                            ActionHandler &client,
-                            uint16_t event,
-                            bool alwaysEnabled) {
+void LocalAction::addAction(int action, ActionHandler &client, int event,
+    bool alwaysEnabled) {
   auto ptr = new ActionHandlerClient;
   ptr->trigger = this;
   ptr->client = &client;
@@ -100,14 +98,12 @@ void LocalAction::addAction(uint16_t action,
   }
 }
 
-void LocalAction::addAction(uint16_t action,
-                            ActionHandler *client,
-                            uint16_t event,
-                            bool alwaysEnabled) {
+void LocalAction::addAction(int action, ActionHandler *client, int event,
+    bool alwaysEnabled) {
   LocalAction::addAction(action, *client, event, alwaysEnabled);
 }
 
-void LocalAction::runAction(uint16_t event) {
+void LocalAction::runAction(int event) {
   auto ptr = ActionHandlerClient::begin;
   while (ptr) {
     if (ptr->trigger == this && ptr->onEvent == event && ptr->isEnabled()) {
@@ -121,11 +117,10 @@ ActionHandlerClient *LocalAction::getClientListPtr() {
   return ActionHandlerClient::begin;
 }
 
-bool LocalAction::isEventAlreadyUsed(uint16_t event, bool ignoreAlwaysEnabled) {
+bool LocalAction::isEventAlreadyUsed(int event) {
   auto ptr = ActionHandlerClient::begin;
   while (ptr) {
-    if (ptr->trigger == this && ptr->onEvent == event &&
-        (!ignoreAlwaysEnabled || !ptr->isAlwaysEnabled())) {
+    if (ptr->trigger == this && ptr->onEvent == event) {
       return true;
     }
     ptr = ptr->next;
@@ -133,18 +128,15 @@ bool LocalAction::isEventAlreadyUsed(uint16_t event, bool ignoreAlwaysEnabled) {
   return false;
 }
 
-void LocalAction::disableOtherClients(const ActionHandler &client,
-                                      uint16_t event) {
+void LocalAction::disableOtherClients(const ActionHandler &client, int event) {
   disableOtherClients(&client, event);
 }
 
-void LocalAction::enableOtherClients(const ActionHandler &client,
-                                     uint16_t event) {
+void LocalAction::enableOtherClients(const ActionHandler &client, int event) {
   enableOtherClients(&client, event);
 }
 
-void LocalAction::disableOtherClients(const ActionHandler *client,
-                                      uint16_t event) {
+void LocalAction::disableOtherClients(const ActionHandler *client, int event) {
   auto ptr = ActionHandlerClient::begin;
   while (ptr) {
     if (ptr->trigger == this && ptr->onEvent == event &&
@@ -155,8 +147,7 @@ void LocalAction::disableOtherClients(const ActionHandler *client,
   }
 }
 
-void LocalAction::enableOtherClients(const ActionHandler *client,
-                                     uint16_t event) {
+void LocalAction::enableOtherClients(const ActionHandler *client, int event) {
   auto ptr = ActionHandlerClient::begin;
   while (ptr) {
     if (ptr->trigger == this && ptr->onEvent == event &&
@@ -167,7 +158,7 @@ void LocalAction::enableOtherClients(const ActionHandler *client,
   }
 }
 
-ActionHandlerClient *LocalAction::getHandlerForFirstClient(uint16_t event) {
+ActionHandlerClient *LocalAction::getHandlerForFirstClient(int event) {
   auto ptr = ActionHandlerClient::begin;
   while (ptr) {
     if (ptr->trigger == this && ptr->onEvent == event) {
@@ -179,7 +170,7 @@ ActionHandlerClient *LocalAction::getHandlerForFirstClient(uint16_t event) {
 }
 
 ActionHandlerClient *LocalAction::getHandlerForClient(ActionHandler *client,
-                                                   uint16_t event) {
+                                                   int event) {
   auto ptr = ActionHandlerClient::begin;
   while (ptr) {
     if (ptr->trigger == this && ptr->client == client
@@ -195,47 +186,22 @@ bool LocalAction::disableActionsInConfigMode() {
   return false;
 }
 
-void LocalAction::disableAction(int32_t action,
-                                ActionHandler *client,
-                                int32_t event) {
+void LocalAction::disableAction(int action, ActionHandler *client, int event) {
   auto ptr = ActionHandlerClient::begin;
-  bool allEvents = (event == -1);
-  bool allActions = (action == -1);
-  uint16_t eventToCheck = 0;
-  uint16_t actionToCheck = 0;
-  if (action >= 0 && action <= 65535) {
-    actionToCheck = action;
-  }
-  if (event >= 0 && event <= 65535) {
-    eventToCheck = event;
-  }
-
   while (ptr) {
-    if (ptr->trigger == this && (ptr->onEvent == eventToCheck || allEvents) &&
-        ptr->client == client && (ptr->action == actionToCheck || allActions)) {
+    if (ptr->trigger == this && (ptr->onEvent == event || event == -1) &&
+        ptr->client == client && (ptr->action == action || action == -1)) {
       ptr->disable();
     }
     ptr = ptr->next;
   }
 }
 
-void LocalAction::enableAction(int32_t action,
-                               ActionHandler *client,
-                               int32_t event) {
+void LocalAction::enableAction(int action, ActionHandler *client, int event) {
   auto ptr = ActionHandlerClient::begin;
-  bool allEvents = (event == -1);
-  bool allActions = (action == -1);
-  uint16_t eventToCheck = 0;
-  uint16_t actionToCheck = 0;
-  if (action >= 0 && action <= 65535) {
-    actionToCheck = action;
-  }
-  if (event >= 0 && event <= 65535) {
-    eventToCheck = event;
-  }
   while (ptr) {
-    if (ptr->trigger == this && (ptr->onEvent == eventToCheck || allEvents) &&
-        ptr->client == client && (ptr->action == actionToCheck || allActions)) {
+    if (ptr->trigger == this && (ptr->onEvent == event || event == -1) &&
+        ptr->client == client && (ptr->action == action || action == -1)) {
       ptr->enable();
     }
     ptr = ptr->next;
