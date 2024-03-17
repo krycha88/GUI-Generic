@@ -24,11 +24,23 @@ namespace Supla {
 namespace Sensor {
 class BH_1750 : public GeneralPurposeMeasurement {
  public:
-  BH_1750(int8_t address = 0x23);
-  double getValue();
+  explicit BH_1750(int8_t address = 0x23) {
+    setDefaultUnitAfterValue("klx");
+    setDefaultValueDivider(1000000);  // in 0.001 units
+    setKeepHistory(SUPLA_GENERAL_PURPOSE_MEASUREMENT_CHART_TYPE_LINEAR);
 
- private:
-  void onInit();
+    myBH1750 = new BH1750_WE(address);
+  }
+
+  double getValue() {
+    return myBH1750->getLux();
+  }
+
+  void onInit() {
+    myBH1750->init();
+
+    channel.setNewValue(getValue());
+  }
 
  protected:
   BH1750_WE *myBH1750;

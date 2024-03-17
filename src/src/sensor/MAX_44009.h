@@ -24,13 +24,35 @@ namespace Supla {
 namespace Sensor {
 class MAX_44009 : public GeneralPurposeMeasurement {
  public:
-  MAX_44009();
-  double getValue();
+ explicit MAX_44009() {
+    sensor = new Max44009(0x4A);
+    setDefaultUnitAfterValue("lx");
+    setKeepHistory(SUPLA_GENERAL_PURPOSE_MEASUREMENT_CHART_TYPE_LINEAR);
+  }
+
+  double getValue() {
+    int err = sensor->getError();
+
+    if (err != MAX44009_OK) {
+      SUPLA_LOG_DEBUG("MAX44009 [ERROR] Code #%d\n", err);
+      retryCount++;
+      if (retryCount > 3) {
+        retryCount = 0;
+        lux = NAN;
+      }
+    }
+    else {
+      retryCount = 0;
+      lux = sensor->getLux();
+    }
+    return lux;
+  }
+
+  void onInit() {
+    channel.setNewValue(getValue());
+  }
 
  private:
-  void onInit();
-
- protected:
   Max44009 *sensor;
 
   double lux = NAN;

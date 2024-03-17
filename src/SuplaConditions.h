@@ -18,10 +18,6 @@
 
 #include "SuplaDeviceGUI.h"
 
-#include <supla/channel_element.h>
-#include <supla/sensor/electricity_meter.h>
-#include <supla/element_with_channel_actions.h>
-
 #if defined(GUI_SENSOR_SPI) || defined(GUI_SENSOR_I2C) || defined(GUI_SENSOR_1WIRE) || defined(GUI_SENSOR_OTHER) || defined(GUI_SENSOR_ANALOG) || \
     defined(SUPLA_RGBW)
 #define GUI_ALL_SENSOR
@@ -32,6 +28,11 @@
 #endif
 
 #ifdef SUPLA_CONDITIONS
+
+#include <supla/channel_element.h>
+#include <supla/sensor/electricity_meter.h>
+#include <supla/element_with_channel_actions.h>
+
 #define PATH_CONDITIONS "conditions"
 
 #define INPUT_CONDITIONING_MAX         "icm"

@@ -34,38 +34,151 @@ namespace Sensor {
 
 class AnalogReding : public GeneralPurposeMeasurement {
  public:
-  AnalogReding(uint8_t pin);
-
-  void onInit();
+  AnalogReding(uint8_t pin) : GeneralPurposeMeasurement(nullptr, false), pin(pin), min(0), max(0), minDesired(0), maxDesired(0) {
+  }
 
 #ifdef ARDUINO_ARCH_ESP32
-  adc1_channel_t get_adc1_chanel(uint8_t pin);
+  adc1_channel_t get_adc1_chanel(uint8_t pin) {
+    adc1_channel_t chan;
+    switch (pin) {
+      case 32:
+        chan = ADC1_CHANNEL_4;
+        break;
+#ifndef CONFIG_IDF_TARGET_ESP32C3
+      case 33:
+        chan = ADC1_CHANNEL_5;
+        break;
+      case 34:
+        chan = ADC1_CHANNEL_6;
+        break;
+      case 35:
+        chan = ADC1_CHANNEL_7;
+        break;
+#endif
+      case 36:
+        chan = ADC1_CHANNEL_0;
+        break;
+      case 37:
+        chan = ADC1_CHANNEL_1;
+        break;
+      case 38:
+        chan = ADC1_CHANNEL_2;
+        break;
+      case 39:
+        chan = ADC1_CHANNEL_3;
+        break;
+    }
+    return chan;
+  }
 #endif
 
-  uint16_t readValuesFromDevice();
-  virtual double getValue();
+  void onInit() {
+    pinMode(pin, INPUT);
+    channel.setNewValue(getValue());
+  }
 
-  void iterateAlways();
+  uint16_t readValuesFromDevice() {
+#ifdef ARDUINO_ARCH_ESP32
+    adc1_config_channel_atten(get_adc1_chanel(pin), ADC_ATTEN_DB_11);
+#endif
 
-  void onSaveState();
-  void onLoadState();
+    uint16_t average = 0;
+    for (int i = 0; i < NO_OF_SAMPLES; i++) {
+      average += analogRead(pin);
+    }
 
-  double mapDouble(double x, double in_min, double in_max, double out_min, double out_max);
+    average /= NO_OF_SAMPLES;
 
-  void calibrateMinValue();
-  void calibrateMaxValue();
+    return average;
+  }
 
-  void setMinValue(float value);
-  float getMinValue();
+  double getValue() {
+    double value;
 
-  void setMaxValue(float value);
-  float getMaxValue();
+    if (min == max || minDesired == maxDesired)
+      return NAN;
 
-  void setMinDesiredValue(float value);
-  float getMinDesiredValue();
+    value = mapDouble(readValuesFromDevice(), min, max, minDesired, maxDesired);
+    value = constrain(value, minDesired, maxDesired);
 
-  void setMaxDesiredValue(float value);
-  float getMaxDesiredValue();
+    return value;
+  }
+
+  void iterateAlways() {
+    if (millis() - lastReadTime > 1000) {
+      lastReadTime = millis();
+
+      channel.setNewValue(getValue());
+    }
+  }
+
+  void onSaveState() {
+    Supla::Storage::WriteState((unsigned char *)&min, sizeof(min));
+    Supla::Storage::WriteState((unsigned char *)&max, sizeof(max));
+    Supla::Storage::WriteState((unsigned char *)&minDesired, sizeof(minDesired));
+    Supla::Storage::WriteState((unsigned char *)&maxDesired, sizeof(maxDesired));
+  }
+
+  void onLoadState() {
+    Supla::Storage::ReadState((unsigned char *)&min, sizeof(min));
+    Supla::Storage::ReadState((unsigned char *)&max, sizeof(max));
+    Supla::Storage::ReadState((unsigned char *)&minDesired, sizeof(minDesired));
+    Supla::Storage::ReadState((unsigned char *)&maxDesired, sizeof(maxDesired));
+  }
+
+  double mapDouble(double x, double in_min, double in_max, double out_min, double out_max) {
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  }
+
+  void calibrateMinValue() {
+    setMinValue(readValuesFromDevice());
+    Serial.print(F("Calibrate - write MIN value: "));
+    Serial.println(min);
+    Supla::Storage::ScheduleSave(1000);
+  }
+
+  void calibrateMaxValue() {
+    setMaxValue(readValuesFromDevice());
+    Serial.print(F("Calibrate - write MAX value: "));
+    Serial.println(max);
+    Supla::Storage::ScheduleSave(1000);
+  }
+
+  void setMinValue(float value) {
+    min = value;
+    Supla::Storage::ScheduleSave(1000);
+  }
+
+  float getMinValue() {
+    return min;
+  }
+
+  void setMaxValue(float value) {
+    max = value;
+    Supla::Storage::ScheduleSave(1000);
+  }
+
+  float getMaxValue() {
+    return max;
+  }
+
+  void setMinDesiredValue(float value) {
+    minDesired = value;
+    Supla::Storage::ScheduleSave(1000);
+  }
+
+  float getMinDesiredValue() {
+    return minDesired;
+  }
+
+  void setMaxDesiredValue(float value) {
+    maxDesired = value;
+    Supla::Storage::ScheduleSave(1000);
+  }
+
+  float getMaxDesiredValue() {
+    return maxDesired;
+  }
 
  protected:
   uint8_t pin;
