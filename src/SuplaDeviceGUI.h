@@ -190,7 +190,9 @@
 #include "src/sensor/VindriktningIkea.h"
 #endif
 
+#ifdef SUPLA_PMSX003_KPOP
 #include "src/sensor/PMSx003.h"
+#endif
 
 #ifdef SUPLA_WT32_ETH01_LAN8720
 #include "src/network/SuplaGuiWt32_eth01.h"
