@@ -27,25 +27,9 @@
 class SuplaDeviceClass;
 
 namespace Supla {
-
-const char WifiDisableTag[] = "wifi_dis";
-const char EthDisableTag[] = "eth_dis";
-
-class Client;
-
 class Network {
  public:
-  enum class IntfType {
-    Unknown = 0,
-    Ethernet = 1,
-    WiFi = 2,
-  };
-
   static Network *Instance();
-  static Network *FirstInstance();
-  static Network *NextInstance(Network *instance);
-  static Network *GetInstanceByIP(uint32_t ip);
-  static int GetNetIntfCount();
   static void DisconnectProtocols();
   static void Setup();
   static void Disable();
@@ -56,32 +40,22 @@ class Network {
   static void SetNormalMode();
   static void SetSetupNeeded();
   static bool PopSetupNeeded();
-  // returns MAC addres of the main network interface
-  static bool GetMainMacAddr(uint8_t *);
-  // Initialize hostname on all network interfaces with given prefix
-  static void SetHostname(const char *prefix, int macSize);
-  // Returns true when all network interfaces are in timeout
-  static bool IsIpSetupTimeout();
-  static void LoadConfig();
+  static bool GetMacAddr(uint8_t *);
+  static void SetHostname(const char *);
+  static bool IsSuplaSSLEnabled();
 
   static void printData(const char *prefix, const void *buf, const int count);
 
   explicit Network(uint8_t ip[4]);
-  Network();
   virtual ~Network();
-  virtual void onLoadConfig();
   virtual void setup() = 0;
   virtual void disable() = 0;
   virtual void uninit();
   virtual void setConfigMode();
   virtual void setNormalMode();
   virtual bool getMacAddr(uint8_t *);
-  virtual void setHostname(const char *, int macSize);
-  void generateHostname(const char *prefix, int macSize, char *output);
-  virtual bool isIpSetupTimeout();
-  virtual uint32_t getIP();
-
-  virtual Supla::Client *createClient();
+  virtual void setHostname(const char *);
+  virtual bool isSuplaSSLEnabled();
 
   virtual bool isReady() = 0;
   virtual bool iterate();
@@ -94,7 +68,9 @@ class Network {
   virtual void setPassword(const char *wifiPassword);
 
   // SSL configuration
-  static void setSSLEnabled(bool enabled);
+  virtual void setSSLEnabled(bool enabled);
+  bool isSSLEnabled();
+  void setCACert(const char *rootCA);
 
   void clearTimeCounters();
   void setSuplaDeviceClass(SuplaDeviceClass *);
@@ -102,28 +78,19 @@ class Network {
   void setSetupNeeded();
   bool popSetupNeeded();
 
-  enum IntfType getIntfType() const;
-  virtual const char* getIntfName() const;
-
-  bool isIntfDisabledInConfig() const;
-
  protected:
   static Network *netIntf;
-  static Network *firstNetIntf;
-
-  Network *nextNetIntf = nullptr;
   SuplaDeviceClass *sdc = nullptr;
-  const char *rootCACert = nullptr;
-  unsigned int rootCACertSize = 0;
+
+  enum DeviceMode mode = DEVICE_MODE_NORMAL;
+  bool setupNeeded = false;
+  bool useLocalIp;
   unsigned char localIp[4];
   char hostname[32] = {};
 
-  enum IntfType intfType = IntfType::Unknown;
-
-  static enum DeviceMode mode;
-  bool setupNeeded = false;
-  bool useLocalIp = false;
-  bool intfDisabledInConfig = false;
+  bool sslEnabled = true;
+  const char *rootCACert = nullptr;
+  unsigned int rootCACertSize = 0;
 };
 
 };  // namespace Supla

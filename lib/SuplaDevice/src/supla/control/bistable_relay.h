@@ -61,12 +61,11 @@ class BistableRelay : public Relay {
  protected:
   void internalToggle();
 
-  uint32_t disarmTimeMs = 0;
-  uint32_t lastReadTime = 0;
-
-  int16_t statusPin = -1;
+  int statusPin = -1;
   bool statusPullUp = true;
   bool statusHighIsOn = true;
+  uint32_t disarmTimeMs = 0;
+  uint32_t lastReadTime = 0;
   bool busy = false;
 };
 

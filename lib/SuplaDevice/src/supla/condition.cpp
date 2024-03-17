@@ -15,11 +15,8 @@
 */
 
 #include "condition.h"
-
-#include <math.h>
-#include <supla/element_with_channel_actions.h>
-
 #include "events.h"
+#include "element.h"
 
 Supla::Condition::Condition(double threshold, bool useAlternativeValue)
   : threshold(threshold),
@@ -82,11 +79,8 @@ void Supla::Condition::handleAction(int event, int action) {
             ? source->getChannel()->getValueColorBrightness()
             : source->getChannel()->getValueBrightness();
           break;
-        case SUPLA_CHANNELTYPE_GENERAL_PURPOSE_METER:
-        case SUPLA_CHANNELTYPE_GENERAL_PURPOSE_MEASUREMENT:
-          value = source->getChannel()->getValueDouble();
-          break;
-        /* case SUPLA_CHANNELTYPE_ELECTRICITY_METER: */
+          /* case SUPLA_CHANNELTYPE_ELECTRICITY_METER: */
+
         default:
           return;
       }
@@ -106,10 +100,6 @@ void Supla::Condition::handleAction(int event, int action) {
         case SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR:
         case SUPLA_CHANNELTYPE_HUMIDITYSENSOR:
           isValid = useAlternativeValue ? value >= 0 : value >= -273;
-          break;
-        case SUPLA_CHANNELTYPE_GENERAL_PURPOSE_METER:
-        case SUPLA_CHANNELTYPE_GENERAL_PURPOSE_MEASUREMENT:
-          isValid = isnan(value) ? false : true;
           break;
       }
     }
@@ -137,7 +127,7 @@ bool Supla::Condition::checkConditionFor(double val, bool isValid) {
   return false;
 }
 
-void Supla::Condition::setSource(Supla::ElementWithChannelActions *src) {
+void Supla::Condition::setSource(Supla::Element *src) {
   source = src;
 }
 
@@ -145,7 +135,7 @@ void Supla::Condition::setClient(Supla::ActionHandler *clientPtr) {
   client = clientPtr;
 }
 
-void Supla::Condition::setSource(Supla::ElementWithChannelActions &src) {
+void Supla::Condition::setSource(Supla::Element &src) {
   setSource(&src);
 }
 
@@ -157,18 +147,4 @@ void Supla::Condition::activateAction(int action) {
   if (client) {
     client->activateAction(action);
   }
-}
-
-void Supla::Condition::setThreshold(double val) {
-  threshold = val;
-  if (source) {
-    source->runAction(Supla::ON_CHANGE);
-  }
-}
-
-Supla::ActionHandler *Supla::Condition::getRealClient() {
-  if (client) {
-    return client;
-  }
-  return this;
 }

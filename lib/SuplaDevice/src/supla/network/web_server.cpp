@@ -204,10 +204,8 @@ void Supla::WebServer::parsePost(const char *postContent,
         SUPLA_LOG_DEBUG("SERVER: key %s, value %s", key, value);
         for (auto htmlElement = Supla::HtmlElement::begin(); htmlElement;
              htmlElement = htmlElement->next()) {
-          if (htmlElement->section != excludeSection) {
-            if (htmlElement->handleResponse(key, value)) {
-              break;
-            }
+          if (htmlElement->handleResponse(key, value)) {
+            break;
           }
         }
         if (strcmp(key, "rbt") == 0) {
@@ -231,9 +229,7 @@ void Supla::WebServer::parsePost(const char *postContent,
   if (lastChunk) {
     for (auto htmlElement = Supla::HtmlElement::begin(); htmlElement;
         htmlElement = htmlElement->next()) {
-      if (htmlElement->section != excludeSection) {
-        htmlElement->onProcessingEnd();
-      }
+      htmlElement->onProcessingEnd();
     }
 
     if (Supla::Storage::ConfigInstance()) {
@@ -250,9 +246,4 @@ void Supla::WebServer::resetParser() {
   memset(key, 0, HTML_KEY_LENGTH);
   delete [] value;
   value = nullptr;
-  excludeSection = Supla::HtmlSection::HTML_SECTION_BETA_FORM;
-}
-
-void Supla::WebServer::setBetaProcessing() {
-  excludeSection = Supla::HtmlSection::HTML_SECTION_FORM;
 }

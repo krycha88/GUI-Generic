@@ -71,6 +71,13 @@ class AHT : public ThermHygroMeter {
     return value;
   }
 
+  void iterateAlways() {
+    if (millis() - lastReadTime > 10000) {
+      lastReadTime = millis();
+      channel.setNewValue(getTemp(), getHumi());
+    }
+  }
+
  protected:
   Adafruit_AHTX0 aht;
   double lastValidTemp = TEMPERATURE_NOT_AVAILABLE;

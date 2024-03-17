@@ -142,6 +142,7 @@ TEST_F(MqttProcessDataTests, dataProcessTests) {
       });
   EXPECT_TRUE(mqtt.processData(topic0setOn, payload));
   EXPECT_TRUE(mqtt.processData(topic1setOn, payloadFalse));
+
 }
 
 TEST_F(MqttProcessDataTests, relaySetOnTests) {
@@ -387,6 +388,7 @@ TEST_F(MqttProcessDataTests, relaySetOnTests) {
   EXPECT_TRUE(mqtt.processData(
         "supla/devices/my-device-0405ab/channels/0/set/on",
         "tRuE"));
+
 }
 
 TEST_F(MqttProcessDataTests, executeActionTests) {

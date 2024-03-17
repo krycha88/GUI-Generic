@@ -364,12 +364,6 @@ const char *getManufacturer(int16_t id) {
     case SUPLA_MFR_COMELIT: {
       return "Comelit";
     }
-    case SUPLA_MFR_ERGO_ENERGIA: {
-      return "ERGO energia";
-    }
-    case SUPLA_MFR_SOMEF: {
-      return "Somef";
-    }
   }
 
   return "Unknown";
@@ -413,10 +407,6 @@ bool stringToColor(const char *payload,
 
   return true;
 #else
-  (void)(payload);
-  (void)(red);
-  (void)(green);
-  (void)(blue);
   return false;
 #endif
 }

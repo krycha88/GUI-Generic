@@ -31,11 +31,8 @@ class SpiffsStorage : public Storage {
   void commit();
 
  protected:
-  int readStorage(unsigned int address,
-                  unsigned char *buf,
-                  int size,
-                  bool logs);
-  int writeStorage(unsigned int address, const unsigned char *buf, int size);
+  int readStorage(unsigned int, unsigned char *, int, bool);
+  int writeStorage(unsigned int, const unsigned char *, int);
 
   bool dataChanged = false;
   char *buffer = nullptr;

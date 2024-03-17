@@ -22,7 +22,6 @@
 #include <supla/events.h>
 #include <supla/actions.h>
 #include <supla/sensor/electricity_meter.h>
-#include "gmock/gmock.h"
 
 
 class ActionHandlerMock2 : public Supla::ActionHandler {
@@ -123,7 +122,7 @@ TEST(ConditionTests, handleActionTestsForDouble) {
   // nothing should happen
   channel->setNewValue(25.0);
   cond->handleAction(Supla::ON_CHANGE, action1);
-
+  
   // DIMMER use int type on channel value
   channel->setType(SUPLA_CHANNELTYPE_DIMMER);
 
@@ -147,7 +146,7 @@ TEST(ConditionTests, handleActionTestsForDouble) {
   // nothing should happen
   channel->setNewValue(-1, -1, -1, -1, 25);
   cond->handleAction(Supla::ON_CHANGE, action1);
-
+  
   // RGB use int type on channel value
   channel->setType(SUPLA_CHANNELTYPE_RGBLEDCONTROLLER);
 
@@ -160,8 +159,7 @@ TEST(ConditionTests, handleActionTestsForDouble) {
   // 100 is not less than 15, so nothing should happen
   cond->handleAction(Supla::ON_CHANGE, action2);
 
-  // RGBW values -1 doesn't change actual value on channel, so it won't trigger
-  // action
+  // RGBW values -1 doesn't change actual value on channel, so it won't trigger action
   channel->setNewValue(-1, -1, -1, -1, -1);
   cond->handleAction(Supla::ON_CHANGE, action2);
 
@@ -217,7 +215,7 @@ TEST(ConditionTests, handleActionTestsForInt64) {
   // channel should be initialized to 0, so condition should be met
   cond->handleAction(Supla::ON_CHANGE, action1);
 
-  uint64_t newValue = 10000344422234;
+  unsigned _supla_int64_t newValue = 10000344422234;
   channel->setNewValue(newValue);
 
   // newValue is not less than 15.1, so nothing should happen
@@ -303,8 +301,7 @@ TEST(ConditionTests, handleActionTestsForNotSupportedChannel) {
   cond->setSource(channelElement);
   cond->setClient(ahMock);
 
-  // this channel type is not used in library. DS18B20 uses standard THERMOMETER
-  // channel
+  // this channel type is not used in library. DS18B20 uses standard THERMOMETER channel
   channel->setType(SUPLA_CHANNELTYPE_THERMOMETERDS18B20);
 
   cond->handleAction(Supla::ON_CHANGE, action1);
@@ -374,8 +371,7 @@ TEST(ConditionTests, handleActionTestsForSecondDouble) {
   Supla::ChannelElement channelElement;
   auto channel = channelElement.getChannel();
 
-  // second parameter indicates that we should check alternative channel value
-  // (pressure/second float)
+  // second parameter indicates that we should check alternative channel value (pressure/second float)
   auto cond = OnLess(15.1, true);
   cond->setSource(channelElement);
   cond->setClient(ahMock);
@@ -420,8 +416,8 @@ TEST(OnLessTests, OnLessConditionTests) {
   EXPECT_FALSE(cond->checkConditionFor(5));
   EXPECT_FALSE(cond->checkConditionFor(5));
 
-  // Going back above threshold value, should reset expectation and it should
-  // return true on next call with met condition
+  // Going back above threshold value, should reset expectation and it should return
+  // true on next call with met condition
   EXPECT_FALSE(cond->checkConditionFor(50));
   EXPECT_TRUE(cond->checkConditionFor(5));
 
@@ -456,154 +452,5 @@ TEST(ConditionTests, handleActionTestsWithCustomGetter) {
 
   em.setVoltage(0, 110.0 * 100);
   em.updateChannelValues();
-}
 
-TEST(ConditionTests, handleActionTestsForGPMeter) {
-  ActionHandlerMock2 ahMock;
-  const int action1 = 15;
-  const int action2 = 16;
-  const int action3 = 17;
-
-  EXPECT_CALL(ahMock, handleAction(Supla::ON_CHANGE, action1)).Times(2);
-  EXPECT_CALL(ahMock, handleAction(Supla::ON_CHANGE, action2)).Times(1);
-  EXPECT_CALL(ahMock, handleAction(Supla::ON_CHANGE, action3)).Times(1);
-
-  Supla::ChannelElement channelElement;
-  auto channel = channelElement.getChannel();
-
-  auto cond = OnLess(15.1);
-  cond->setSource(channelElement);
-  cond->setClient(ahMock);
-
-  channel->setType(SUPLA_CHANNELTYPE_GENERAL_PURPOSE_METER);
-
-  channel->setNewValue(0.0);
-  // channel should be initialized to 0, so condition should be met
-  cond->handleAction(Supla::ON_CHANGE, action1);
-
-  // 100 is not less than 15.1, so nothing should happen
-  channel->setNewValue(100.0);
-  cond->handleAction(Supla::ON_CHANGE, action2);
-
-  // -0.2 is less than 15.1, so condition is met
-  channel->setNewValue(-0.2);
-  cond->handleAction(Supla::ON_CHANGE, action2);
-
-  channel->setNewValue(15.0);
-  // 15 is less than 15.1, but condition was already used
-  cond->handleAction(Supla::ON_CHANGE, action3);
-
-  // nothing should happen
-  channel->setNewValue(25.0);
-  cond->handleAction(Supla::ON_CHANGE, action1);
-
-  channel->setNewValue(15.0);
-  // 15 is less than 15.1
-  cond->handleAction(Supla::ON_CHANGE, action1);
-
-  // Values NaN should be ignored
-  channel->setNewValue(NAN);
-  cond->handleAction(Supla::ON_CHANGE, action2);
-
-  // going from "invalid" to valid value meeting contidion should trigger action
-  channel->setNewValue(-15.01);
-  cond->handleAction(Supla::ON_CHANGE, action3);
-
-  delete cond;
-}
-
-TEST(ConditionTests, handleActionTestsForGPMesurement) {
-  ActionHandlerMock2 ahMock;
-  const int action1 = 15;
-  const int action2 = 16;
-  const int action3 = 17;
-
-  EXPECT_CALL(ahMock, handleAction(Supla::ON_CHANGE, action1)).Times(2);
-  EXPECT_CALL(ahMock, handleAction(Supla::ON_CHANGE, action2)).Times(1);
-  EXPECT_CALL(ahMock, handleAction(Supla::ON_CHANGE, action3)).Times(1);
-
-  Supla::ChannelElement channelElement;
-  auto channel = channelElement.getChannel();
-
-  auto cond = OnLess(15.1);
-  cond->setSource(channelElement);
-  cond->setClient(ahMock);
-
-  channel->setType(SUPLA_CHANNELTYPE_GENERAL_PURPOSE_MEASUREMENT);
-
-  channel->setNewValue(0.0);
-  // channel should be initialized to 0, so condition should be met
-  cond->handleAction(Supla::ON_CHANGE, action1);
-
-  // 100 is not less than 15.1, so nothing should happen
-  channel->setNewValue(100.0);
-  cond->handleAction(Supla::ON_CHANGE, action2);
-
-  // -0.2 is less than 15.1, so condition is met
-  channel->setNewValue(-0.2);
-  cond->handleAction(Supla::ON_CHANGE, action2);
-
-  channel->setNewValue(15.0);
-  // 15 is less than 15.1, but condition was already used
-  cond->handleAction(Supla::ON_CHANGE, action3);
-
-  // nothing should happen
-  channel->setNewValue(25.0);
-  cond->handleAction(Supla::ON_CHANGE, action1);
-
-  channel->setNewValue(15.0);
-  // 15 is less than 15.1
-  cond->handleAction(Supla::ON_CHANGE, action1);
-
-  // Values NaN should be ignored
-  channel->setNewValue(NAN);
-  cond->handleAction(Supla::ON_CHANGE, action2);
-
-  // going from "invalid" to valid value meeting contidion should trigger action
-  channel->setNewValue(-15.01);
-  cond->handleAction(Supla::ON_CHANGE, action3);
-
-  delete cond;
-}
-
-TEST(ConditionTests, setThresholdCheck) {
-  ActionHandlerMock2 ahMock;
-  const int action1 = 15;
-  EXPECT_CALL(ahMock, activateAction(action1));
-
-  ::testing::InSequence seq;
-
-  Supla::ChannelElement channelElement;
-  auto channel = channelElement.getChannel();
-
-  auto cond = OnLess(15.1);
-  cond->setSource(channelElement);
-  cond->setClient(ahMock);
-  channelElement.addAction(action1, ahMock, cond);
-
-  channel->setType(SUPLA_CHANNELTYPE_WINDSENSOR);
-
-  // channel should be initialized to 0, so condition should be met
-  // however channel value was already 0, so there is no change to its value.
-  // As a result condition is not executed
-  channel->setNewValue(0.0);
-
-  EXPECT_CALL(ahMock, handleAction(Supla::ON_CHANGE, action1)).Times(1);
-  channel->setNewValue(1.0);
-
-  // 100 is not less than 15.1, so nothing should happen
-  channel->setNewValue(100.0);
-
-  cond->setThreshold(90);
-
-  EXPECT_CALL(ahMock, handleAction(Supla::ON_CHANGE, action1)).Times(1);
-  channel->setNewValue(89.0);
-
-  channel->setNewValue(100.0);
-
-  // setting updating threshold above actual value, should tirgger action
-  EXPECT_CALL(ahMock, handleAction(Supla::ON_CHANGE, action1)).Times(1);
-  cond->setThreshold(110);
-
-  cond->setThreshold(120);
 }

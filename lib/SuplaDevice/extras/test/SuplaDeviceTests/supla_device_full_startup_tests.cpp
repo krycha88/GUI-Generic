@@ -31,9 +31,6 @@
 #include <timer_mock.h>
 #include <simple_time.h>
 
-// Update this value if you change default Proto Version
-const int defaultProtoVersion = 21;
-
 using ::testing::_;
 using ::testing::Assign;
 using ::testing::DoAll;
@@ -52,7 +49,7 @@ class SuplaDeviceTests : public ::testing::Test {
   }
 };
 
-class SuplaDeviceTestsFullStartupNoClient : public SuplaDeviceTests {
+class SuplaDeviceTestsFullStartup : public SuplaDeviceTests {
  protected:
   SrpcMock srpc;
   NetworkMock net;
@@ -65,6 +62,8 @@ class SuplaDeviceTestsFullStartupNoClient : public SuplaDeviceTests {
   NetworkClientMock *client = nullptr;
 
   virtual void SetUp() {
+    client = new NetworkClientMock;  // it will be destroyed in
+                                     // Supla::Protocol::SuplaSrpc
     SuplaDeviceTests::SetUp();
 
     EXPECT_CALL(el1, onInit());
@@ -80,16 +79,6 @@ class SuplaDeviceTestsFullStartupNoClient : public SuplaDeviceTests {
 
   virtual void TearDown() {
     SuplaDeviceTests::TearDown();
-    client = nullptr;
-  }
-};
-
-class SuplaDeviceTestsFullStartup : public SuplaDeviceTestsFullStartupNoClient {
- public:
-  virtual void SetUp() {
-    client = new NetworkClientMock;  // it will be destroyed in
-                                     // Supla::Protocol::SuplaSrpc
-    SuplaDeviceTestsFullStartupNoClient::SetUp();
   }
 };
 
@@ -124,10 +113,10 @@ class SuplaDeviceTestsFullStartupManual : public SuplaDeviceTests {
 
 using ::testing::AtLeast;
 
-TEST_F(SuplaDeviceTestsFullStartupNoClient, NoNetworkShouldCallSetupAgain) {
+TEST_F(SuplaDeviceTestsFullStartup, NoNetworkShouldCallSetupAgain) {
   EXPECT_CALL(net, isReady()).WillRepeatedly(Return(false));
   EXPECT_CALL(net, setup()).Times(3);
-//  EXPECT_CALL(*client, stop()).Times(2);
+  EXPECT_CALL(*client, stop()).Times(2);
   EXPECT_CALL(el1, iterateAlways()).Times(AtLeast(1));
   EXPECT_CALL(el2, iterateAlways()).Times(AtLeast(1));
 
@@ -166,7 +155,7 @@ TEST_F(SuplaDeviceTestsFullStartup, SrpcFailureShouldCallDisconnect) {
   EXPECT_CALL(srpc, srpc_params_init(_));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillOnce(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20));
   EXPECT_CALL(srpc, srpc_free(_));
 
   EXPECT_CALL(*client, stop()).Times(1);
@@ -190,7 +179,7 @@ TEST_F(SuplaDeviceTestsFullStartup, NoReplyForDeviceRegistrationShoudResetConnec
   EXPECT_CALL(srpc, srpc_params_init(_)).Times(AtLeast(1));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillRepeatedly(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion)).Times(AtLeast(1));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20)).Times(AtLeast(1));
   EXPECT_CALL(srpc, srpc_free(_));
 
   EXPECT_CALL(el1, iterateAlways()).Times(AtLeast(1));
@@ -225,7 +214,7 @@ TEST_F(SuplaDeviceTestsFullStartup, SuccessfulStartup) {
   EXPECT_CALL(srpc, srpc_params_init(_));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillOnce(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20));
 
   EXPECT_CALL(el1, iterateAlways()).Times(35);
   EXPECT_CALL(el2, iterateAlways()).Times(35);
@@ -268,16 +257,16 @@ TEST_F(SuplaDeviceTestsFullStartup, SuccessfulStartup) {
   EXPECT_EQ(sd.getCurrentStatus(), STATUS_REGISTERED_AND_READY);
 }
 
-TEST_F(SuplaDeviceTestsFullStartupNoClient,
-       NoNetworkShouldCallSetupAgainAndResetDev) {
+TEST_F(SuplaDeviceTestsFullStartup, NoNetworkShouldCallSetupAgainAndResetDev) {
   EXPECT_CALL(net, isReady()).WillRepeatedly(Return(false));
   EXPECT_CALL(net, setup()).Times(2);
+  EXPECT_CALL(*client, stop()).Times(1);
   EXPECT_CALL(el1, iterateAlways()).Times(AtLeast(1));
   EXPECT_CALL(el2, iterateAlways()).Times(AtLeast(1));
   // In tests we can't reset board, so this method will be called few times
   EXPECT_CALL(board, deviceSoftwareReset()).Times(AtLeast(1));
-  EXPECT_CALL(el1, onSaveState()).Times(0);
-  EXPECT_CALL(el2, onSaveState()).Times(0);
+  EXPECT_CALL(el1, onSaveState()).Times(AtLeast(1));
+  EXPECT_CALL(el2, onSaveState()).Times(AtLeast(1));
   sd.setAutomaticResetOnConnectionProblem(100);
 
   for (int i = 0; i < 102*10; i++) {
@@ -845,7 +834,7 @@ TEST_F(SuplaDeviceElementWithSecondaryChannel, SuccessfulStartup) {
   EXPECT_CALL(srpc, srpc_params_init(_)).Times(AtLeast(1));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillRepeatedly(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion)).Times(AtLeast(1));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20)).Times(AtLeast(1));
   EXPECT_CALL(srpc, srpc_free(_)).Times(0);
 
   EXPECT_CALL(el1, iterateAlways()).Times(35);
@@ -905,7 +894,7 @@ TEST_F(SuplaDeviceElementWithSecondaryChannel, SleepingChannel) {
   EXPECT_CALL(srpc, srpc_params_init(_)).Times(AtLeast(1));
   int dummy;
   EXPECT_CALL(srpc, srpc_init(_)).WillRepeatedly(Return(&dummy));
-  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, defaultProtoVersion)).Times(AtLeast(1));
+  EXPECT_CALL(srpc, srpc_set_proto_version(&dummy, 20)).Times(AtLeast(1));
   EXPECT_CALL(srpc, srpc_free(_)).Times(0);
 
   EXPECT_CALL(el1, iterateAlways()).Times(35);

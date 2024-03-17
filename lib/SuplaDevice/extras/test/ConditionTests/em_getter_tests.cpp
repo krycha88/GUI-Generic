@@ -183,13 +183,11 @@ TEST(EmGetterTests, PowerActiveWGetter) {
   EXPECT_FALSE(isValid);
 
   Supla::Sensor::ElectricityMeter em;
-  // current is set, so EM considers that we have measurements
-  em.setCurrent(0, 12 * 1000);
   isValid = true;
   EXPECT_EQ(getter->getValue(&em, &isValid), 0.0);
   EXPECT_FALSE(isValid);
 
-  em.setPowerActive(0, 300 * 100000);  // 300 W
+  em.setPowerActive(0, 300 * 100000); // 300 W
   em.updateChannelValues();
   EXPECT_NEAR(getter->getValue(&em, &isValid), 300.0, 0.005);
   EXPECT_TRUE(isValid);
@@ -233,8 +231,6 @@ TEST(EmGetterTests, TotalPowerActiveWGetter) {
   EXPECT_FALSE(isValid);
 
   Supla::Sensor::ElectricityMeter em;
-  // current is set, so EM considers that we have measurements
-  em.setCurrent(0, 12 * 1000);
   isValid = true;
   EXPECT_EQ(getter->getValue(&em, &isValid), 0.0);
   EXPECT_FALSE(isValid);
@@ -277,8 +273,6 @@ TEST(EmGetterTests, PowerApparentGetter) {
   EXPECT_FALSE(isValid);
 
   Supla::Sensor::ElectricityMeter em;
-  // current is set, so EM considers that we have measurements
-  em.setCurrent(0, 12 * 1000);
   isValid = true;
   EXPECT_EQ(getter->getValue(&em, &isValid), 0.0);
   EXPECT_FALSE(isValid);
@@ -327,8 +321,6 @@ TEST(EmGetterTests, TotalPowerApparentGetter) {
   EXPECT_FALSE(isValid);
 
   Supla::Sensor::ElectricityMeter em;
-  // current is set, so EM considers that we have measurements
-  em.setCurrent(0, 12 * 1000);
   isValid = true;
   EXPECT_EQ(getter->getValue(&em, &isValid), 0.0);
   EXPECT_FALSE(isValid);
@@ -371,8 +363,6 @@ TEST(EmGetterTests, PowerReactiveGetter) {
   EXPECT_FALSE(isValid);
 
   Supla::Sensor::ElectricityMeter em;
-  // current is set, so EM considers that we have measurements
-  em.setCurrent(0, 12 * 1000);
   isValid = true;
   EXPECT_EQ(getter->getValue(&em, &isValid), 0.0);
   EXPECT_FALSE(isValid);
@@ -421,8 +411,6 @@ TEST(EmGetterTests, TotalPowerReactiveGetter) {
   EXPECT_FALSE(isValid);
 
   Supla::Sensor::ElectricityMeter em;
-  // current is set, so EM considers that we have measurements
-  em.setCurrent(0, 12 * 1000);
   isValid = true;
   EXPECT_EQ(getter->getValue(&em, &isValid), 0.0);
   EXPECT_FALSE(isValid);

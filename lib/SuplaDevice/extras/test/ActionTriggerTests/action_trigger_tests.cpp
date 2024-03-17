@@ -30,7 +30,7 @@
 #include <supla/control/button.h>
 #include <supla/control/virtual_relay.h>
 #include <supla/protocol/supla_srpc.h>
-#include <storage_mock.h>
+#include <supla/storage/storage.h>
 #include "supla/actions.h"
 #include "supla/events.h"
 
@@ -39,6 +39,22 @@ using ::testing::DoAll;
 using ::testing::Pointee;
 using ::testing::Return;
 using ::testing::SetArgPointee;
+
+class StorageMock : public Supla::Storage {
+ public:
+  MOCK_METHOD(void, scheduleSave, (uint32_t), (override));
+  MOCK_METHOD(void, commit, (), (override));
+  MOCK_METHOD(int,
+              readStorage,
+              (unsigned int, unsigned char *, int, bool),
+              (override));
+  MOCK_METHOD(int,
+              writeStorage,
+              (unsigned int, const unsigned char *, int),
+              (override));
+  MOCK_METHOD(bool, readState, (unsigned char *, int), (override));
+  MOCK_METHOD(bool, writeState, (const unsigned char *, int), (override));
+};
 
 class SuplaSrpcStub : public Supla::Protocol::SuplaSrpc {
  public:
@@ -57,6 +73,8 @@ class ActionTriggerTests : public ::testing::Test {
   SuplaSrpcStub *suplaSrpc = nullptr;
 
   virtual void SetUp() {
+    new NetworkClientMock;  // it will be destroyed in
+                            // Supla::Protocol::SuplaSrpc
     suplaSrpc = new SuplaSrpcStub(&sd);
     suplaSrpc->setRegisteredAndReady();
     Supla::Channel::lastCommunicationTimeMs = 0;
@@ -448,15 +466,15 @@ TEST_F(ActionTriggerTests, ManageLocalActionsForMonostableButtonOnPress) {
 
   EXPECT_EQ(b1.getMaxMulticlickValue(), 0);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
 
   // on init call is executed in SuplaDevice.setup()
   at.onInit();
   EXPECT_EQ(b1.getMaxMulticlickValue(), 0);
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(b1.getHandlerForFirstClient(Supla::ON_PRESS)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
 
@@ -584,14 +602,14 @@ TEST_F(ActionTriggerTests,
   b1.addAction(Supla::TURN_OFF, ah, Supla::ON_HOLD);
   at.attach(b1);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::CONDITIONAL_ON_PRESS, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::CONDITIONAL_ON_PRESS));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
 
   // on init call is executed in SuplaDevice.setup()
   at.onInit();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(
       b1.getHandlerForFirstClient(Supla::CONDITIONAL_ON_PRESS)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
@@ -724,14 +742,14 @@ TEST_F(ActionTriggerTests, ManageLocalActionsForMonostableButtonOnRelease) {
   b1.addAction(Supla::TURN_OFF, ah, Supla::ON_HOLD);
   at.attach(b1);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
 
   // on init call is executed in SuplaDevice.setup()
   at.onInit();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(b1.getHandlerForFirstClient(Supla::ON_RELEASE)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
 
@@ -857,14 +875,14 @@ TEST_F(ActionTriggerTests,
   b1.addAction(Supla::TURN_OFF, ah, Supla::ON_HOLD);
   at.attach(b1);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::CONDITIONAL_ON_RELEASE, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::CONDITIONAL_ON_RELEASE));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
 
   // on init call is executed in SuplaDevice.setup()
   at.onInit();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(
       b1.getHandlerForFirstClient(Supla::CONDITIONAL_ON_RELEASE)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
@@ -1001,14 +1019,14 @@ TEST_F(ActionTriggerTests,
   b1.addAction(Supla::TURN_OFF, ah, Supla::ON_HOLD);
   at.attach(b1);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
 
   // on init call is executed in SuplaDevice.setup()
   at.onInit();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(b1.getHandlerForFirstClient(Supla::ON_RELEASE)->isEnabled());
   EXPECT_TRUE(b1.getHandlerForFirstClient(Supla::ON_PRESS)->isEnabled());
 
@@ -1137,14 +1155,14 @@ TEST_F(ActionTriggerTests, ManageLocalActionsForBistableButton) {
   b1.addAction(Supla::TURN_ON, ah, Supla::CONDITIONAL_ON_PRESS);
   at.attach(b1);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CHANGE, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::CONDITIONAL_ON_PRESS, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CHANGE));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::CONDITIONAL_ON_PRESS));
 
   // on init call is executed in SuplaDevice.setup()
   at.onInit();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(b1.getHandlerForFirstClient(Supla::ON_CHANGE)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
 
@@ -1262,14 +1280,14 @@ TEST_F(ActionTriggerTests,
   b1.addAction(Supla::TOGGLE, ah, Supla::CONDITIONAL_ON_CHANGE);
   at.attach(b1);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::CONDITIONAL_ON_CHANGE, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::CONDITIONAL_ON_CHANGE));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
 
   // on init call is executed in SuplaDevice.setup()
   at.onInit();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(
       b1.getHandlerForFirstClient(Supla::CONDITIONAL_ON_CHANGE)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
@@ -1395,14 +1413,14 @@ TEST_F(ActionTriggerTests, AlwaysEnabledLocalAction) {
   b1.addAction(Supla::TURN_OFF, ah, Supla::ON_HOLD, true);  // always enabled
   at.attach(b1);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
 
   // on init call is executed in SuplaDevice.setup()
   at.onInit();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(b1.getHandlerForFirstClient(Supla::ON_PRESS)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
 
@@ -1464,7 +1482,7 @@ TEST_F(ActionTriggerTests, AlwaysEnabledLocalAction) {
 
   EXPECT_EQ(propInRegister->relatedChannelNumber, 0);
   EXPECT_EQ(propInRegister->disablesLocalOperation,
-            SUPLA_ACTION_CAP_SHORT_PRESS_x1);
+            SUPLA_ACTION_CAP_HOLD | SUPLA_ACTION_CAP_SHORT_PRESS_x1);
 }
 
 TEST_F(ActionTriggerTests, RemoveSomeActionsFromATAttachWithStorage) {
@@ -1475,7 +1493,6 @@ TEST_F(ActionTriggerTests, RemoveSomeActionsFromATAttachWithStorage) {
   Supla::Control::ActionTrigger at;
   ActionHandlerMock ah;
 
-  storage.defaultInitialization(4);
   // initial configuration
   b1.addAction(Supla::TOGGLE, ah, Supla::ON_PRESS);
   b1.addAction(Supla::TURN_OFF, ah, Supla::ON_HOLD, true);  // always enabled
@@ -1487,33 +1504,27 @@ TEST_F(ActionTriggerTests, RemoveSomeActionsFromATAttachWithStorage) {
   at.disableATCapability(SUPLA_ACTION_CAP_SHORT_PRESS_x2);
   at.disableATCapability(SUPLA_ACTION_CAP_SHORT_PRESS_x4);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
 
   EXPECT_CALL(storage, scheduleSave(2000));
 
-  // updates of section preamble
-  EXPECT_CALL(storage, writeStorage(8, _, 7)).WillRepeatedly(Return(7));
-  EXPECT_CALL(storage, commit()).WillRepeatedly(Return());
-
   // onLoadState expectations
-  EXPECT_CALL(storage, readStorage(_, _, 4, _))
-      .Times(2)
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-          uint32_t storageData = 0;
-          memcpy(data, &storageData, sizeof(storageData));
-          return sizeof(storageData);
-          });
+  uint32_t storedActionsFromServer = 0;
+  EXPECT_CALL(storage, readState(_, 4))
+      .WillOnce(DoAll(SetArgPointee<0>(storedActionsFromServer), Return(true)));
+
+  // onSaveState expectations
+  EXPECT_CALL(storage, writeState(Pointee(storedActionsFromServer), 4));
 
   // on init call is executed in SuplaDevice.setup()
   at.onLoadConfig(nullptr);
-  Supla::Storage::LoadStateStorage();
+  at.onLoadState();
   at.onInit();
-  Supla::Storage::WriteStateStorage();
+  at.onSaveState();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(b1.getHandlerForFirstClient(Supla::ON_PRESS)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
 
@@ -1574,7 +1585,7 @@ TEST_F(ActionTriggerTests, RemoveSomeActionsFromATAttachWithStorage) {
 
   EXPECT_EQ(propInRegister->relatedChannelNumber, 0);
   EXPECT_EQ(propInRegister->disablesLocalOperation,
-            SUPLA_ACTION_CAP_SHORT_PRESS_x1);
+            SUPLA_ACTION_CAP_HOLD | SUPLA_ACTION_CAP_SHORT_PRESS_x1);
 
   EXPECT_EQ(Supla::Channel::reg_dev.channels[at.getChannelNumber()].FuncList,
             SUPLA_ACTION_CAP_SHORT_PRESS_x1 | SUPLA_ACTION_CAP_SHORT_PRESS_x3 |
@@ -1595,11 +1606,11 @@ TEST_F(ActionTriggerTests, ManageLocalActionsForMonostableButtonWithCfg) {
   at.attach(b1);
   b1.configureAsConfigButton(&sd);
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_NE(b1.getHandlerForClient(&sd, Supla::ON_CLICK_1), nullptr);
   EXPECT_EQ(b1.getHandlerForClient(&ah, Supla::ON_CLICK_1), nullptr);
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
 
   // on init call is executed in SuplaDevice.setup()
   at.onInit();
@@ -1747,22 +1758,20 @@ TEST_F(ActionTriggerTests, ActionHandlingType_PublishAllDisableAllTest) {
   at.disableATCapability(SUPLA_ACTION_CAP_SHORT_PRESS_x2);
   at.disableATCapability(SUPLA_ACTION_CAP_SHORT_PRESS_x4);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
 
   EXPECT_CALL(storage, scheduleSave(2000));
 
-  storage.defaultInitialization();
-
   // onLoadState expectations
   uint32_t storedActionsFromServer = 0;
-  EXPECT_CALL(storage, readStorage(_, _, 4, _))
-      .WillOnce(DoAll(SetArgPointee<1>(storedActionsFromServer), Return(4)));
+  EXPECT_CALL(storage, readState(_, 4))
+      .WillOnce(DoAll(SetArgPointee<0>(storedActionsFromServer), Return(true)));
 
   // onSaveState expectations
   uint32_t actionsFromServerToBeSaved = 0xFFFFFFFF;
-  EXPECT_CALL(storage, writeStorage(_, Pointee(actionsFromServerToBeSaved), 4));
+  EXPECT_CALL(storage, writeState(Pointee(actionsFromServerToBeSaved), 4));
 
   // on init call is executed in SuplaDevice.setup()
   at.onLoadConfig(nullptr);
@@ -1770,7 +1779,7 @@ TEST_F(ActionTriggerTests, ActionHandlingType_PublishAllDisableAllTest) {
   at.onInit();
   at.onSaveState();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_PRESS)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
 
@@ -1834,7 +1843,7 @@ TEST_F(ActionTriggerTests, ActionHandlingType_PublishAllDisableAllTest) {
 
   EXPECT_EQ(propInRegister->relatedChannelNumber, 0);
   EXPECT_EQ(propInRegister->disablesLocalOperation,
-            SUPLA_ACTION_CAP_SHORT_PRESS_x1);
+            SUPLA_ACTION_CAP_HOLD | SUPLA_ACTION_CAP_SHORT_PRESS_x1);
 
   EXPECT_EQ(Supla::Channel::reg_dev.channels[at.getChannelNumber()].FuncList,
             SUPLA_ACTION_CAP_SHORT_PRESS_x1 | SUPLA_ACTION_CAP_SHORT_PRESS_x3 |
@@ -1869,34 +1878,27 @@ TEST_F(ActionTriggerTests, ActionHandlingType_PublishAllDisableNoneTest) {
   at.disableATCapability(SUPLA_ACTION_CAP_HOLD);
   at.disableATCapability(SUPLA_ACTION_CAP_SHORT_PRESS_x2);
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
-
-  storage.defaultInitialization(4);
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
 
   EXPECT_CALL(storage, scheduleSave(2000)).Times(2);
-  // updates of section preamble
-  EXPECT_CALL(storage, writeStorage(8, _, 7)).WillRepeatedly(Return(7));
-  EXPECT_CALL(storage, commit()).WillRepeatedly(Return());
 
   // onLoadState expectations
-  EXPECT_CALL(storage, readStorage(_, _, 4, _))
-      .Times(2)
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-          uint32_t storageData = 0;
-          memcpy(data, &storageData, sizeof(storageData));
-          return sizeof(storageData);
-          });
+  uint32_t storedActionsFromServer = 0;
+  EXPECT_CALL(storage, readState(_, 4))
+      .WillOnce(DoAll(SetArgPointee<0>(storedActionsFromServer), Return(true)));
+
+  // onSaveState expectations
+  EXPECT_CALL(storage, writeState(Pointee(storedActionsFromServer), 4));
 
   // on init call is executed in SuplaDevice.setup()
   at.onLoadConfig(nullptr);
-  Supla::Storage::LoadStateStorage();
+  at.onLoadState();
   at.onInit();
-  Supla::Storage::WriteStateStorage();
+  at.onSaveState();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_PRESS)->isEnabled());
   EXPECT_TRUE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
 
@@ -1990,7 +1992,7 @@ TEST_F(ActionTriggerTests, ActionHandlingType_PublishAllDisableNoneTest) {
 
   EXPECT_EQ(propInRegister->relatedChannelNumber, 0);
   EXPECT_EQ(propInRegister->disablesLocalOperation,
-            SUPLA_ACTION_CAP_SHORT_PRESS_x1);
+            SUPLA_ACTION_CAP_HOLD | SUPLA_ACTION_CAP_SHORT_PRESS_x1);
 
   EXPECT_EQ(Supla::Channel::reg_dev.channels[at.getChannelNumber()].FuncList,
             SUPLA_ACTION_CAP_SHORT_PRESS_x1 | SUPLA_ACTION_CAP_SHORT_PRESS_x3 |
@@ -2021,34 +2023,27 @@ TEST_F(ActionTriggerTests, ActionHandlingType_RelayOnSuplaServerTest) {
   at.attach(b1);
   at.enableStateStorage();
 
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS, false));
-  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE, false));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_PRESS));
+  EXPECT_FALSE(b1.isEventAlreadyUsed(Supla::ON_RELEASE));
 
   EXPECT_CALL(storage, scheduleSave(2000)).Times(2);
-  storage.defaultInitialization(4);
-
-  // updates of section preamble
-  EXPECT_CALL(storage, writeStorage(8, _, 7)).WillRepeatedly(Return(7));
-  EXPECT_CALL(storage, commit()).WillRepeatedly(Return());
 
   // onLoadState expectations
-  EXPECT_CALL(storage, readStorage(_, _, 4, _))
-      .Times(2)
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-          uint32_t storageData = 0;
-          memcpy(data, &storageData, sizeof(storageData));
-          return sizeof(storageData);
-          });
+  uint32_t storedActionsFromServer = 0;
+  EXPECT_CALL(storage, readState(_, 4))
+      .WillOnce(DoAll(SetArgPointee<0>(storedActionsFromServer), Return(true)));
+
+  // onSaveState expectations
+  EXPECT_CALL(storage, writeState(Pointee(storedActionsFromServer), 4));
 
   // on init call is executed in SuplaDevice.setup()
   at.onLoadConfig(nullptr);
-  Supla::Storage::LoadStateStorage();
+  at.onLoadState();
   at.onInit();
-  Supla::Storage::WriteStateStorage();
+  at.onSaveState();
 
-  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1, false));
+  EXPECT_TRUE(b1.isEventAlreadyUsed(Supla::ON_CLICK_1));
   EXPECT_TRUE(b1.getHandlerForFirstClient(Supla::ON_PRESS)->isEnabled());
   EXPECT_FALSE(b1.getHandlerForFirstClient(Supla::ON_CLICK_1)->isEnabled());
 

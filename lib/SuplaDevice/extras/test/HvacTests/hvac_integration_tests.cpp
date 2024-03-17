@@ -66,20 +66,18 @@ class HvacIntegrationF : public ::testing::Test {
 
     // init min max ranges for tempreatures setting and check again setters
     // for temperatures
-    hvac->setDefaultTemperatureRoomMin(
-        SUPLA_CHANNELFNC_HVAC_THERMOSTAT_HEAT_COOL,
-        500);  // 5 degrees
+    hvac->setDefaultTemperatureRoomMin(SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO,
+                                       500);  // 5 degrees
     hvac->setDefaultTemperatureRoomMin(SUPLA_CHANNELFNC_HVAC_THERMOSTAT,
                                        500);  // 5 degrees
-    hvac->setDefaultTemperatureRoomMax(
-        SUPLA_CHANNELFNC_HVAC_THERMOSTAT_HEAT_COOL,
-        5000);  // 50 degrees
+    hvac->setDefaultTemperatureRoomMax(SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO,
+                                       5000);  // 50 degrees
     hvac->setDefaultTemperatureRoomMax(SUPLA_CHANNELFNC_HVAC_THERMOSTAT,
                                        5000);  // 50 degrees
     hvac->setTemperatureHisteresisMin(20);      // 0.2 degree
     hvac->setTemperatureHisteresisMax(1000);    // 10 degree
-    hvac->setTemperatureHeatCoolOffsetMin(200);     // 2 degrees
-    hvac->setTemperatureHeatCoolOffsetMax(1000);    // 10 degrees
+    hvac->setTemperatureAutoOffsetMin(200);     // 2 degrees
+    hvac->setTemperatureAutoOffsetMax(1000);    // 10 degrees
     hvac->setTemperatureAuxMin(500);   // 5 degrees
     hvac->setTemperatureAuxMax(7500);  // 75 degrees
     hvac->addAvailableAlgorithm(SUPLA_HVAC_ALGORITHM_ON_OFF_SETPOINT_MIDDLE);
@@ -136,26 +134,23 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeating) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -164,11 +159,9 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeating) {
   EXPECT_CALL(primaryOutput, setOutputValue(0)).Times(1).InSequence(seq1);
 
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
@@ -177,33 +170,29 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeating) {
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(primaryOutput, setOutputValue(1)).Times(1).InSequence(seq1);
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
-                      SUPLA_HVAC_VALUE_FLAG_HEATING);
+                  SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(primaryOutput, setOutputValue(0)).Times(1).InSequence(seq1);
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
@@ -212,33 +201,29 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeating) {
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(primaryOutput, setOutputValue(1)).Times(1).InSequence(seq1);
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
-                      SUPLA_HVAC_VALUE_FLAG_HEATING);
+                  SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(primaryOutput, setOutputValue(0)).Times(1).InSequence(seq1);
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
@@ -247,33 +232,30 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeating) {
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
+
 
   EXPECT_CALL(primaryOutput, setOutputValue(1)).Times(1).InSequence(seq1);
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
-                      SUPLA_HVAC_VALUE_FLAG_HEATING);
+                  SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(primaryOutput, setOutputValue(0)).Times(1).InSequence(seq1);
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
@@ -282,14 +264,12 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeating) {
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_OFF);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
@@ -298,50 +278,44 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeating) {
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(primaryOutput, setOutputValue(1)).Times(1).InSequence(seq1);
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
-                      SUPLA_HVAC_VALUE_FLAG_HEATING);
+                  SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
-                      SUPLA_HVAC_VALUE_FLAG_HEATING);
+                  SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2300);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(primaryOutput, setOutputValue(0)).Times(1).InSequence(seq1);
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags, 0);
@@ -349,13 +323,11 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeating) {
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_OFF);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 0);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
@@ -364,25 +336,23 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeating) {
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2300);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   EXPECT_CALL(primaryOutput, setOutputValue(1)).Times(1).InSequence(seq1);
   EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-      .InSequence(seq1)
-      .WillOnce([](uint8_t channelNumber,
-                   char *value,
-                   unsigned char offline,
-                   uint32_t validityTimeSec) {
+    .InSequence(seq1)
+    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
+                 uint32_t validityTimeSec) {
         auto hvacValue = reinterpret_cast<THVACValue *>(value);
 
         EXPECT_EQ(hvacValue->Flags,
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
-                      SUPLA_HVAC_VALUE_FLAG_HEATING);
+                  SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
         EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2300);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 0);
-      });
+    });
 
   t1->setValue(23.5);
   t1->setRefreshIntervalMs(100);
@@ -642,26 +612,23 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigCooling) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -1064,7 +1031,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigCooling) {
   }
 }
 
-TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
+TEST_F(HvacIntegrationF, startupWithEmptyConfigAuto) {
   hvac->addSecondaryOutput(&secondaryOutput);
 
   EXPECT_EQ(hvac->getChannelNumber(), 0);
@@ -1095,38 +1062,37 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
           StrEq("0_hvac_weekly"), _, sizeof(TChannelConfig_WeeklySchedule)))
       .Times(1)
       .WillOnce(Return(false));
-  EXPECT_CALL(
-      cfg, setInt32(StrEq("0_fnc"), SUPLA_CHANNELFNC_HVAC_THERMOSTAT_HEAT_COOL))
+  EXPECT_CALL(cfg,
+              setInt32(StrEq("0_fnc"), SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO))
       .Times(1)
       .WillOnce(Return(true));
-  EXPECT_CALL(cfg, setBlob(StrEq("0_hvac_weekly"), _, _))
+  EXPECT_CALL(cfg,
+              setBlob(StrEq("0_hvac_weekly"), _, _))
       .WillRepeatedly(Return(true));
-  EXPECT_CALL(cfg, setBlob(StrEq("0_hvac_aweekly"), _, _))
+  EXPECT_CALL(cfg,
+              setBlob(StrEq("0_hvac_aweekly"), _, _))
       .WillRepeatedly(Return(true));
   EXPECT_CALL(cfg,
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -1634,7 +1600,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET);
         EXPECT_EQ(hvacValue->IsOn, 0);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -1655,13 +1621,13 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
                       SUPLA_HVAC_VALUE_FLAG_COOLING);
         EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
 
   t1->setValue(25.3);
-  hvac->setTargetMode(SUPLA_HVAC_MODE_HEAT_COOL);
+  hvac->setTargetMode(SUPLA_HVAC_MODE_AUTO);
   for (int i = 0; i < 60; ++i) {
     hvac->iterateAlways();
     t1->iterateAlways();
@@ -1685,7 +1651,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET);
         EXPECT_EQ(hvacValue->IsOn, 0);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -1706,7 +1672,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
                       SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -1744,7 +1710,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET);
         EXPECT_EQ(hvacValue->IsOn, 0);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -1820,7 +1786,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
                       SUPLA_HVAC_VALUE_FLAG_COOLING);
         EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -1873,7 +1839,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET);
         EXPECT_EQ(hvacValue->IsOn, 0);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -1894,7 +1860,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCool) {
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
                       SUPLA_HVAC_VALUE_FLAG_COOLING);
         EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -1954,26 +1920,23 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigDifferentialHeat) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -2495,7 +2458,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigDifferentialHeat) {
   }
 }
 
-TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCoolSetpointTempCheck) {
+TEST_F(HvacIntegrationF, startupWithEmptyConfigAutoSetpointTempCheck) {
   hvac->addSecondaryOutput(&secondaryOutput);
 
   EXPECT_EQ(hvac->getChannelNumber(), 0);
@@ -2527,8 +2490,8 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCoolSetpointTempCheck) {
           StrEq("0_hvac_weekly"), _, sizeof(TChannelConfig_WeeklySchedule)))
       .Times(1)
       .WillOnce(Return(false));
-  EXPECT_CALL(
-      cfg, setInt32(StrEq("0_fnc"), SUPLA_CHANNELFNC_HVAC_THERMOSTAT_HEAT_COOL))
+  EXPECT_CALL(cfg,
+              setInt32(StrEq("0_fnc"), SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO))
       .Times(1)
       .WillOnce(Return(true));
   EXPECT_CALL(cfg,
@@ -2541,26 +2504,23 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCoolSetpointTempCheck) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -2610,7 +2570,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCoolSetpointTempCheck) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET);
         EXPECT_EQ(hvacValue->IsOn, 0);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -2630,7 +2590,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCoolSetpointTempCheck) {
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
                   SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -2651,7 +2611,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCoolSetpointTempCheck) {
     time.advance(100);
   }
 
-  hvac->setTargetMode(SUPLA_HVAC_MODE_HEAT_COOL);
+  hvac->setTargetMode(SUPLA_HVAC_MODE_AUTO);
   t1->setValue(10);
   for (int i = 0; i < 60; ++i) {
     hvac->iterateAlways();
@@ -2677,7 +2637,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCoolSetpointTempCheck) {
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
                   SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 1500);
     });
@@ -2727,7 +2687,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCoolSetpointTempCheck) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET);
         EXPECT_EQ(hvacValue->IsOn, 0);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2300);
     });
@@ -2746,7 +2706,7 @@ TEST_F(HvacIntegrationF, startupWithEmptyConfigHeatCoolSetpointTempCheck) {
                       SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
                   SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2300);
     });
@@ -2810,26 +2770,23 @@ TEST_F(HvacIntegrationF, runtimeFunctionChange) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -2893,7 +2850,7 @@ TEST_F(HvacIntegrationF, runtimeFunctionChange) {
 
   EXPECT_CALL(proto,
               setChannelConfig(0,
-                               SUPLA_CHANNELFNC_HVAC_THERMOSTAT_HEAT_COOL,
+                               SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO,
                                _,
                                sizeof(TChannelConfig_HVAC),
                                SUPLA_CONFIG_TYPE_DEFAULT))
@@ -2901,7 +2858,7 @@ TEST_F(HvacIntegrationF, runtimeFunctionChange) {
       .WillRepeatedly(Return(true));
   EXPECT_CALL(proto,
               setChannelConfig(0,
-                               SUPLA_CHANNELFNC_HVAC_THERMOSTAT_HEAT_COOL,
+                               SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO,
                                _,
                                sizeof(TChannelConfig_WeeklySchedule),
                                SUPLA_CONFIG_TYPE_WEEKLY_SCHEDULE))
@@ -2951,7 +2908,7 @@ TEST_F(HvacIntegrationF, runtimeFunctionChange) {
   }
 
   // function is already set to auto, so this will do nothing
-  hvac->changeFunction(SUPLA_CHANNELFNC_HVAC_THERMOSTAT_HEAT_COOL, true);
+  hvac->changeFunction(SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO, true);
   for (int i = 0; i < 60; ++i) {
     hvac->iterateAlways();
     t1->iterateAlways();
@@ -3177,26 +3134,23 @@ TEST_F(HvacIntegrationF, countdownTimerTests) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -3721,72 +3675,6 @@ TEST_F(HvacIntegrationF, countdownTimerTests) {
     t1->iterateConnected();
     time.advance(1000);
   }
-
-  // send timer and then break it with CMD_SWITCH_TO_MANUAL
-  EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-    .InSequence(seqPrimary)
-    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
-                 uint32_t validityTimeSec) {
-        auto hvacValue = reinterpret_cast<THVACValue *>(value);
-
-        EXPECT_EQ(hvacValue->Flags,
-                  SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
-                  SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
-                  SUPLA_HVAC_VALUE_FLAG_HEATING |
-                  SUPLA_HVAC_VALUE_FLAG_COUNTDOWN_TIMER);
-        EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
-        EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2300);
-        EXPECT_EQ(hvacValue->SetpointTemperatureCool, 3000);
-    });
-
-  hvacValue->Mode = SUPLA_HVAC_MODE_HEAT;
-  hvacValue->SetpointTemperatureHeat = 2300;
-  hvacValue->SetpointTemperatureCool = 3000;
-  newValue.DurationSec = 20;
-
-  EXPECT_EQ(hvac->handleNewValueFromServer(&newValue), 1);
-
-  // time +10 s, so in the middle of countdown timer
-  for (int i = 0; i < 10; ++i) {
-    hvac->iterateAlways();
-    t1->iterateAlways();
-    hvac->iterateConnected();
-    t1->iterateConnected();
-    time.advance(1000);
-  }
-
-  EXPECT_CALL(proto, sendChannelValueChanged(0, _, 0, 0))
-    .InSequence(seqPrimary)
-    .WillOnce([](uint8_t channelNumber, char *value, unsigned char offline,
-                 uint32_t validityTimeSec) {
-        auto hvacValue = reinterpret_cast<THVACValue *>(value);
-
-        EXPECT_EQ(hvacValue->Flags,
-                  SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
-                  SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
-                  SUPLA_HVAC_VALUE_FLAG_HEATING);
-        EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT);
-        EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 1900);
-        EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
-    });
-
-  hvacValue->Mode = SUPLA_HVAC_MODE_CMD_SWITCH_TO_MANUAL;
-  hvacValue->SetpointTemperatureHeat = 0;
-  hvacValue->SetpointTemperatureCool = 0;
-  hvacValue->Flags = 0;
-  newValue.DurationSec = 0;
-
-  EXPECT_EQ(hvac->handleNewValueFromServer(&newValue), 1);
-
-  for (int i = 0; i < 20; ++i) {
-    hvac->iterateAlways();
-    t1->iterateAlways();
-    hvac->iterateConnected();
-    t1->iterateConnected();
-    time.advance(1000);
-  }
 }
 
 // When stored config is invalid, device should use SW default configuration
@@ -3818,8 +3706,7 @@ TEST_F(HvacIntegrationF, startupWithInvalidConfigLoadedFromStorage) {
       .Times(1)
       .WillOnce([](const char *key, char *value, size_t blobSize) {
          TChannelConfig_HVAC config = {};
-         config.UsedAlgorithm = 123;
-         // invalid used algorithm
+         // empty config is invalid
          memcpy(value, &config, blobSize);
          return true;
       });
@@ -3846,26 +3733,23 @@ TEST_F(HvacIntegrationF, startupWithInvalidConfigLoadedFromStorage) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -3971,6 +3855,7 @@ TEST_F(HvacIntegrationF, startupWithInvalidConfigLoadedFromStorage) {
     t1->iterateConnected();
     time.advance(100);
   }
+
 }
 
 TEST_F(HvacIntegrationF, startupWithValidConfigLoadedFromStorage) {
@@ -4032,26 +3917,23 @@ TEST_F(HvacIntegrationF, startupWithValidConfigLoadedFromStorage) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -4224,26 +4106,23 @@ TEST_F(HvacIntegrationF, newValuesFromServer) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -4429,26 +4308,23 @@ TEST_F(HvacIntegrationF, histeresisHeatingCheck) {
   EXPECT_CALL(cfg, setUInt8(StrEq("0_cfg_chng"), _))
       .WillRepeatedly(Return(false));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -4604,26 +4480,23 @@ TEST_F(HvacIntegrationF, histeresisCoolingCheck) {
   EXPECT_CALL(cfg, setUInt8(StrEq("0_cfg_chng"), _))
       .WillRepeatedly(Return(false));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -4733,7 +4606,7 @@ TEST_F(HvacIntegrationF, histeresisCoolingCheck) {
   }
 }
 
-TEST_F(HvacIntegrationF, histeresisHeatCoolCheck) {
+TEST_F(HvacIntegrationF, histeresisAutoCheck) {
   hvac->addSecondaryOutput(&secondaryOutput);
 
   EXPECT_EQ(hvac->getChannelNumber(), 0);
@@ -4781,26 +4654,23 @@ TEST_F(HvacIntegrationF, histeresisHeatCoolCheck) {
   EXPECT_CALL(cfg, setUInt8(StrEq("0_cfg_chng"), _))
       .WillRepeatedly(Return(false));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -4820,7 +4690,7 @@ TEST_F(HvacIntegrationF, histeresisHeatCoolCheck) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET);
         EXPECT_EQ(hvacValue->IsOn, 0);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -4838,7 +4708,7 @@ TEST_F(HvacIntegrationF, histeresisHeatCoolCheck) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
                   SUPLA_HVAC_VALUE_FLAG_HEATING);
         EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -4855,7 +4725,7 @@ TEST_F(HvacIntegrationF, histeresisHeatCoolCheck) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET);
         EXPECT_EQ(hvacValue->IsOn, 0);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -4873,7 +4743,7 @@ TEST_F(HvacIntegrationF, histeresisHeatCoolCheck) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET |
                   SUPLA_HVAC_VALUE_FLAG_COOLING);
         EXPECT_EQ(hvacValue->IsOn, 1);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -4890,7 +4760,7 @@ TEST_F(HvacIntegrationF, histeresisHeatCoolCheck) {
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET |
                   SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET);
         EXPECT_EQ(hvacValue->IsOn, 0);
-        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_HEAT_COOL);
+        EXPECT_EQ(hvacValue->Mode, SUPLA_HVAC_MODE_AUTO);
         EXPECT_EQ(hvacValue->SetpointTemperatureHeat, 2100);
         EXPECT_EQ(hvacValue->SetpointTemperatureCool, 2500);
     });
@@ -4900,8 +4770,7 @@ TEST_F(HvacIntegrationF, histeresisHeatCoolCheck) {
 
   hvac->setMainThermometerChannelNo(1);
   hvac->setTemperatureHisteresis(40);  // 0.4 C
-  hvac->getChannel()->setDefaultFunction(
-      SUPLA_CHANNELFNC_HVAC_THERMOSTAT_HEAT_COOL);
+  hvac->getChannel()->setDefaultFunction(SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO);
 
   hvac->onLoadConfig(nullptr);
   hvac->onLoadState();
@@ -4927,7 +4796,7 @@ TEST_F(HvacIntegrationF, histeresisHeatCoolCheck) {
   }
 
   // check values around target 21.0 (histeresis 0.4 C with "SETPOINT AT MOST")
-  hvac->setTargetMode(SUPLA_HVAC_MODE_HEAT_COOL);
+  hvac->setTargetMode(SUPLA_HVAC_MODE_AUTO);
   t1->setValue(20.0);
   for (int i = 0; i < 50; ++i) {
     hvac->iterateAlways();
@@ -5028,26 +4897,23 @@ TEST_F(HvacIntegrationF, buttonIntegrationCheck) {
               setUInt8(StrEq("0_weekly_chng"), _))
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(THVACValue), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            THVACValue hvacValue = {};
-            memcpy(data, &hvacValue, sizeof(THVACValue));
-            return sizeof(THVACValue);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(int16_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            int16_t value = INT16_MIN;
-            memcpy(data, &value, sizeof(int16_t));
-            return sizeof(int16_t);
-          });
-  EXPECT_CALL(storage, readStorage(_, _, sizeof(uint8_t), _))
-      .WillRepeatedly(
-          [](uint32_t address, unsigned char *data, int size, bool) {
-            *data = 0;
-            return sizeof(uint8_t);
-          });
+  EXPECT_CALL(storage, readState(_, sizeof(THVACValue)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        THVACValue hvacValue = {};
+        memcpy(data, &hvacValue, sizeof(THVACValue));
+        return sizeof(THVACValue);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(int16_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        int16_t value = INT16_MIN;
+        memcpy(data, &value, sizeof(int16_t));
+        return sizeof(int16_t);
+      });
+  EXPECT_CALL(storage, readState(_, sizeof(uint8_t)))
+      .WillRepeatedly([](unsigned char *data, int size) {
+        *data = 0;
+        return sizeof(uint8_t);
+      });
 
   // ignore channel value changed from thermometer
   EXPECT_CALL(proto, sendChannelValueChanged(1, _, 0, 0)).Times(AtLeast(1));
@@ -5371,7 +5237,7 @@ TEST_F(HvacIntegrationF, buttonIntegrationCheck) {
     time.advance(100);
   }
 
-  hvac->handleAction(0, Supla::SWITCH_TO_MANUAL_MODE_HEAT_COOL);
+  hvac->handleAction(0, Supla::SWITCH_TO_MANUAL_MODE_AUTO);
   for (int i = 0; i < 20; ++i) {
     hvac->iterateAlways();
     t1->iterateAlways();

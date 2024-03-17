@@ -22,54 +22,17 @@
 #include <SuplaDevice.h>
 #include <supla/log_wrapper.h>
 #include <supla/protocol/protocol_layer.h>
-#include <supla/element.h>
-#include <supla/network/network.h>
-#include <supla/storage/config.h>
-#include <supla/tools.h>
-#include <supla/protocol/supla_srpc.h>
 
-#include "client.h"
+#include "supla/element.h"
+#include "supla/network/network.h"
+#include "supla/storage/config.h"
 
 namespace Supla {
 
 Network *Network::netIntf = nullptr;
-Network *Network::firstNetIntf = nullptr;
-enum DeviceMode Network::mode = DEVICE_MODE_NORMAL;
 
 Network *Network::Instance() {
   return netIntf;
-}
-
-Network *Network::FirstInstance() {
-  return firstNetIntf;
-}
-
-Network *Network::NextInstance(Network *instance) {
-  if (instance) {
-    return instance->nextNetIntf;
-  }
-  return nullptr;
-}
-
-Network *Network::GetInstanceByIP(uint32_t ip) {
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    if (ip == ptr->getIP()) {
-      return ptr;
-    }
-    ptr = ptr->nextNetIntf;
-  }
-  return nullptr;
-}
-
-int Network::GetNetIntfCount() {
-  int count = 0;
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    count++;
-    ptr = ptr->nextNetIntf;
-  }
-  return count;
 }
 
 void Network::DisconnectProtocols() {
@@ -77,198 +40,95 @@ void Network::DisconnectProtocols() {
       proto = proto->next()) {
     proto->disconnect();
   }
+  return;
 }
 
 void Network::Setup() {
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    if (!ptr->isIntfDisabledInConfig()) {
-      ptr->setup();
-    }
-    ptr = ptr->nextNetIntf;
+  if (Instance() != nullptr) {
+    return Instance()->setup();
   }
+  return;
 }
 
 void Network::Disable() {
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    if (!ptr->isIntfDisabledInConfig()) {
-      ptr->disable();
-    }
-    ptr = ptr->nextNetIntf;
+  if (Instance() != nullptr) {
+    return Instance()->disable();
   }
+  return;
 }
 
 void Network::Uninit() {
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    if (!ptr->isIntfDisabledInConfig()) {
-      ptr->uninit();
-    }
-    ptr = ptr->nextNetIntf;
+  if (Instance() != nullptr) {
+    return Instance()->uninit();
   }
+  return;
 }
 
 bool Network::IsReady() {
-  auto ptr = firstNetIntf;
-  bool result = false;
-  while (ptr) {
-    if (!ptr->isIntfDisabledInConfig()) {
-      if (ptr->isReady()) {
-        result = true;
-      }
-    }
-    ptr = ptr->nextNetIntf;
+  if (Instance() != nullptr) {
+    return Instance()->isReady();
   }
-  return result;
+  return false;
 }
 
 bool Network::Iterate() {
-  bool result = false;
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    if (!ptr->isIntfDisabledInConfig()) {
-      if (ptr->iterate()) {
-        result = true;
-      }
-    }
-    ptr = ptr->nextNetIntf;
+  if (Instance() != nullptr) {
+    return Instance()->iterate();
   }
-  return result;
+  return false;
 }
 
 void Network::SetConfigMode() {
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    ptr->setConfigMode();
-    ptr = ptr->nextNetIntf;
+  if (Instance() != nullptr) {
+    Instance()->setConfigMode();
   }
+  return;
 }
 
 void Network::SetNormalMode() {
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    ptr->setNormalMode();
-    ptr = ptr->nextNetIntf;
+  if (Instance() != nullptr) {
+    Instance()->setNormalMode();
   }
+  return;
 }
 
 void Network::SetSetupNeeded() {
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    if (!ptr->isIntfDisabledInConfig()) {
-      ptr->setSetupNeeded();
-    }
-    ptr = ptr->nextNetIntf;
+  if (Instance() != nullptr) {
+    Instance()->setSetupNeeded();
   }
 }
 
 bool Network::PopSetupNeeded() {
-  bool setupNeeded = false;
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    if (!ptr->isIntfDisabledInConfig()) {
-      if (ptr->popSetupNeeded()) {
-        setupNeeded = true;
-      }
-    }
-    ptr = ptr->nextNetIntf;
+  if (Instance() != nullptr) {
+    return Instance()->popSetupNeeded();
   }
-  return setupNeeded;
+  return false;
 }
 
-bool Network::GetMainMacAddr(uint8_t *buf) {
-  auto ptr = firstNetIntf;
-  if (ptr == nullptr) {
-    return false;
+bool Network::GetMacAddr(uint8_t *buf) {
+  if (Instance() != nullptr) {
+    return Instance()->getMacAddr(buf);
   }
-  // Returns WiFi MAC address by default. If WiFi interface is missing, then
-  // returns first Network instance MAC address
-  while (ptr) {
-    if (ptr->getIntfType() == IntfType::WiFi) {
-      return ptr->getMacAddr(buf);
-    }
-    ptr = ptr->nextNetIntf;
-  }
-  return firstNetIntf->getMacAddr(buf);
+  return false;
 }
 
-void Network::SetHostname(const char *buf, int macSize) {
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    ptr->setHostname(buf, macSize);
-    ptr = ptr->nextNetIntf;
+void Network::SetHostname(const char *buf) {
+  if (Instance() != nullptr) {
+    Instance()->setHostname(buf);
   }
+  return;
 }
 
-bool Network::IsIpSetupTimeout() {
-  bool result = true;
-  auto ptr = firstNetIntf;
-  while (ptr) {
-    if (!ptr->isIpSetupTimeout()) {
-      result = false;
-    }
-    ptr = ptr->nextNetIntf;
+bool Network::IsSuplaSSLEnabled() {
+  if (Instance() != nullptr) {
+    return Instance()->isSuplaSSLEnabled();
   }
-  return result;
+  return false;
 }
 
-void Network::LoadConfig() {
-  auto ptr = firstNetIntf;
-  Network *mainIntf = netIntf;
-  while (ptr) {
-    ptr->onLoadConfig();
-    if (ptr->isIntfDisabledInConfig() && ptr == mainIntf) {
-      mainIntf = nullptr;
-    }
-    ptr = ptr->nextNetIntf;
-  }
+Network::Network(unsigned char *ip) {
+  netIntf = this;
 
-  ptr = firstNetIntf;
-  while (ptr) {
-    if (!ptr->isIntfDisabledInConfig() && mainIntf == nullptr) {
-      mainIntf = ptr;
-    }
-    if (!ptr->isIntfDisabledInConfig() &&
-        ptr->getIntfType() != IntfType::WiFi) {
-      mainIntf = ptr;
-    }
-    ptr = ptr->nextNetIntf;
-  }
-  if (mainIntf != nullptr) {
-    netIntf = mainIntf;
-  }
-}
-
-void Network::onLoadConfig() {
-  auto cfg = Supla::Storage::ConfigInstance();
-  if (!cfg) {
-    return;
-  }
-
-  uint8_t intfDisabled = 0;
-  switch (getIntfType()) {
-    case IntfType::WiFi: {
-      cfg->getUInt8(Supla::WifiDisableTag, &intfDisabled);
-      break;
-    }
-    case IntfType::Ethernet: {
-      cfg->getUInt8(Supla::EthDisableTag, &intfDisabled);
-      break;
-    }
-    case IntfType::Unknown: {
-      break;
-    }
-  }
-  if (intfDisabled) {
-    SUPLA_LOG_INFO("[%s] network interface disabled", getIntfName());
-    intfDisabledInConfig = true;
-  } else {
-    intfDisabledInConfig = false;
-  }
-}
-
-Network::Network(unsigned char *ip) : Network() {
   if (ip == nullptr) {
     useLocalIp = false;
   } else {
@@ -277,45 +137,8 @@ Network::Network(unsigned char *ip) : Network() {
   }
 }
 
-Network::Network() {
-  mode = DEVICE_MODE_NORMAL;
-  setSSLEnabled(true);
-  if (netIntf == nullptr) {
-    // first created interface is the default one
-    netIntf = this;
-  }
-  if (firstNetIntf != nullptr) {
-    auto ptr = firstNetIntf;
-    while (ptr->nextNetIntf != nullptr) {
-      ptr = ptr->nextNetIntf;
-    }
-    ptr->nextNetIntf = this;
-  } else {
-    firstNetIntf = this;
-  }
-}
-
 Network::~Network() {
-  if (firstNetIntf == this) {
-    firstNetIntf = nextNetIntf;
-  } else {
-    auto ptr = firstNetIntf->nextNetIntf;
-    auto prev = ptr;
-    while (ptr && ptr != this) {
-      prev = ptr;
-      ptr = ptr->nextNetIntf;
-    }
-    if (ptr && prev) {
-      prev->nextNetIntf = ptr->nextNetIntf;
-    }
-  }
-  if (netIntf == this) {
-    netIntf = firstNetIntf;
-  }
-}
-
-Supla::Client *Network::createClient() {
-  return Supla::ClientBuilder();
+  netIntf = nullptr;
 }
 
 bool Network::iterate() {
@@ -327,8 +150,7 @@ void Network::clearTimeCounters() {
 
 void Network::fillStateData(TDSC_ChannelState *channelState) {
   (void)(channelState);
-  SUPLA_LOG_DEBUG("[%s] fillStateData is not implemented for this interface",
-      getIntfName());
+  SUPLA_LOG_DEBUG("fillStateData is not implemented for this interface");
 }
 
 #ifdef ARDUINO
@@ -374,39 +196,10 @@ bool Network::getMacAddr(uint8_t *buf) {
   return false;
 }
 
-void Network::generateHostname(const char *prefix, int macSize, char *output) {
-  const int hostnameSize = 32;
-  char result[hostnameSize] = {};
-  if (macSize > 6) {
-    macSize = 6;
-  }
-  if (macSize < 0) {
-    macSize = 0;
-  }
-  strncpy(result, prefix, hostnameSize);
-  int destIdx = strnlen(result, hostnameSize);
-
-  if (macSize > 0) {
-    uint8_t mac[6] = {};
-    getMacAddr(mac);
-    if (result[destIdx - 1] != '-') {
-      result[destIdx++] = '-';
-    }
-    destIdx +=
-      generateHexString(mac + (6 - macSize), &(result[destIdx]), macSize);
-  }
-  memcpy(output, result, hostnameSize);
+void Network::setHostname(const char *buf) {
+  strncpy(hostname, buf, 32);
+  SUPLA_LOG_DEBUG("Network AP/hostname: %s", hostname);
 }
-
-void Network::setHostname(const char *buf, int macSize) {
-  generateHostname(buf, macSize, hostname);
-  SUPLA_LOG_DEBUG("[%s] Network AP/hostname: %s", getIntfName(), hostname);
-}
-
-const char* Network::getIntfName() const {
-  return "NA";
-}
-
 
 void Network::setSuplaDeviceClass(SuplaDeviceClass *ptr) {
   sdc = ptr;
@@ -417,7 +210,11 @@ bool Network::isWifiConfigRequired() {
 }
 
 void Network::setSSLEnabled(bool enabled) {
-  Supla::Protocol::SuplaSrpc::isSuplaSSLEnabled = enabled;
+  sslEnabled = enabled;
+}
+
+void Network::setCACert(const char *rootCA) {
+  rootCACert = rootCA;
 }
 
 bool Network::popSetupNeeded() {
@@ -429,30 +226,11 @@ bool Network::popSetupNeeded() {
 }
 
 void Network::setSetupNeeded() {
-  if (isIntfDisabledInConfig()) {
-    return;
-  }
   setupNeeded = true;
 }
 
-bool Network::isIpSetupTimeout() {
-  return false;
-}
-
-enum Network::IntfType Network::getIntfType() const {
-  return intfType;
-}
-
-uint32_t Network::getIP() {
-  return 0;
-}
-
-bool Network::isIntfDisabledInConfig() const {
-  if (mode == Supla::DEVICE_MODE_CONFIG && getIntfType() == IntfType::WiFi) {
-    // If device is in config mode we alaways enable WiFi
-    return false;
-  }
-  return intfDisabledInConfig;
+bool Network::isSuplaSSLEnabled() {
+  return sslEnabled;
 }
 
 };  // namespace Supla

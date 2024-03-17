@@ -39,7 +39,7 @@ class Wind : public ChannelElement {
   }
 
   void iterateAlways() {
-    if (millis() - lastReadTime > 10000) {
+    if (lastReadTime + 10000 < millis()) {
       lastReadTime = millis();
       channel.setNewValue(getValue());
     }

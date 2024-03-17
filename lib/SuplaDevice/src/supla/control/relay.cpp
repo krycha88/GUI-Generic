@@ -19,6 +19,11 @@
  * by setting LOW or HIGH output on selected GPIO.
  */
 
+/*
+ * TODO(klew):
+ *  - add sending timer value to server
+ */
+
 #include <supla/log_wrapper.h>
 #include <supla/time.h>
 #include <supla/tools.h>
@@ -48,23 +53,6 @@ Relay::Relay(int pin, bool highIsOn, _supla_int_t functions)
   channel.setFuncList(functions);
 }
 
-Relay::~Relay() {
-  ButtonListElement* currentElement = buttonList;
-  while (currentElement) {
-    ButtonListElement* nextElement = currentElement->next;
-    delete currentElement;
-    currentElement = nextElement;
-  }
-}
-
-void Relay::onLoadConfig(SuplaDeviceClass *sdc) {
-  (void)(sdc);
-  auto cfg = Supla::Storage::ConfigInstance();
-  if (cfg) {
-    loadFunctionFromConfig();
-  }
-}
-
 void Relay::onRegistered(
     Supla::Protocol::SuplaSrpc *suplaSrpc) {
   Supla::Element::onRegistered(suplaSrpc);
@@ -82,17 +70,6 @@ uint8_t Relay::handleChannelConfig(TSD_ChannelConfig *result,
       result->ConfigType,
       result->ConfigSize);
   setChannelFunction(result->Func);
-  auto newFunction = result->Func;
-  if (newFunction != getChannel()->getDefaultFunction() && newFunction != 0) {
-    SUPLA_LOG_INFO("Relay[%d]: function changed to %d",
-                   getChannelNumber(),
-                   newFunction);
-    setAndSaveFunction(newFunction);
-    for (auto proto = Supla::Protocol::ProtocolLayer::first();
-        proto != nullptr; proto = proto->next()) {
-      proto->notifyConfigChange(getChannelNumber());
-    }
-  }
   switch (result->Func) {
     default:
     case SUPLA_CHANNELFNC_LIGHTSWITCH:
@@ -140,28 +117,23 @@ void Relay::onInit() {
     stateOn = true;
   }
 
-
-  for (auto buttonListElement = buttonList; buttonListElement;
-       buttonListElement = buttonListElement->next) {
-    auto attachedButton = buttonListElement->button;
-    if (attachedButton) {
-      attachedButton->onInit();  // make sure button was initialized
-      if (attachedButton->isMonostable()) {
-        attachedButton->addAction(
-            Supla::TOGGLE, this, Supla::CONDITIONAL_ON_PRESS);
-      } else if (attachedButton->isBistable()) {
-        attachedButton->addAction(
-            Supla::TOGGLE, this, Supla::CONDITIONAL_ON_CHANGE);
-      } else if (attachedButton->isMotionSensor()) {
-        attachedButton->addAction(
-            Supla::TURN_ON, this, Supla::ON_PRESS);
-        attachedButton->addAction(
-            Supla::TURN_OFF, this, Supla::ON_RELEASE);
-        if (attachedButton->getLastState() == Supla::Control::PRESSED) {
-          stateOn = true;
-        } else {
-          stateOn = false;
-        }
+  if (attachedButton) {
+    attachedButton->onInit();  // make sure button was initialized
+    if (attachedButton->isMonostable()) {
+      attachedButton->addAction(
+          Supla::TOGGLE, this, Supla::CONDITIONAL_ON_PRESS);
+    } else if (attachedButton->isBistable()) {
+      attachedButton->addAction(
+          Supla::TOGGLE, this, Supla::CONDITIONAL_ON_CHANGE);
+    } else if (attachedButton->isMotionSensor()) {
+      attachedButton->addAction(
+          Supla::TURN_ON, this, Supla::ON_PRESS);
+      attachedButton->addAction(
+          Supla::TURN_OFF, this, Supla::ON_RELEASE);
+      if (attachedButton->getLastState() == Supla::Control::PRESSED) {
+        stateOn = true;
+      } else {
+        stateOn = false;
       }
     }
   }
@@ -204,11 +176,6 @@ bool Relay::iterateConnected() {
 int Relay::handleNewValueFromServer(TSD_SuplaChannelNewValue *newValue) {
   int result = -1;
   if (newValue->value[0] == 1) {
-    if (newValue->DurationMS < minimumAllowedDurationMs) {
-      SUPLA_LOG_DEBUG("Relay[%d] override duration with min value",
-                      channel.getChannelNumber());
-      newValue->DurationMS = minimumAllowedDurationMs;
-    }
     if (isImpulseFunction()) {
       storedTurnOnDurationMs = newValue->DurationMS;
     }
@@ -253,11 +220,6 @@ void Relay::turnOn(_supla_int_t duration) {
             channel.getChannelNumber(),
             duration);
   durationMs = duration;
-
-  if (minimumAllowedDurationMs > 0 && storedTurnOnDurationMs == 0) {
-    storedTurnOnDurationMs = durationMs;
-  }
-
   if (keepTurnOnDurationMs || isStaircaseFunction() || isImpulseFunction()) {
     durationMs = storedTurnOnDurationMs;
   }
@@ -444,29 +406,7 @@ unsigned _supla_int_t Relay::getStoredTurnOnDurationMs() {
 }
 
 void Relay::attach(Supla::Control::Button *button) {
-  if (button == nullptr) {
-    return;
-  }
-
-  SUPLA_LOG_DEBUG("Relay[%d]: attaching button %d", channel.getChannelNumber(),
-                  button->getButtonNumber());
-  auto lastButtonListElement = buttonList;
-  while (lastButtonListElement && lastButtonListElement->next) {
-    lastButtonListElement = lastButtonListElement->next;
-  }
-
-  if (lastButtonListElement) {
-    lastButtonListElement->next = new ButtonListElement;
-    lastButtonListElement = lastButtonListElement->next;
-  } else {
-    lastButtonListElement = new ButtonListElement;
-  }
-
-  lastButtonListElement->button = button;
-
-  if (buttonList == nullptr) {
-    buttonList = lastButtonListElement;
-  }
+  attachedButton = button;
 }
 
 
@@ -535,11 +475,4 @@ void Relay::enableCountdownTimerFunction() {
 
 bool Relay::isCountdownTimerFunctionEnabled() const {
   return channel.getFlags() & SUPLA_CHANNEL_FLAG_COUNTDOWN_TIMER_SUPPORTED;
-}
-
-void Relay::setMinimumAllowedDurationMs(uint32_t durationMs) {
-  if (durationMs > UINT16_MAX) {
-    durationMs = UINT16_MAX;
-  }
-  minimumAllowedDurationMs = durationMs;
 }

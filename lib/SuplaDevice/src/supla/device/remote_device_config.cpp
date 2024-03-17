@@ -56,11 +56,11 @@ void RemoteDeviceConfig::RegisterConfigField(uint64_t fieldBit) {
 }
 
 void RemoteDeviceConfig::SetHomeScreenContentAvailable(uint64_t allValues) {
-  if (allValues != homeScreenContentAvailable) {
-    homeScreenContentAvailable = allValues;
-    SUPLA_LOG_INFO("RemoteDeviceConfig: SetHomeScreenContentAvailable 0x%08llx",
+  SUPLA_LOG_INFO("RemoteDeviceConfig: SetHomeScreenContentAvailable 0x%08llx",
+                 allValues);
+  homeScreenContentAvailable = allValues;
+  SUPLA_LOG_INFO("RemoteDeviceConfig: SetHomeScreenContentAvailable 0x%08llx",
                  homeScreenContentAvailable);
-  }
 }
 
 enum Supla::HomeScreenContent RemoteDeviceConfig::HomeScreenContentBitToEnum(
@@ -143,7 +143,7 @@ void RemoteDeviceConfig::processConfig(TSDS_SetDeviceConfig *config) {
   }
 
   // check size first
-  uint32_t dataIndex = 0;
+  int dataIndex = 0;
   uint64_t fieldBit = 1;
   while (dataIndex < config->ConfigSize && fieldBit) {
     if (fieldBit & config->Fields) {

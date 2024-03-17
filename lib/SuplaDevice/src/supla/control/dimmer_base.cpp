@@ -29,13 +29,12 @@ void Supla::Control::DimmerBase::setRGBW(int red,
                                          int blue,
                                          int colorBrightness,
                                          int brightness,
-                                         bool toggle,
-                                         bool instant) {
+                                         bool toggle) {
   (void)(red);
   (void)(green);
   (void)(blue);
   (void)(colorBrightness);
-  Supla::Control::RGBWBase::setRGBW(0, 0, 0, 0, brightness, toggle, instant);
+  Supla::Control::RGBWBase::setRGBW(0, 0, 0, 0, brightness, toggle);
 }
 
 void Supla::Control::DimmerBase::onLoadState() {

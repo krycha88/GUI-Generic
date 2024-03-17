@@ -18,9 +18,14 @@
 
 #include "thermometer_driver.h"
 
+#include "thermometer.h"
+
 using Supla::Sensor::ThermometerDriver;
 
 ThermometerDriver::ThermometerDriver() {
+}
+
+ThermometerDriver::~ThermometerDriver() {
 }
 
 int16_t ThermometerDriver::getTempInt16() {

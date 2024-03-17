@@ -33,21 +33,15 @@ set(SUPLA_DEVICE_SRCS
 
   ../../../src/supla/storage/storage.cpp
   ../../../src/supla/storage/config.cpp
-  ../../../src/supla/storage/simple_state.cpp
-  ../../../src/supla/storage/state_storage_interface.cpp
-  ../../../src/supla/storage/state_wear_leveling_byte.cpp
-  ../../../src/supla/storage/state_wear_leveling_sector.cpp
 
   ../../../src/supla/network/network.cpp
   ../../../src/supla/network/netif_wifi.cpp
-  ../../../src/supla/network/netif_lan.cpp
   ../../../src/supla/network/web_server.cpp
   ../../../src/supla/network/web_sender.cpp
   ../../../src/supla/network/html_generator.cpp
   ../../../src/supla/network/html_element.cpp
   ../../../src/supla/network/html/device_info.cpp
   ../../../src/supla/network/html/wifi_parameters.cpp
-  ../../../src/supla/network/html/ethernet_parameters.cpp
   ../../../src/supla/network/html/protocol_parameters.cpp
   ../../../src/supla/network/html/status_led_parameters.cpp
   ../../../src/supla/network/html/custom_sw_update.cpp
@@ -75,7 +69,6 @@ set(SUPLA_DEVICE_SRCS
   ../../../src/supla/network/html/h2_tag.cpp
   ../../../src/supla/network/html/h3_tag.cpp
   ../../../src/supla/network/html/screen_brightness_parameters.cpp
-  ../../../src/supla/network/html/em_phase_led.cpp
   ../../../src/supla/network/client.cpp
   ../../../src/supla/network/ip_address.cpp
 
@@ -135,9 +128,6 @@ set(SUPLA_DEVICE_SRCS
   ../../../src/supla/sensor/therm_hygro_press_meter.cpp
   ../../../src/supla/sensor/thermometer.cpp
   ../../../src/supla/sensor/thermometer_driver.cpp
-  ../../../src/supla/sensor/general_purpose_channel_base.cpp
-  ../../../src/supla/sensor/general_purpose_meter.cpp
-  ../../../src/supla/sensor/memory_variable_driver.cpp
   ../../../src/supla/sensor/virtual_binary.cpp
   ../../../src/supla/sensor/distance.cpp
   ../../../src/supla/sensor/HC_SR04.cpp
@@ -171,7 +161,6 @@ set(SUPLA_DEVICE_PORTING_SRCS
   ../../porting/esp-idf/esp_idf_ota.cpp
   ../../porting/esp-idf/esp_idf_client.cpp
   ../../porting/esp-idf/esp_mqtt.cpp
-  ../../porting/esp-idf/esp_idf_network_common.cpp
 )
 
 

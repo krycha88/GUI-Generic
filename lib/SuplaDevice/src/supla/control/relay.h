@@ -57,8 +57,6 @@ class Relay : public ChannelElement, public ActionHandler {
         _supla_int_t functions = (0xFF ^
                                   SUPLA_BIT_FUNC_CONTROLLINGTHEROLLERSHUTTER));
 
-  virtual ~Relay();
-
   virtual Relay &setDefaultStateOn();
   virtual Relay &setDefaultStateOff();
   virtual Relay &setDefaultStateRestore();
@@ -75,7 +73,6 @@ class Relay : public ChannelElement, public ActionHandler {
 
   void handleAction(int event, int action) override;
 
-  void onLoadConfig(SuplaDeviceClass *sdc) override;
   void onInit() override;
   void onLoadState() override;
   void onSaveState() override;
@@ -98,34 +95,27 @@ class Relay : public ChannelElement, public ActionHandler {
   void disableCountdownTimerFunction();
   void enableCountdownTimerFunction();
   bool isCountdownTimerFunctionEnabled() const;
-  void setMinimumAllowedDurationMs(uint32_t durationMs);
 
  protected:
-  struct ButtonListElement {
-    Supla::Control::Button *button = nullptr;
-    ButtonListElement *next = nullptr;
-  };
-
   void setChannelFunction(_supla_int_t newFunction);
   void updateTimerValue();
+  int pin = -1;
+  bool highIsOn = true;
   int channelFunction = 0;
+  bool keepTurnOnDurationMs = false;
+
+  int8_t stateOnInit = STATE_ON_INIT_OFF;
+
   uint32_t durationMs = 0;
   uint32_t storedTurnOnDurationMs = 0;
   uint32_t durationTimestamp = 0;
 
+  uint32_t lastDurationMsOnTimerUpdate = 0;
   uint32_t timerUpdateTimestamp = 0;
-
-  Supla::Io *io = nullptr;
-  ButtonListElement *buttonList = nullptr;
-
-  uint16_t minimumAllowedDurationMs = 0;
-  int16_t pin = -1;
-
-  bool highIsOn = true;
-  bool keepTurnOnDurationMs = false;
   bool lastStateOnTimerUpdate = false;
 
-  int8_t stateOnInit = STATE_ON_INIT_OFF;
+  Supla::Io *io = nullptr;
+  Supla::Control::Button *attachedButton = nullptr;
 };
 
 };  // namespace Control

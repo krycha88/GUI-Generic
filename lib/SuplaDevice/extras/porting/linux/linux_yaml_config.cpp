@@ -35,12 +35,8 @@
 #include <supla/sensor/impulse_counter_parsed.h>
 #include <supla/sensor/pressure_parsed.h>
 #include <supla/sensor/rain_parsed.h>
-#include <supla/sensor/weight_parsed.h>
-#include <supla/sensor/distance_parsed.h>
 #include <supla/sensor/thermometer_parsed.h>
 #include <supla/sensor/wind_parsed.h>
-#include <supla/sensor/general_purpose_measurement_parsed.h>
-#include <supla/sensor/general_purpose_meter_parsed.h>
 #include <supla/source/cmd.h>
 #include <supla/source/file.h>
 #include <supla/source/source.h>
@@ -429,18 +425,6 @@ bool Supla::LinuxYamlConfig::parseChannel(const YAML::Node& ch,
         return false;
       }
       return addThermometerParsed(ch, channelNumber, parser);
-    } else if (type == "GeneralPurposeMeasurementParsed") {
-      if (!parser) {
-        SUPLA_LOG_ERROR("Channel[%d] config: missing parser", channelNumber);
-        return false;
-      }
-      return addGeneralPurposeMeasurementParsed(ch, channelNumber, parser);
-    } else if (type == "GeneralPurposeMeterParsed") {
-      if (!parser) {
-        SUPLA_LOG_ERROR("Channel[%d] config: missing parser", channelNumber);
-        return false;
-      }
-      return addGeneralPurposeMeterParsed(ch, channelNumber, parser);
     } else if (type == "ImpulseCounterParsed") {
       if (!parser) {
         SUPLA_LOG_ERROR("Channel[%d] config: missing parser", channelNumber);
@@ -471,30 +455,20 @@ bool Supla::LinuxYamlConfig::parseChannel(const YAML::Node& ch,
         return false;
       }
       return addPressureParsed(ch, channelNumber, parser);
-    } else if (type == "WindParsed") {
+    }
+    if (type == "WindParsed") {
       if (!parser) {
         SUPLA_LOG_ERROR("Channel[%d] config: missing parser", channelNumber);
         return false;
       }
       return addWindParsed(ch, channelNumber, parser);
-    } else if (type == "RainParsed") {
+    }
+    if (type == "RainParsed") {
       if (!parser) {
         SUPLA_LOG_ERROR("Channel[%d] config: missing parser", channelNumber);
         return false;
       }
       return addRainParsed(ch, channelNumber, parser);
-    } else if (type == "WeightParsed") {
-      if (!parser) {
-        SUPLA_LOG_ERROR("Channel[%d] config: missing parser", channelNumber);
-        return false;
-      }
-      return addWeightParsed(ch, channelNumber, parser);
-    } else if (type == "DistanceParsed") {
-      if (!parser) {
-        SUPLA_LOG_ERROR("Channel[%d] config: missing parser", channelNumber);
-        return false;
-      }
-      return addDistanceParsed(ch, channelNumber, parser);
     } else if (type == "ThermHygroMeterParsed") {
       if (!parser) {
         SUPLA_LOG_ERROR("Channel[%d] config: missing parser", channelNumber);
@@ -710,6 +684,12 @@ bool Supla::LinuxYamlConfig::addHvac(const YAML::Node& ch, int channelNumber) {
   if (ch["aux_thermometer_channel_no"]) {
     paramCount++;
     auxThermometerChannelNo = ch["aux_thermometer_channel_no"].as<int>();
+  } else {
+    SUPLA_LOG_ERROR(
+        "Channel[%d] config: missing mandatory \"aux_thermometer_channel_no\" "
+        "parameter",
+        channelNumber);
+    return false;
   }
 
   if (ch["binary_sensor_channel_no"]) {
@@ -724,14 +704,11 @@ bool Supla::LinuxYamlConfig::addHvac(const YAML::Node& ch, int channelNumber) {
   if (binarySensorChannelNo >= 0) {
     hvac->setBinarySensorChannelNo(binarySensorChannelNo);
   }
-  hvac->setAuxThermometerType(SUPLA_HVAC_AUX_THERMOMETER_TYPE_NOT_SET);
-  if (hvac->getChannelNumber() != auxThermometerChannelNo) {
-    hvac->setAuxThermometerType(SUPLA_HVAC_AUX_THERMOMETER_TYPE_FLOOR);
-  }
+  hvac->setAuxThermometerType(SUPLA_HVAC_AUX_THERMOMETER_TYPE_FLOOR);
   hvac->setTemperatureHisteresisMin(20);  // 0.2 degree
   hvac->setTemperatureHisteresisMax(1000);  // 10 degree
-  hvac->setTemperatureHeatCoolOffsetMin(200);   // 2 degrees
-  hvac->setTemperatureHeatCoolOffsetMax(1000);  // 10 degrees
+  hvac->setTemperatureAutoOffsetMin(200);   // 2 degrees
+  hvac->setTemperatureAutoOffsetMax(1000);  // 10 degrees
   hvac->setTemperatureAuxMin(500);  // 5 degrees
   hvac->setTemperatureAuxMax(7500);  // 75 degrees
   hvac->addAvailableAlgorithm(SUPLA_HVAC_ALGORITHM_ON_OFF_SETPOINT_MIDDLE);
@@ -747,17 +724,16 @@ bool Supla::LinuxYamlConfig::addHvac(const YAML::Node& ch, int channelNumber) {
     } else if (function == "cool") {
       hvac->getChannel()->setDefaultFunction(SUPLA_CHANNELFNC_HVAC_THERMOSTAT);
       hvac->setDefaultSubfunction(SUPLA_HVAC_SUBFUNCTION_COOL);
-    } else if (function == "heat_cool") {
+    } else if (function == "auto") {
       if (cmdOnSecondary.empty() || cmdOffSecondary.empty()) {
         SUPLA_LOG_ERROR(
             "Channel[%d] config: missing mandatory \"cmd_on_secondary\" or "
-            "\"cmd_off_secondary\" parameter when setting \"heat_cool\" "
-            "function",
+            "\"cmd_off_secondary\" parameter when setting \"auto\" function",
             channelNumber);
         return false;
       }
       hvac->getChannel()->setDefaultFunction(
-          SUPLA_CHANNELFNC_HVAC_THERMOSTAT_HEAT_COOL);
+          SUPLA_CHANNELFNC_HVAC_THERMOSTAT_AUTO);
     } else if (function == "dhw") {
       hvac->enableDomesticHotWaterFunctionSupport();
       hvac->getChannel()->setDefaultFunction(
@@ -816,220 +792,6 @@ bool Supla::LinuxYamlConfig::addThermometerParsed(
     sensor->setMultiplier(Supla::Sensor::BatteryLevel, multiplier);
   }
 
-  return true;
-}
-
-bool Supla::LinuxYamlConfig::addGeneralPurposeMeasurementParsed(
-    const YAML::Node& ch, int channelNumber, Supla::Parser::Parser* parser) {
-  SUPLA_LOG_INFO("Channel[%d] config: adding GeneralPurposeMeasurement",
-                 channelNumber);
-  auto gpm = new Supla::Sensor::GeneralPurposeMeasurementParsed(parser);
-  if (ch[Supla::Parser::Value]) {
-    paramCount++;
-    if (parser->isBasedOnIndex()) {
-      int index = ch[Supla::Parser::Value].as<int>();
-      gpm->setMapping(Supla::Parser::Value, index);
-    } else {
-      std::string key = ch[Supla::Parser::Value].as<std::string>();
-      gpm->setMapping(Supla::Parser::Value, key);
-    }
-  } else {
-    SUPLA_LOG_ERROR("Channel[%d] config: missing \"%s\" parameter",
-                    channelNumber,
-                    Supla::Parser::Value);
-    return false;
-  }
-  if (ch[Supla::Multiplier]) {
-    paramCount++;
-    double multiplier = ch[Supla::Multiplier].as<double>();
-    gpm->setMultiplier(Supla::Parser::Value, multiplier);
-  }
-  if (ch["default_value_multiplier"]) {
-    paramCount++;
-    int64_t multiplier =
-        std::lround(1000 * ch["default_value_multiplier"].as<double>());
-    if (multiplier > INT32_MAX || multiplier < INT32_MIN) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_value_multiplier out of range",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultValueMultiplier(multiplier);
-  }
-  if (ch["default_value_divider"]) {
-    paramCount++;
-    int64_t divider =
-        std::lround(1000 * ch["default_value_divider"].as<double>());
-    if (divider > INT32_MAX || divider < INT32_MIN) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_value_divider out of range",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultValueDivider(divider);
-  }
-  if (ch["default_value_added"]) {
-    paramCount++;
-    double added = ch["default_value_added"].as<double>();
-    gpm->setDefaultValueAdded(std::lround(added * 1000));
-  }
-  if (ch["default_value_precision"]) {
-    paramCount++;
-    int precision = ch["default_value_precision"].as<int>();
-    if (precision > 4 || precision < 0) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_value_precision out of range",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultValuePrecision(precision);
-  }
-  if (ch["default_unit_before_value"]) {
-    paramCount++;
-    std::string unit = ch["default_unit_before_value"].as<std::string>();
-    if (unit.length() > 14) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_unit_before_value too long",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultUnitBeforeValue(unit.c_str());
-  }
-  if (ch["default_unit_after_value"]) {
-    paramCount++;
-    std::string unit = ch["default_unit_after_value"].as<std::string>();
-    if (unit.length() > 14) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_unit_after_value too long",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultUnitAfterValue(unit.c_str());
-  }
-
-  auto sensor = gpm;
-  if (ch[Supla::Sensor::BatteryLevel]) {
-    paramCount++;
-    if (parser->isBasedOnIndex()) {
-      int index = ch[Supla::Sensor::BatteryLevel].as<int>();
-      sensor->setMapping(Supla::Sensor::BatteryLevel, index);
-    } else {
-      std::string key = ch[Supla::Sensor::BatteryLevel].as<std::string>();
-      sensor->setMapping(Supla::Sensor::BatteryLevel, key);
-    }
-  }
-  if (ch[Supla::Sensor::MultiplierBatteryLevel]) {
-    paramCount++;
-    double multiplier = ch[Supla::Sensor::MultiplierBatteryLevel].as<double>();
-    sensor->setMultiplier(Supla::Sensor::BatteryLevel, multiplier);
-  }
-  return true;
-}
-
-bool Supla::LinuxYamlConfig::addGeneralPurposeMeterParsed(
-    const YAML::Node& ch, int channelNumber, Supla::Parser::Parser* parser) {
-  SUPLA_LOG_INFO("Channel[%d] config: adding GeneralPurposeMeter",
-                 channelNumber);
-  auto gpm = new Supla::Sensor::GeneralPurposeMeterParsed(parser);
-  if (ch[Supla::Parser::Value]) {
-    paramCount++;
-    if (parser->isBasedOnIndex()) {
-      int index = ch[Supla::Parser::Value].as<int>();
-      gpm->setMapping(Supla::Parser::Value, index);
-    } else {
-      std::string key = ch[Supla::Parser::Value].as<std::string>();
-      gpm->setMapping(Supla::Parser::Value, key);
-    }
-  } else {
-    SUPLA_LOG_ERROR("Channel[%d] config: missing \"%s\" parameter",
-                    channelNumber,
-                    Supla::Parser::Value);
-    return false;
-  }
-  if (ch[Supla::Multiplier]) {
-    paramCount++;
-    double multiplier = ch[Supla::Multiplier].as<double>();
-    gpm->setMultiplier(Supla::Parser::Value, multiplier);
-  }
-  if (ch["default_value_multiplier"]) {
-    paramCount++;
-    int64_t multiplier =
-        std::lround(1000 * ch["default_value_multiplier"].as<double>());
-    if (multiplier > INT32_MAX || multiplier < INT32_MIN) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_value_multiplier out of range",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultValueMultiplier(multiplier);
-  }
-  if (ch["default_value_divider"]) {
-    paramCount++;
-    int64_t divider =
-        std::lround(1000 * ch["default_value_divider"].as<double>());
-    if (divider > INT32_MAX || divider < INT32_MIN) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_value_divider out of range",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultValueDivider(divider);
-  }
-  if (ch["default_value_added"]) {
-    paramCount++;
-    double added = ch["default_value_added"].as<double>();
-    gpm->setDefaultValueAdded(std::lround(added * 1000));
-  }
-  if (ch["default_value_precision"]) {
-    paramCount++;
-    int precision = ch["default_value_precision"].as<int>();
-    if (precision > 4 || precision < 0) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_value_precision out of range",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultValuePrecision(precision);
-  }
-  if (ch["default_unit_before_value"]) {
-    paramCount++;
-    std::string unit = ch["default_unit_before_value"].as<std::string>();
-    if (unit.length() > 14) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_unit_before_value too long",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultUnitBeforeValue(unit.c_str());
-  }
-  if (ch["default_unit_after_value"]) {
-    paramCount++;
-    std::string unit = ch["default_unit_after_value"].as<std::string>();
-    if (unit.length() > 14) {
-      SUPLA_LOG_ERROR(
-          "Channel[%d] config: default_unit_after_value too long",
-          channelNumber);
-      return false;
-    }
-    gpm->setDefaultUnitAfterValue(unit.c_str());
-  }
-
-  auto sensor = gpm;
-  if (ch[Supla::Sensor::BatteryLevel]) {
-    paramCount++;
-    if (parser->isBasedOnIndex()) {
-      int index = ch[Supla::Sensor::BatteryLevel].as<int>();
-      sensor->setMapping(Supla::Sensor::BatteryLevel, index);
-    } else {
-      std::string key = ch[Supla::Sensor::BatteryLevel].as<std::string>();
-      sensor->setMapping(Supla::Sensor::BatteryLevel, key);
-    }
-  }
-  if (ch[Supla::Sensor::MultiplierBatteryLevel]) {
-    paramCount++;
-    double multiplier = ch[Supla::Sensor::MultiplierBatteryLevel].as<double>();
-    sensor->setMultiplier(Supla::Sensor::BatteryLevel, multiplier);
-  }
   return true;
 }
 
@@ -1731,88 +1493,3 @@ bool Supla::LinuxYamlConfig::addActionTriggerParsed(const YAML::Node& ch,
   }
   return true;
 }
-
-bool Supla::LinuxYamlConfig::addWeightParsed(const YAML::Node& ch,
-                                           int channelNumber,
-                                           Supla::Parser::Parser* parser) {
-  SUPLA_LOG_INFO("Channel[%d] config: adding WeightParsed", channelNumber);
-  auto weight = new Supla::Sensor::WeightParsed(parser);
-  if (ch[Supla::Parser::Weight]) {
-    paramCount++;
-    if (parser->isBasedOnIndex()) {
-      int index = ch[Supla::Parser::Weight].as<int>();
-      weight->setMapping(Supla::Parser::Weight, index);
-    } else {
-      std::string key = ch[Supla::Parser::Weight].as<std::string>();
-      weight->setMapping(Supla::Parser::Weight, key);
-    }
-  } else {
-    SUPLA_LOG_ERROR("Channel[%d] config: missing \"%s\" parameter",
-                    channelNumber,
-                    Supla::Parser::Weight);
-    return false;
-  }
-  if (ch[Supla::Multiplier]) {
-    paramCount++;
-    double multiplier = ch[Supla::Multiplier].as<double>();
-    weight->setMultiplier(Supla::Parser::Weight, multiplier);
-  }
-
-  addCommonParameters(ch, weight, &paramCount, parser);
-
-  return true;
-}
-
-bool Supla::LinuxYamlConfig::addDistanceParsed(const YAML::Node& ch,
-                                           int channelNumber,
-                                           Supla::Parser::Parser* parser) {
-  SUPLA_LOG_INFO("Channel[%d] config: adding DistanceParsed", channelNumber);
-  auto distance = new Supla::Sensor::DistanceParsed(parser);
-  if (ch[Supla::Parser::Distance]) {
-    paramCount++;
-    if (parser->isBasedOnIndex()) {
-      int index = ch[Supla::Parser::Distance].as<int>();
-      distance->setMapping(Supla::Parser::Distance, index);
-    } else {
-      std::string key = ch[Supla::Parser::Distance].as<std::string>();
-      distance->setMapping(Supla::Parser::Distance, key);
-    }
-  } else {
-    SUPLA_LOG_ERROR("Channel[%d] config: missing \"%s\" parameter",
-                    channelNumber,
-                    Supla::Parser::Distance);
-    return false;
-  }
-  if (ch[Supla::Multiplier]) {
-    paramCount++;
-    double multiplier = ch[Supla::Multiplier].as<double>();
-    distance->setMultiplier(Supla::Parser::Distance, multiplier);
-  }
-
-  addCommonParameters(ch, distance, &paramCount, parser);
-
-  return true;
-}
-
-void Supla::LinuxYamlConfig::addCommonParameters(
-    const YAML::Node& ch,
-    Supla::Sensor::SensorParsedBase* sensor,
-    int* paramCount,
-    Supla::Parser::Parser* parser) {
-  if (ch[Supla::Sensor::BatteryLevel]) {
-    (*paramCount)++;
-    if (parser->isBasedOnIndex()) {
-      int index = ch[Supla::Sensor::BatteryLevel].as<int>();
-      sensor->setMapping(Supla::Sensor::BatteryLevel, index);
-    } else {
-      std::string key = ch[Supla::Sensor::BatteryLevel].as<std::string>();
-      sensor->setMapping(Supla::Sensor::BatteryLevel, key);
-    }
-  }
-  if (ch[Supla::Sensor::MultiplierBatteryLevel]) {
-    (*paramCount)++;
-    double multiplier = ch[Supla::Sensor::MultiplierBatteryLevel].as<double>();
-    sensor->setMultiplier(Supla::Sensor::BatteryLevel, multiplier);
-  }
-}
-

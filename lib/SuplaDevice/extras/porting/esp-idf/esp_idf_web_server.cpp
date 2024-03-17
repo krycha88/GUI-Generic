@@ -80,9 +80,9 @@ esp_err_t postHandler(httpd_req_t *req) {
 }
 
 esp_err_t postBetaHandler(httpd_req_t *req) {
-  SUPLA_LOG_DEBUG("SERVER: beta post request");
+  SUPLA_LOG_DEBUG("SERVER: post request");
   if (serverInstance) {
-    if (serverInstance->handlePost(req, true)) {
+    if (serverInstance->handlePost(req)) {
       httpd_resp_set_status(req, "303 See Other");
       httpd_resp_set_hdr(req, "Location", "/beta");
       httpd_resp_send(req, "Supla", 5);
@@ -123,12 +123,9 @@ Supla::EspIdfWebServer::~EspIdfWebServer() {
   serverInstance = nullptr;
 }
 
-bool Supla::EspIdfWebServer::handlePost(httpd_req_t *req, bool beta) {
+bool Supla::EspIdfWebServer::handlePost(httpd_req_t *req) {
   notifyClientConnected();
   resetParser();
-  if (beta) {
-    setBetaProcessing();
-  }
 
   size_t contentLen = req->content_len;
   SUPLA_LOG_DEBUG("SERVER: content length %d B", contentLen);

@@ -80,6 +80,13 @@ class DHT : public ThermHygroMeter {
     return value;
   }
 
+  void iterateAlways() {
+    if (lastReadTime + 10000 < millis()) {
+      lastReadTime = millis();
+      channel.setNewValue(getTemp(), getHumi());
+    }
+  }
+
  protected:
   ::DHT dht;
   double lastValidTemp;

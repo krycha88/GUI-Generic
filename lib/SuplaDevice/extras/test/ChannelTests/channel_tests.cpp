@@ -166,7 +166,7 @@ TEST(ChannelTests, SetNewValue) {
   EXPECT_TRUE(channel.isUpdateReady());
   channel.clearUpdateReady();
 
-  uint64_t value64 = 124346;
+  unsigned _supla_int64_t value64 = 124346;
   ASSERT_EQ(sizeof(value64), 8);
   channel.setNewValue(value64);
   EXPECT_EQ(0, memcmp(Supla::Channel::reg_dev.channels[number].value,
@@ -309,7 +309,7 @@ TEST(ChannelTests, ChannelValueGetters) {
   channel.setNewValue(valueInt);
   EXPECT_EQ(channel.getValueInt32(), valueInt);
 
-  uint64_t valueInt64 = 202013012021000;
+  unsigned _supla_int64_t valueInt64 = 202013012021000;
   channel.setNewValue(valueInt64);
   EXPECT_EQ(channel.getValueInt64(), valueInt64);
 
@@ -341,6 +341,8 @@ class SuplaSrpcStub : public Supla::Protocol::SuplaSrpc {
 TEST(ChannelTests, SendUpdateTest) {
   SuplaDeviceClass sd;
   SuplaSrpcStub *suplaSrpc = nullptr;
+  new NetworkClientMock;  // it will be destroyed in
+                          // Supla::Protocol::SuplaSrpc
   suplaSrpc = new SuplaSrpcStub(&sd);
   suplaSrpc->setRegisteredAndReady();
   Supla::Channel channel;
@@ -446,7 +448,7 @@ TEST(ChannelTests, Int64ChannelWithLocalActions) {
 
   ch1.addAction(action1, mock1, Supla::ON_CHANGE);
 
-  uint64_t value = 15;
+  unsigned _supla_int64_t value = 15;
 
   ch1.setNewValue(value);
   ch1.setNewValue(value);

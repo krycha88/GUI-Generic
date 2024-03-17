@@ -27,11 +27,7 @@ class LastStateLogger {
  public:
   LastStateLogger();
   virtual ~LastStateLogger();
-  virtual void log(const char *, int uptimeSec);
-  virtual void clear();
-
-  // getLog locks the mutex on first call and releases it when all messages
-  // have been read, so make sure you call it in a loop until null is returned
+  virtual void log(const char *);
   virtual char *getLog();
   virtual bool prepareLastStateLog();
 

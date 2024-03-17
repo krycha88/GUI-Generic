@@ -9,7 +9,6 @@ security_level: 2
 supla:
   server: svr123.supla.org
   mail: mail@user.com
-  proto: 23
 
 channels:
   - type: ThermHygroMeterParsed
@@ -31,28 +30,24 @@ channels:
       use: p1
     pressure: "/current/values/3/value"
 
-  - type: GeneralPurposeMeasurementParsed
+# Supla doesn't provide generic measurement channel yet, so we use thermometer
+# as a workaround
+  - type: ThermometerParsed
     name: airly_pm1
-    default_unit_after_value: µg/m³
-    default_value_precision: 2
     parser:
       use: p1
-    value: "/current/values/0/value"
+    temperature: "/current/values/0/value"
 
-  - type: GeneralPurposeMeasurementParsed
+  - type: ThermometerParsed
     name: airly_pm25
-    default_unit_after_value: µg/m³
-    default_value_precision: 2
     parser:
       use: p1
-    value: "/current/values/1/value"
+    temperature: "/current/values/1/value"
 
-  - type: GeneralPurposeMeasurementParsed
+  - type: ThermometerParsed
     name: airly_pm10
-    default_unit_after_value: µg/m³
-    default_value_precision: 2
     parser:
       use: p1
-    value: "/current/values/2/value"
+    temperature: "/current/values/2/value"
 
 

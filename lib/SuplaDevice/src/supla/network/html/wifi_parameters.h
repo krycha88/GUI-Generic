@@ -33,10 +33,6 @@ class WifiParameters : public HtmlElement {
   virtual ~WifiParameters();
   void send(Supla::WebSender* sender) override;
   bool handleResponse(const char* key, const char* value) override;
-  void onProcessingEnd() override;
-
- protected:
-  bool checkboxFound = false;
 };
 
 };  // namespace Html

@@ -22,12 +22,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern int esp32PwmChannelCounter;
 #endif
 
-Supla::Control::RGBWLeds::RGBWLeds(
-    Supla::Io *io, int redPin, int greenPin, int bluePin, int brightnessPin)
-    : RGBWLeds(redPin, greenPin, bluePin, brightnessPin) {
-  this->io = io;
-}
-
 Supla::Control::RGBWLeds::RGBWLeds(int redPin,
                                    int greenPin,
                                    int bluePin,
@@ -56,23 +50,15 @@ void Supla::Control::RGBWLeds::setRGBWValueOnDevice(uint32_t red,
 #endif
 
 #ifdef ARDUINO_ARCH_ESP32
-  if (io) {
-    Supla::Io::analogWrite(redPin, redAdj, io);
-    Supla::Io::analogWrite(greenPin, greenAdj, io);
-    Supla::Io::analogWrite(bluePin, blueAdj, io);
-    Supla::Io::analogWrite(brightnessPin, brightnessAdj, io);
-  } else {
-    // TODO(klew): move to IO for ESP32
-    ledcWrite(redPin, redAdj);
-    ledcWrite(greenPin, greenAdj);
-    ledcWrite(bluePin, blueAdj);
-    ledcWrite(brightnessPin, brightnessAdj);
-  }
+  ledcWrite(redPin, redAdj);
+  ledcWrite(greenPin, greenAdj);
+  ledcWrite(bluePin, blueAdj);
+  ledcWrite(brightnessPin, brightnessAdj);
 #else
-  Supla::Io::analogWrite(redPin, redAdj, io);
-  Supla::Io::analogWrite(greenPin, greenAdj, io);
-  Supla::Io::analogWrite(bluePin, blueAdj, io);
-  Supla::Io::analogWrite(brightnessPin, brightnessAdj, io);
+  Supla::Io::analogWrite(redPin, redAdj);
+  Supla::Io::analogWrite(greenPin, greenAdj);
+  Supla::Io::analogWrite(bluePin, blueAdj);
+  Supla::Io::analogWrite(brightnessPin, brightnessAdj);
 #endif
 }
 

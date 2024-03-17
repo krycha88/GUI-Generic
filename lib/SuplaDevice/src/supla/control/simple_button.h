@@ -39,7 +39,7 @@ class ButtonState {
   ButtonState(int pin, bool pullUp, bool invertLogic);
   enum StateResults update();
   enum StateResults getLastState() const;
-  void init(int buttonNumber);
+  void init();
 
   void setSwNoiseFilterDelay(unsigned int newDelayMs);
   void setDebounceDelay(unsigned int newDelayMs);
@@ -48,17 +48,16 @@ class ButtonState {
  protected:
   int valueOnPress() const;
 
-  Supla::Io *io = nullptr;
-
-  uint16_t debounceDelayMs = 50;
-  uint16_t swNoiseFilterDelayMs = 20;
-  uint32_t debounceTimestampMs = 0;
-  uint32_t filterTimestampMs = 0;
-  int16_t pin = -1;
+  uint32_t debounceTimeMs = 0;
+  uint32_t filterTimeMs = 0;
+  unsigned int debounceDelayMs = 50;
+  unsigned int swNoiseFilterDelayMs = 20;
+  int pin = -1;
   int8_t newStatusCandidate = 0;
   int8_t prevState = -1;
   bool pullUp = false;
   bool invertLogic = false;
+  Supla::Io *io = nullptr;
 };
 
 class SimpleButton : public Element, public LocalAction {

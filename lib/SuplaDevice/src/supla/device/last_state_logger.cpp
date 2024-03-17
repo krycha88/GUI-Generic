@@ -20,7 +20,6 @@
 #include <supla/log_wrapper.h>
 #include <supla/auto_lock.h>
 #include <supla/mutex.h>
-#include <stdio.h>
 
 #include "last_state_logger.h"
 
@@ -42,15 +41,10 @@ bool LastStateLogger::prepareLastStateLog() {
   return true;
 }
 
-void LastStateLogger::log(const char *state, int uptimeSec) {
+void LastStateLogger::log(const char *state) {
   int newStateSize = strlen(state);
-  char timestamp[32] = {};
-  if (uptimeSec > 7) {
-    snprintf(timestamp, sizeof(timestamp), " (%d)", uptimeSec);
-  }
-  int timestampSize = strlen(timestamp);
 
-  if (newStateSize + timestampSize + 1 > LAST_STATE_LOGGER_BUFFER_SIZE) {
+  if (newStateSize + 1 > LAST_STATE_LOGGER_BUFFER_SIZE) {
     return;
   }
 
@@ -58,8 +52,6 @@ void LastStateLogger::log(const char *state, int uptimeSec) {
   char *copy = new char[LAST_STATE_LOGGER_BUFFER_SIZE];
   memcpy(copy, buffer, LAST_STATE_LOGGER_BUFFER_SIZE);
   memcpy(buffer, state, newStateSize);
-  memcpy(buffer + newStateSize, timestamp, timestampSize);
-  newStateSize += timestampSize;
   buffer[newStateSize] = '\0';
   memcpy(buffer + newStateSize + 1,
          copy,
@@ -71,11 +63,6 @@ void LastStateLogger::log(const char *state, int uptimeSec) {
 
   SUPLA_LOG_INFO("LAST STATE ADDED: %s", buffer);
   delete [] copy;
-}
-
-void LastStateLogger::clear() {
-  Supla::AutoLock autoLock(mutex);
-  memset(buffer, 0, LAST_STATE_LOGGER_BUFFER_SIZE);
 }
 
 char *LastStateLogger::getLog() {

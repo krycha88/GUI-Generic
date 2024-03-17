@@ -48,11 +48,6 @@ static const char *SUPLA_TAG = "SUPLA";
 #include <mem.h>
 #include <osapi.h>
 
-#ifndef ARDUINO
-#include <user_interface.h>
-#include "espmissingincludes.h"
-#endif /*ARDUINO*/
-
 #else
 
 #if !defined(ARDUINO) && !defined(SUPLA_DEVICE)

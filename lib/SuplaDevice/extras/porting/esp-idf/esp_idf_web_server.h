@@ -43,7 +43,7 @@ class EspIdfWebServer : public Supla::WebServer {
   void start() override;
   void stop() override;
 
-  bool handlePost(httpd_req_t *req, bool beta = false);
+  bool handlePost(httpd_req_t *req);
 
   bool dataSaved = false;
 

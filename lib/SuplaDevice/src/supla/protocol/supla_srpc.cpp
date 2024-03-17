@@ -39,53 +39,17 @@ struct CalCfgResultPendingItem {
 };
 }  // namespace Supla::Protocol
 
-bool Supla::Protocol::SuplaSrpc::isSuplaSSLEnabled = true;
-
-static const char wrongCert[] = "SUPLA";
 
 Supla::Protocol::SuplaSrpc::SuplaSrpc(SuplaDeviceClass *sdc, int version)
     : Supla::Protocol::ProtocolLayer(sdc), version(version) {
+  client = Supla::ClientBuilder();
+  client->setDebugLogs(true);
+  client->setSdc(sdc);
 }
 
 Supla::Protocol::SuplaSrpc::~SuplaSrpc() {
-  if (client) {
-    delete client;
-    client = nullptr;
-  }
-  if (selectedCertificate) {
-    if (selectedCertificate != suplaCACert &&
-        selectedCertificate != supla3rdPartyCACert &&
-        selectedCertificate != wrongCert) {
-      delete [] selectedCertificate;
-    }
-  }
-}
-
-void Supla::Protocol::SuplaSrpc::setNetworkClient(Supla::Client *newClient) {
-  bool debugLogs = verboseLog;
-  if (client) {
-    debugLogs = client->isDebugLogs();
-    delete client;
-  }
-  client = newClient;
-  client->setDebugLogs(debugLogs);
-  initClient();
-}
-
-void Supla::Protocol::SuplaSrpc::initClient() {
-  if (client == nullptr) {
-    if (Supla::Network::Instance()) {
-      client = Supla::Network::Instance()->createClient();
-    } else {
-      client = Supla::ClientBuilder();
-    }
-    client->setDebugLogs(verboseLog);
-  }
-  client->setSdc(sdc);
-  if (port == 2016 || (port == -1 && isSuplaSSLEnabled)) {
-    client->setSSLEnabled(true);
-    client->setCACert(selectedCertificate);
-  }
+  delete client;
+  client = nullptr;
 }
 
 bool Supla::Protocol::SuplaSrpc::onLoadConfig() {
@@ -120,14 +84,16 @@ bool Supla::Protocol::SuplaSrpc::onLoadConfig() {
       configComplete = false;
     }
 
-    if (port == 2016 || (port == -1 && isSuplaSSLEnabled)) {
+    if (port == 2016 ||
+        (port == -1 && Supla::Network::IsSuplaSSLEnabled())) {
+      client->setSSLEnabled(true);
       bool usePublicServer = isSuplaPublicServerConfigured();
-      selectedCertificate = suplaCACert;
+      auto certificate = suplaCACert;
 
       // Public Supla server use different root CA for server certificate
       // validation then CA used for private servers
       if (!usePublicServer) {
-        selectedCertificate = supla3rdPartyCACert;
+        certificate = supla3rdPartyCACert;
       }
 
       cfg->getUInt8("security_level", &securityLevel);
@@ -136,6 +102,7 @@ bool Supla::Protocol::SuplaSrpc::onLoadConfig() {
       }
 
       SUPLA_LOG_DEBUG("Security level: %d", securityLevel);
+      static const char wrongCert[] = "SUPLA";
       switch (securityLevel) {
         default:
         case 0: {
@@ -144,12 +111,13 @@ bool Supla::Protocol::SuplaSrpc::onLoadConfig() {
           // SuplaDevice.begin() is called.
           // If it is null, we just assign "SUPLA" as a certificate value, which
           // will of course fail the certificate validation (which is intended).
-          if (selectedCertificate == nullptr) {
+          if (certificate == nullptr) {
             SUPLA_LOG_ERROR(
                 "Supla CA ceritificate is selected, but it is not set. "
                 "Connection will fail");
-            selectedCertificate = wrongCert;
+            certificate = wrongCert;
           }
+          client->setCACert(certificate);
           break;
         }
         case 1: {
@@ -160,18 +128,17 @@ bool Supla::Protocol::SuplaSrpc::onLoadConfig() {
             auto cert = new char[len];
             memset(cert, 0, len);
             cfg->getCustomCA(cert, len);
-            selectedCertificate = cert;
+            client->setCACert(cert, true);
           } else {
             SUPLA_LOG_ERROR(
                 "Custom CA is selected, but certificate is"
                 " missing in config. Connect will fail");
-            selectedCertificate = wrongCert;
+            client->setCACert(wrongCert);
           }
           break;
         }
         case 2: {
           // Skip certificate validation (INSECURE)
-          selectedCertificate = nullptr;
           break;
         }
       }
@@ -188,24 +155,29 @@ void Supla::Protocol::SuplaSrpc::onInit() {
     return;
   }
 
-  if (port == 2016 || (port == -1 && isSuplaSSLEnabled)) {
+  if (port == 2016 ||
+      (port == -1 && Supla::Network::IsSuplaSSLEnabled())) {
+    client->setSSLEnabled(true);
+
     auto cfg = Supla::Storage::ConfigInstance();
 
     if (!cfg && (suplaCACert != nullptr || supla3rdPartyCACert != nullptr)) {
-      selectedCertificate = suplaCACert;
+      auto certificate = suplaCACert;
       if (suplaCACert != nullptr && supla3rdPartyCACert != nullptr) {
         bool usePublicServer = isSuplaPublicServerConfigured();
 
         // Public Supla server use different root CA for server certificate
         // validation then CA used for private servers
         if (!usePublicServer) {
-          selectedCertificate = supla3rdPartyCACert;
+          certificate = supla3rdPartyCACert;
         }
       }
 
       if (suplaCACert == nullptr) {
-        selectedCertificate = supla3rdPartyCACert;
+        certificate = supla3rdPartyCACert;
       }
+
+      client->setCACert(certificate);
     }
   }
 
@@ -472,10 +444,6 @@ void Supla::messageReceived(void *srpc,
         }
         break;
       }
-      case SUPLA_SCD_CALL_SET_CHANNEL_CAPTION_RESULT:
-        SUPLA_LOG_DEBUG("Receieved setChannelCaptionResult for %d",
-                        rd.data.scd_set_caption_result->ChannelNumber);
-        break;
       default:
         SUPLA_LOG_WARNING("Received unknown message from server!");
         break;
@@ -491,7 +459,7 @@ void Supla::messageReceived(void *srpc,
 void Supla::Protocol::SuplaSrpc::onVersionError(
     TSDC_SuplaVersionError *versionError) {
   (void)(versionError);
-  sdc->status(STATUS_PROTOCOL_VERSION_ERROR, F("Protocol version error"));
+  sdc->status(STATUS_PROTOCOL_VERSION_ERROR, "Protocol version error");
   SUPLA_LOG_ERROR("Protocol version error. Server min: %d; Server version: %d",
                   versionError->server_version_min,
                   versionError->server_version);
@@ -525,7 +493,7 @@ void Supla::Protocol::SuplaSrpc::onRegisterResult(
           registerDeviceResult->version,
           registerDeviceResult->version_min);
       lastIterateTime = millis();
-      sdc->status(STATUS_REGISTERED_AND_READY, F("Registered and ready"));
+      sdc->status(STATUS_REGISTERED_AND_READY, "Registered and ready");
 
       if (serverActivityTimeout != activityTimeoutS) {
         SUPLA_LOG_DEBUG("Changing activity timeout to %d", activityTimeoutS);
@@ -545,57 +513,53 @@ void Supla::Protocol::SuplaSrpc::onRegisterResult(
       // NOK scenarios
     case SUPLA_RESULTCODE_TEMPORARILY_UNAVAILABLE:
       sdc->status(
-          STATUS_TEMPORARILY_UNAVAILABLE, F("Temporarily unavailable!"), true);
+          STATUS_TEMPORARILY_UNAVAILABLE, "Temporarily unavailable!", true);
       break;
 
     case SUPLA_RESULTCODE_GUID_ERROR:
-      sdc->status(STATUS_INVALID_GUID, F("Incorrect device GUID!"), true);
+      sdc->status(STATUS_INVALID_GUID, "Incorrect device GUID!", true);
       break;
 
     case SUPLA_RESULTCODE_AUTHKEY_ERROR:
-      sdc->status(STATUS_INVALID_AUTHKEY, F("Incorrect AuthKey!"), true);
+      sdc->status(STATUS_INVALID_AUTHKEY, "Incorrect AuthKey!", true);
       break;
 
     case SUPLA_RESULTCODE_BAD_CREDENTIALS:
       sdc->status(STATUS_BAD_CREDENTIALS,
-                  F("Bad credentials - incorrect AuthKey or email"),
+                  "Bad credentials - incorrect AuthKey or email",
                   true);
       break;
 
     case SUPLA_RESULTCODE_REGISTRATION_DISABLED:
-      sdc->status(
-          STATUS_REGISTRATION_DISABLED, F("Registration disabled!"), true);
+      sdc->status(STATUS_REGISTRATION_DISABLED, "Registration disabled!", true);
       break;
 
     case SUPLA_RESULTCODE_DEVICE_LIMITEXCEEDED:
-      sdc->status(
-          STATUS_DEVICE_LIMIT_EXCEEDED, F("Device limit exceeded!"), true);
+      sdc->status(STATUS_DEVICE_LIMIT_EXCEEDED, "Device limit exceeded!", true);
       break;
 
     case SUPLA_RESULTCODE_NO_LOCATION_AVAILABLE:
-      sdc->status(
-          STATUS_NO_LOCATION_AVAILABLE, F("No location available!"), true);
+      sdc->status(STATUS_NO_LOCATION_AVAILABLE, "No location available!", true);
       break;
 
     case SUPLA_RESULTCODE_DEVICE_DISABLED:
-      sdc->status(STATUS_DEVICE_IS_DISABLED, F("Device is disabled!"), true);
+      sdc->status(STATUS_DEVICE_IS_DISABLED, "Device is disabled!", true);
       break;
 
     case SUPLA_RESULTCODE_LOCATION_DISABLED:
-      sdc->status(
-          STATUS_LOCATION_IS_DISABLED, F("Location is disabled!"), true);
+      sdc->status(STATUS_LOCATION_IS_DISABLED, "Location is disabled!", true);
       break;
 
     case SUPLA_RESULTCODE_LOCATION_CONFLICT:
-      sdc->status(STATUS_LOCATION_CONFLICT, F("Location conflict!"), true);
+      sdc->status(STATUS_LOCATION_CONFLICT, "Location conflict!", true);
       break;
 
     case SUPLA_RESULTCODE_CHANNEL_CONFLICT:
-      sdc->status(STATUS_CHANNEL_CONFLICT, F("Channel conflict!"), true);
+      sdc->status(STATUS_CHANNEL_CONFLICT, "Channel conflict!", true);
       break;
 
     case SUPLA_RESULTCODE_COUNTRY_REJECTED:
-      sdc->status(STATUS_COUNTRY_REJECTED, F("Country rejected!"), true);
+      sdc->status(STATUS_COUNTRY_REJECTED, "Country rejected!", true);
       break;
 
     case SUPLA_RESULTCODE_CFG_MODE_REQUESTED:
@@ -604,7 +568,7 @@ void Supla::Protocol::SuplaSrpc::onRegisterResult(
       return;
 
     default:
-      sdc->status(STATUS_UNKNOWN_ERROR, F("Unknown registration error"), true);
+      sdc->status(STATUS_UNKNOWN_ERROR, "Unknown registration error", true);
       SUPLA_LOG_ERROR("Register result code %i",
                       registerDeviceResult->result_code);
       break;
@@ -623,9 +587,6 @@ void Supla::Protocol::SuplaSrpc::onSetActivityTimeoutResult(
 
 void Supla::Protocol::SuplaSrpc::setActivityTimeout(
     uint32_t activityTimeoutSec) {
-  if (activityTimeoutSec < 6) {
-    activityTimeoutSec = 6;
-  }
   activityTimeoutS = activityTimeoutSec;
 }
 
@@ -633,14 +594,11 @@ bool Supla::Protocol::SuplaSrpc::ping() {
   uint32_t _millis = millis();
   // If time from last response is longer than "server_activity_timeout + 10 s",
   // then inform about failure in communication
-  if ((_millis - lastResponseMs) / 1000 >=
-      (static_cast<uint32_t>(activityTimeoutS) + 10)) {
+  if ((_millis - lastResponseMs) / 1000 >= (activityTimeoutS + 10)) {
     return false;
   } else if (_millis - lastPingTimeMs >= 5000 &&
-             ((_millis - lastResponseMs) / 1000 >=
-                  (static_cast<uint32_t>(activityTimeoutS) - 5) ||
-              (_millis - lastSentMs) / 1000 >=
-                  (static_cast<uint32_t>(activityTimeoutS) - 5))) {
+             ((_millis - lastResponseMs) / 1000 >= (activityTimeoutS - 5) ||
+              (_millis - lastSentMs) / 1000 >= (activityTimeoutS - 5))) {
     lastPingTimeMs = _millis;
     srpc_dcs_async_ping_server(srpc);
   }
@@ -665,33 +623,13 @@ bool Supla::Protocol::SuplaSrpc::iterate(uint32_t _millis) {
     lastIterateTime = _millis;
   }
 
-  if (client == nullptr) {
-    initClient();
-  }
-
   // Establish connection with Supla server
   if (!client->connected()) {
-    deinitializeSrpc();
-    if (registered != 0) {
-      SUPLA_LOG_DEBUG("Supla server connection lost. Trying to reconnect");
-      sdc->uptime.setConnectionLostCause(
-          SUPLA_LASTCONNECTIONRESETCAUSE_SERVER_CONNECTION_LOST);
-      registered = 0;
-      client->stop();
-#ifdef ARDUINO_ARCH_ESP8266
-      // Arduino ESP8266 seems to leak memory on SSL reconnect.
-      // Workaround: Resetting Wi-Fi cleans it up
-      if (isSuplaSSLEnabled) {
-        requestNetworkRestart = true;
-      }
-#endif
-      waitForIterate = 1000;
-      lastIterateTime = _millis;
-      return false;
-    }
-
+    sdc->uptime.setConnectionLostCause(
+        SUPLA_LASTCONNECTIONRESETCAUSE_SERVER_CONNECTION_LOST);
+    registered = 0;
     if (port == -1) {
-      if (isSuplaSSLEnabled) {
+      if (Supla::Network::IsSuplaSSLEnabled()) {
         port = 2016;
       } else {
         port = 2015;
@@ -705,21 +643,12 @@ bool Supla::Protocol::SuplaSrpc::iterate(uint32_t _millis) {
       SUPLA_LOG_INFO("Connected to Supla Server");
       initializeSrpc();
     } else {
-      if (!firstConnectionAttempt) {
-        sdc->status(STATUS_SERVER_DISCONNECTED,
-                    F("Not connected to Supla server"));
-      }
+      sdc->status(STATUS_SERVER_DISCONNECTED, "Not connected to Supla server");
       SUPLA_LOG_DEBUG("Connection fail (%d). Server: %s",
                       result,
                       Supla::Channel::reg_dev.ServerName);
-      if (firstConnectionAttempt) {
-        waitForIterate = 1000;
-      } else {
-        waitForIterate = 10000;
-      }
-
       disconnect();
-      firstConnectionAttempt = false;
+      waitForIterate = 10000;
       connectionFailCounter++;
       if (connectionFailCounter % 6 == 0) {
         requestNetworkRestart = true;
@@ -729,7 +658,7 @@ bool Supla::Protocol::SuplaSrpc::iterate(uint32_t _millis) {
   }
 
   if (srpc_iterate(srpc) == SUPLA_RESULT_FALSE) {
-    sdc->status(STATUS_ITERATE_FAIL, F("Communication failure"));
+    sdc->status(STATUS_ITERATE_FAIL, "Communication failure");
     disconnect();
 
     lastIterateTime = _millis;
@@ -740,7 +669,7 @@ bool Supla::Protocol::SuplaSrpc::iterate(uint32_t _millis) {
   if (registered == 0) {
     // Perform registration if we are not yet registered
     registered = -1;
-    sdc->status(STATUS_REGISTER_IN_PROGRESS, F("Register in progress"));
+    sdc->status(STATUS_REGISTER_IN_PROGRESS, "Register in progress");
     static bool firstRegistration = true;
     if (firstRegistration) {
       firstRegistration = false;
@@ -773,8 +702,7 @@ bool Supla::Protocol::SuplaSrpc::iterate(uint32_t _millis) {
     if (_millis - lastIterateTime > 10 * 1000) {
       SUPLA_LOG_DEBUG(
           "No reply to registration message. Resetting connection.");
-      sdc->status(STATUS_SERVER_DISCONNECTED,
-                  F("Not connected to Supla server"));
+      sdc->status(STATUS_SERVER_DISCONNECTED, "Not connected to Supla server");
       disconnect();
 
       lastIterateTime = _millis;
@@ -803,8 +731,7 @@ bool Supla::Protocol::SuplaSrpc::iterate(uint32_t _millis) {
       sdc->uptime.setConnectionLostCause(
           SUPLA_LASTCONNECTIONRESETCAUSE_ACTIVITY_TIMEOUT);
       SUPLA_LOG_DEBUG("TIMEOUT - lost connection with server");
-      sdc->status(STATUS_SERVER_DISCONNECTED,
-                  F("Not connected to Supla server"));
+      sdc->status(STATUS_SERVER_DISCONNECTED, "Not connected to Supla server");
       disconnect();
     }
 
@@ -823,11 +750,8 @@ void Supla::Protocol::SuplaSrpc::disconnect() {
     return;
   }
 
-  firstConnectionAttempt = true;
   registered = 0;
-  if (client) {
-    client->stop();
-  }
+  client->stop();
   deinitializeSrpc();
 }
 
@@ -889,14 +813,14 @@ bool Supla::Protocol::SuplaSrpc::verifyConfig() {
   }
 
   if (Supla::Channel::reg_dev.ServerName[0] == '\0') {
-    sdc->status(STATUS_UNKNOWN_SERVER_ADDRESS, F("Missing server address"));
+    sdc->status(STATUS_UNKNOWN_SERVER_ADDRESS, "Missing server address");
     if (sdc->getDeviceMode() != Supla::DEVICE_MODE_CONFIG) {
       return false;
     }
   }
 
   if (Supla::Channel::reg_dev.Email[0] == '\0') {
-    sdc->status(STATUS_MISSING_CREDENTIALS, F("Missing email address"));
+    sdc->status(STATUS_MISSING_CREDENTIALS, "Missing email address");
     if (sdc->getDeviceMode() != Supla::DEVICE_MODE_CONFIG) {
       return false;
     }
@@ -918,18 +842,7 @@ void Supla::Protocol::SuplaSrpc::sendChannelStateResult(int32_t receiverId,
   TDSC_ChannelState state = {};
   state.ReceiverID = receiverId;
   state.ChannelNumber = channelNo;
-  if (client->getSrcConnectionIPAddress() != 0) {
-    state.Fields |= SUPLA_CHANNELSTATE_FIELD_IPV4;
-    state.IPv4 = client->getSrcConnectionIPAddress();
-  }
-
-  auto network =
-      Supla::Network::GetInstanceByIP(client->getSrcConnectionIPAddress());
-  if (network) {
-    network->fillStateData(&state);
-  } else {
-    Supla::Network::Instance()->fillStateData(&state);
-  }
+  Supla::Network::Instance()->fillStateData(&state);
   getSdc()->fillStateData(&state);
   auto element = Supla::Element::getElementByChannelNumber(channelNo);
   if (element) {
@@ -943,11 +856,6 @@ uint32_t Supla::Protocol::SuplaSrpc::getActivityTimeout() {
 }
 
 bool Supla::Protocol::SuplaSrpc::isUpdatePending() {
-  if (sdc->isRemoteDeviceConfigEnabled()) {
-    if (!setDeviceConfigReceivedAfterRegistration) {
-      return true;
-    }
-  }
   return Supla::Element::IsAnyUpdatePending();
 }
 
@@ -1100,20 +1008,6 @@ bool Supla::Protocol::SuplaSrpc::setDeviceConfig(
 
   deviceConfig->EndOfDataFlag = 1;
   srpc_ds_async_set_device_config_request(srpc, deviceConfig);
-  return true;
-}
-
-bool Supla::Protocol::SuplaSrpc::setInitialCaption(uint8_t channelNumber,
-                                                   const char *caption) {
-  if (!isRegisteredAndReady()) {
-    return false;
-  }
-  TDCS_SetCaption request = {};
-  request.ChannelNumber = channelNumber;
-  strncpy(request.Caption, caption, SUPLA_CAPTION_MAXSIZE);
-  request.Caption[SUPLA_CAPTION_MAXSIZE - 1] = '\0';
-  request.CaptionSize = strnlen(request.Caption, SUPLA_CAPTION_MAXSIZE) + 1;
-  srpc_dcs_async_set_channel_caption(srpc, &request);
   return true;
 }
 
@@ -1388,11 +1282,9 @@ void Supla::Protocol::SuplaSrpc::initializeSrpc() {
 }
 
 void Supla::Protocol::SuplaSrpc::deinitializeSrpc() {
+  SUPLA_LOG_INFO("Deinitializing SRPC");
   if (srpc) {
-    SUPLA_LOG_INFO("Deinitializing SRPC");
     srpc_free(srpc);
     srpc = nullptr;
   }
-  setDeviceConfigReceivedAfterRegistration = false;
 }
-

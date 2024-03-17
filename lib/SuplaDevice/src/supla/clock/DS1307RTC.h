@@ -66,12 +66,6 @@ class DS1307RTC : public Clock {
               getHour(),
               getMin(),
               getSec());
-
-      if (getYear() >= 2023) {
-        isClockReady = true;
-      } else {
-        SUPLA_LOG_DEBUG("Clock is not ready");
-      }
     }
   }
 

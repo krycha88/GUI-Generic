@@ -62,7 +62,6 @@ file(GLOB TEST_SRC
   RollerShutterTests/*.cpp
   NotifTests/*.cpp
   RelayTests/*.cpp
-  GpmTests/*.cpp
   )
 
 file(GLOB DOUBLE_SRC doubles/*.cpp)

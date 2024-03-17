@@ -39,19 +39,18 @@ ButtonState::ButtonState(int pin, bool pullUp, bool invertLogic)
 
 enum Supla::Control::StateResults ButtonState::update() {
   uint32_t curMillis = millis();
-  if (debounceDelayMs == 0 ||
-      curMillis - debounceTimestampMs > debounceDelayMs) {
+  if (debounceDelayMs == 0 || curMillis - debounceTimeMs > debounceDelayMs) {
     int currentState = Supla::Io::digitalRead(pin, io);
     if (currentState != prevState) {
       // If status is changed, then make sure that it will be kept at
       // least swNoiseFilterDelayMs ms to avoid noise
       if (swNoiseFilterDelayMs != 0 && currentState != newStatusCandidate) {
         newStatusCandidate = currentState;
-        filterTimestampMs = curMillis;
-      } else if (curMillis - filterTimestampMs > swNoiseFilterDelayMs) {
+        filterTimeMs = curMillis;
+      } else if (curMillis - filterTimeMs > swNoiseFilterDelayMs) {
         // If new status is kept at least swNoiseFilterDelayMs ms, then apply
         // change of status
-        debounceTimestampMs = curMillis;
+        debounceTimeMs = curMillis;
         prevState = currentState;
         if (currentState == valueOnPress()) {
           return TO_PRESSED;
@@ -106,21 +105,16 @@ void SimpleButton::onTimer() {
 }
 
 void SimpleButton::onInit() {
-  state.init(getButtonNumber());
+  state.init();
 }
 
-void ButtonState::init(int buttonNumber) {
+void ButtonState::init() {
   if (prevState == -1) {
     Supla::Io::pinMode(pin, pullUp ? INPUT_PULLUP : INPUT, io);
     prevState = Supla::Io::digitalRead(pin, io);
     newStatusCandidate = prevState;
-    SUPLA_LOG_DEBUG(
-        "Button[%d]: Initialized: pin %d, pullUp %d, invertLogic %d, state %d",
-        buttonNumber,
-        pin,
-        pullUp,
-        invertLogic,
-        prevState);
+    SUPLA_LOG_DEBUG("Pin %d, pullUp %d, invertLogic %d, state %d", pin, pullUp,
+        invertLogic, prevState);
   }
 }
 

@@ -31,7 +31,7 @@ double Supla::Sensor::ThermHygroPressMeter::getPressure() {
 }
 
 void Supla::Sensor::ThermHygroPressMeter::iterateAlways() {
-  if (millis() - lastReadTime > refreshIntervalMs) {
+  if (millis() - lastReadTime > 10000) {
     pressureChannel.setNewValue(getPressure());
   }
   ThermHygroMeter::iterateAlways();
@@ -46,7 +46,7 @@ bool Supla::Sensor::ThermHygroPressMeter::iterateConnected() {
     response = false;
   }
 
-  if (!ThermHygroMeter::iterateConnected()) {
+  if (!Element::iterateConnected()) {
     response = false;
   }
   return response;
@@ -61,9 +61,9 @@ Supla::Channel *Supla::Sensor::ThermHygroPressMeter::getSecondaryChannel() {
   return &pressureChannel;
 }
 
-void Supla::Sensor::ThermHygroPressMeter::addAction(uint16_t action,
+void Supla::Sensor::ThermHygroPressMeter::addAction(int action,
                                             ActionHandler &client,
-                                            uint16_t event,
+                                            int event,
                                             bool alwaysEnabled) {
   // delegate secondary channel event registration to secondary channel
   switch (event) {
@@ -76,9 +76,9 @@ void Supla::Sensor::ThermHygroPressMeter::addAction(uint16_t action,
   channel.addAction(action, client, event, alwaysEnabled);
 }
 
-void Supla::Sensor::ThermHygroPressMeter::addAction(uint16_t action,
+void Supla::Sensor::ThermHygroPressMeter::addAction(int action,
                                             ActionHandler *client,
-                                            uint16_t event,
+                                            int event,
                                             bool alwaysEnabled) {
   ThermHygroPressMeter::addAction(action, *client, event, alwaysEnabled);
 }

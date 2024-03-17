@@ -760,3 +760,4 @@ TEST(StorageSpecialSecTests, deleteSectionTestWithCrcAndBackup) {
 
   EXPECT_TRUE(Supla::Storage::DeleteSection(51));
 }
+

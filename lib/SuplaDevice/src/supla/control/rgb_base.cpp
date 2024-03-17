@@ -27,11 +27,10 @@ void Supla::Control::RGBBase::setRGBW(int red,
                                       int blue,
                                       int colorBrightness,
                                       int brightness,
-                                      bool toggle,
-                                      bool instant) {
+                                      bool toggle) {
   (void)(brightness);
   Supla::Control::RGBWBase::setRGBW(
-      red, green, blue, colorBrightness, 0, toggle, instant);
+      red, green, blue, colorBrightness, 0, toggle);
 }
 
 void Supla::Control::RGBBase::onSaveState() {

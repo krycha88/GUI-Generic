@@ -100,7 +100,7 @@ void printFreeMemory(const char *location) {
 const String getAPName() {
   uint8_t mac[6] = {};
   char macStr[12 + 6] = {};
-  if (Supla::Network::GetMainMacAddr(mac)) {
+  if (Supla::Network::GetMacAddr(mac)) {
     generateHexString(mac, macStr, 6);
   }
 

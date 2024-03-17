@@ -22,7 +22,7 @@
 
 namespace Supla {
 
-class ElementWithChannelActions;
+class Element;
 
 class Condition : public ActionHandler {
  public:
@@ -30,19 +30,16 @@ class Condition : public ActionHandler {
   Condition(double threshold, ConditionGetter *getter);
 
   virtual ~Condition();
-  void setSource(ElementWithChannelActions *src);
+  void setSource(Element *src);
   void setClient(ActionHandler *clientPtr);
-  void setSource(ElementWithChannelActions &src);  // NOLINT(runtime/references)
+  void setSource(Element &src);  // NOLINT(runtime/references)
   void setClient(ActionHandler &clientPtr);  // NOLINT(runtime/references)
 
   void activateAction(int action) override;
   void handleAction(int event, int action) override;
   bool deleteClient() override;
-  ActionHandler *getRealClient() override;
 
   virtual bool checkConditionFor(double val, bool isValid = true);
-
-  void setThreshold(double val);
 
  protected:
   virtual bool condition(double val, bool isValid = true) = 0;
@@ -50,7 +47,7 @@ class Condition : public ActionHandler {
   double threshold = 0;
   bool useAlternativeValue = false;
   bool alreadyFired = false;
-  Supla::ElementWithChannelActions *source = nullptr;
+  Supla::Element *source = nullptr;
   Supla::ActionHandler *client = nullptr;
   Supla::ConditionGetter *getter = nullptr;
 };

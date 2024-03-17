@@ -22,7 +22,6 @@
 #include <supla/tools.h>
 #include <supla/events.h>
 #include <supla/correction.h>
-#include <math.h>
 
 #include "channel.h"
 
@@ -31,7 +30,8 @@ namespace Supla {
 uint32_t Channel::lastCommunicationTimeMs = 0;
 TDS_SuplaRegisterDevice_E Channel::reg_dev;
 
-Channel::Channel() {
+Channel::Channel() : valueChanged(false), channelConfig(false),
+  channelNumber(-1), validityTimeSec(0) {
   if (reg_dev.channel_count < SUPLA_CHANNELMAXCOUNT) {
     channelNumber = reg_dev.channel_count;
 
@@ -66,7 +66,7 @@ void Channel::setNewValue(double dbl) {
     dbl += Correction::get(getChannelNumber());
   }
 
-  char newValue[SUPLA_CHANNELVALUE_SIZE] = {};
+  char newValue[SUPLA_CHANNELVALUE_SIZE];
   if (sizeof(double) == 8) {
     memcpy(newValue, &dbl, 8);
   } else if (sizeof(double) == 4) {
@@ -75,12 +75,8 @@ void Channel::setNewValue(double dbl) {
   if (setNewValue(newValue)) {
     runAction(ON_CHANGE);
     runAction(ON_SECONDARY_CHANNEL_CHANGE);
-    if (isnan(dbl)) {
-      SUPLA_LOG_DEBUG("Channel(%d) value changed to NaN", channelNumber);
-    } else {
-      SUPLA_LOG_DEBUG("Channel(%d) value changed to %d.%02d", channelNumber,
-          static_cast<int>(dbl), abs(static_cast<int>(dbl*100)%100));
-    }
+    SUPLA_LOG_DEBUG("Channel(%d) value changed to %d.%d", channelNumber,
+        static_cast<int>(dbl), static_cast<int>(dbl*100)%100);
   }
 }
 
@@ -133,7 +129,7 @@ void Channel::setNewValue(double temp, double humi) {
   }
 }
 
-void Channel::setNewValue(uint64_t value) {
+void Channel::setNewValue(unsigned _supla_int64_t value) {
   char newValue[SUPLA_CHANNELVALUE_SIZE];
 
   memset(newValue, 0, SUPLA_CHANNELVALUE_SIZE);
@@ -574,10 +570,6 @@ double Channel::getLastTemperature() {
 }
 
 void Channel::setValidityTimeSec(unsigned _supla_int_t timeSec) {
-  if (timeSec > UINT16_MAX) {
-    SUPLA_LOG_WARNING("Channel: too high validity time: %d", timeSec);
-    timeSec = UINT16_MAX;
-  }
   validityTimeSec = timeSec;
 }
 
@@ -632,15 +624,6 @@ void Channel::setHvacMode(uint8_t mode) {
   if (value != nullptr && value->Mode != mode && mode <= SUPLA_HVAC_MODE_DRY) {
     setUpdateReady();
     value->Mode = mode;
-    if (mode == SUPLA_HVAC_MODE_OFF) {
-      runAction(ON_HVAC_MODE_OFF);
-    } else if (mode == SUPLA_HVAC_MODE_HEAT) {
-      runAction(ON_HVAC_MODE_HEAT);
-    } else if (mode == SUPLA_HVAC_MODE_COOL) {
-      runAction(ON_HVAC_MODE_COOL);
-    } else if (mode == SUPLA_HVAC_MODE_HEAT_COOL) {
-      runAction(ON_HVAC_MODE_HEAT_COOL);
-    }
   }
 }
 
@@ -786,11 +769,6 @@ void Channel::setHvacFlagWeeklySchedule(bool value) {
       flags &= ~SUPLA_HVAC_VALUE_FLAG_WEEKLY_SCHEDULE;
     }
     setHvacFlags(flags);
-    if (value) {
-      runAction(ON_HVAC_WEEKLY_SCHEDULE_ENABLED);
-    } else {
-      runAction(ON_HVAC_WEEKLY_SCHEDULE_DISABLED);
-    }
   }
 }
 
@@ -1060,8 +1038,8 @@ const char *Channel::getHvacModeCstr(int mode) const {
       return "HEAT";
     case SUPLA_HVAC_MODE_COOL:
       return "COOL";
-    case SUPLA_HVAC_MODE_HEAT_COOL:
-      return "HEAT_COOL";
+    case SUPLA_HVAC_MODE_AUTO:
+      return "AUTO";
     case SUPLA_HVAC_MODE_FAN_ONLY:
       return "FAN ONLY";
     case SUPLA_HVAC_MODE_DRY :

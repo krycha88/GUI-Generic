@@ -35,7 +35,7 @@ class ThermHygroMeter : public ChannelElement {
   void onInit() override;
   void onLoadConfig(SuplaDeviceClass *) override;
   void iterateAlways() override;
-  void fillChannelConfig(void *channelConfig, int *size) override;
+  bool iterateConnected() override;
 
   virtual double getTemp();
   virtual double getHumi();
@@ -43,22 +43,32 @@ class ThermHygroMeter : public ChannelElement {
   int16_t getTempInt16();
   int16_t getHumiInt16();
 
-  uint8_t applyChannelConfig(TSD_ChannelConfig *result) override;
-
-  int16_t getConfiguredTemperatureCorrection();
-  int16_t getConfiguredHumidityCorrection();
-  void applyCorrectionsAndStoreIt(int32_t temperatureCorrection,
-                                  int32_t humidityCorrection,
-                                  bool local = false);
+  void onRegistered(Supla::Protocol::SuplaSrpc *suplaSrpc) override;
+  uint8_t handleChannelConfig(TSD_ChannelConfig *result,
+                              bool local = false) override;
+  void handleSetChannelConfigResult(
+      TSDS_SetChannelConfigResult *result) override;
+  void clearChannelConfigChangedFlag();
+  void handleChannelConfigFinished() override;
 
  protected:
+  int16_t getConfiguredTemperatureCorrection();
+  int16_t getConfiguredHumidityCorrection();
   int16_t readCorrectionFromIndex(int index);
   void setCorrectionAtIndex(int32_t correction, int index);
   virtual void setTemperatureCorrection(int32_t correction);
   virtual void setHumidityCorrection(int32_t correction);
+  void applyCorrectionsAndStoreIt(int32_t temperatureCorrection,
+                                  int32_t humidityCorrection,
+                                  bool local = false);
 
   uint32_t lastReadTime = 0;
   uint16_t refreshIntervalMs = 10000;
+  bool waitForChannelConfigAndIgnoreIt = false;
+  bool configFinishedReceived = false;
+  bool defaultConfigReceived = false;
+  int8_t setChannelStateFlag = 0;
+  uint8_t setChannelResult = 0;
 };
 
 };  // namespace Sensor

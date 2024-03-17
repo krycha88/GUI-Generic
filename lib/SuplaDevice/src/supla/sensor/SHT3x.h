@@ -33,21 +33,29 @@ class SHT3x : public ThermHygroMeter {
   explicit SHT3x(int8_t address = 0x44) : address(address) {
   }
 
-  double getTemp() override {
-    readValuesFromDevice();
+  double getTemp() {
     return temperature;
   }
 
-  double getHumi() override {
+  double getHumi() {
     return humidity;
   }
 
-  void onInit() override {
+ private:
+  void iterateAlways() {
+    if (millis() - lastReadTime > 10000) {
+      lastReadTime = millis();
+      readValuesFromDevice();
+      channel.setNewValue(getTemp(), getHumi());
+    }
+  }
+
+  void onInit() {
     sht.begin(address);
+    readValuesFromDevice();
     channel.setNewValue(getTemp(), getHumi());
   }
 
- private:
   void readValuesFromDevice() {
     SHT31D result = sht.readTempAndHumidity(
         SHT3XD_REPEATABILITY_LOW, SHT3XD_MODE_CLOCK_STRETCH, 50);

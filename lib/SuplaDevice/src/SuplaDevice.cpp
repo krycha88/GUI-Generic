@@ -37,23 +37,8 @@
 #include <supla/tools.h>
 #include <supla/version.h>
 
-#ifndef ARDUINO
-#ifndef F
-#define F(arg_f) arg_f
-#endif
-#endif
-
-void SuplaDeviceClass::status(int newStatus,
-                              const __FlashStringHelper *msg,
-                              bool alwaysLog) {
+void SuplaDeviceClass::status(int newStatus, const char *msg, bool alwaysLog) {
   bool showLog = false;
-
-#ifdef ARDUINO
-  String msgStr(msg);
-  const char *msgActual = msgStr.c_str();
-#else
-  const char *msgActual = msg;
-#endif
 
   if ((currentStatus == STATUS_CONFIG_MODE ||
        currentStatus == STATUS_TEST_WAIT_FOR_CFG_BUTTON) &&
@@ -68,18 +53,18 @@ void SuplaDeviceClass::status(int newStatus,
     if (!(newStatus == STATUS_REGISTER_IN_PROGRESS &&
           currentStatus > STATUS_REGISTER_IN_PROGRESS)) {
       if (impl_arduino_status != nullptr) {
-        impl_arduino_status(newStatus, msgActual);
+        impl_arduino_status(newStatus, msg);
       }
       currentStatus = newStatus;
       showLog = true;
-      if (newStatus != STATUS_INITIALIZED && msgActual != nullptr) {
-        addLastStateLog(msgActual);
+      if (newStatus != STATUS_INITIALIZED && msg != nullptr) {
+        addLastStateLog(msg);
       }
       runAction(Supla::ON_DEVICE_STATUS_CHANGE);
     }
   }
-  if ((alwaysLog || showLog) && msgActual != nullptr) {
-    SUPLA_LOG_INFO("Current status: [%d] %s", newStatus, msgActual);
+  if ((alwaysLog || showLog) && msg != nullptr) {
+    SUPLA_LOG_INFO("Current status: [%d] %s", newStatus, msg);
   }
 }
 
@@ -135,16 +120,12 @@ bool SuplaDeviceClass::begin(const char GUID[SUPLA_GUID_SIZE],
 
 bool SuplaDeviceClass::begin(unsigned char protoVersion) {
   if (initializationDone) {
-    status(STATUS_ALREADY_INITIALIZED, F("SuplaDevice is already initialized"));
+    status(STATUS_ALREADY_INITIALIZED, "SuplaDevice is already initialized");
     return false;
   }
   initializationDone = true;
 
   SUPLA_LOG_DEBUG("Supla - starting initialization");
-
-  if (protoVersion >= 21) {
-    addFlags(SUPLA_DEVICE_FLAG_DEVICE_CONFIG_SUPPORTED);
-  }
 
   // Initialize protocol layers
   createSrpcLayerIfNeeded();
@@ -185,7 +166,7 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
 
     if (!atLeastOneProtoIsEnabled) {
       status(STATUS_ALL_PROTOCOLS_DISABLED,
-             F("All communication protocols are disabled"));
+             "All communication protocols are disabled");
       configComplete = false;
     }
 
@@ -199,8 +180,27 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
 
   // Pefrorm dry run of write state to validate stored state section with
   // current device configuration
-  if (Supla::Storage::IsStateStorageValid()) {
-    Supla::Storage::LoadStateStorage();
+  if (Supla::Storage::PrepareState(true)) {
+    SUPLA_LOG_DEBUG(
+        "Validating storage state section with current device configuration");
+    for (auto element = Supla::Element::begin(); element != nullptr;
+         element = element->next()) {
+      element->onSaveState();
+      delay(0);
+    }
+    // If state storage validation was successful, perform read state
+    if (Supla::Storage::FinalizeSaveState()) {
+      SUPLA_LOG_INFO(
+          "Storage state section validation completed. Loading elements "
+          "state...");
+      // Iterate all elements and load state
+      Supla::Storage::PrepareState();
+      for (auto element = Supla::Element::begin(); element != nullptr;
+           element = element->next()) {
+        element->onLoadState();
+        delay(0);
+      }
+    }
   }
 
   // Initialize elements
@@ -214,28 +214,34 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
   Supla::initTimers();
 
   if (Supla::Network::Instance() == nullptr) {
-    status(STATUS_MISSING_NETWORK_INTERFACE,
-           F("Network Interface not defined!"));
+    status(STATUS_MISSING_NETWORK_INTERFACE, "Network Interface not defined!");
     return false;
   }
 
-  for (auto net = Supla::Network::FirstInstance(); net != nullptr;
-       net = Supla::Network::NextInstance(net)) {
-    net->setSuplaDeviceClass(this);
-  }
-
+  Supla::Network::Instance()->setSuplaDeviceClass(this);
   if (Supla::WebServer::Instance()) {
     Supla::WebServer::Instance()->setSuplaDeviceClass(this);
   }
 
+  bool generateGuidAndAuthkey = false;
   if (isArrayEmpty(Supla::Channel::reg_dev.GUID, SUPLA_GUID_SIZE)) {
-    status(STATUS_INVALID_GUID, F("Missing GUID"));
-    return false;
+    // when config storage is available, GUID will be generated automatically
+    if (!Supla::Storage::IsConfigStorageAvailable()) {
+      status(STATUS_INVALID_GUID, "Missing GUID");
+      return false;
+    } else {
+      generateGuidAndAuthkey = true;
+    }
   }
 
   if (isArrayEmpty(Supla::Channel::reg_dev.AuthKey, SUPLA_AUTHKEY_SIZE)) {
-    status(STATUS_INVALID_AUTHKEY, F("Missing AuthKey"));
-    return false;
+    // when config storage is available, AuthKey will be generated automatically
+    if (!Supla::Storage::IsConfigStorageAvailable()) {
+      status(STATUS_INVALID_AUTHKEY, "Missing AuthKey");
+      return false;
+    } else {
+      generateGuidAndAuthkey = true;
+    }
   }
 
   if (!configComplete) {
@@ -257,6 +263,28 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
   if (verificationSuccess == false) {
     // this may happen only when Supla::Storage::Config is not used
     return false;
+  }
+
+  if (generateGuidAndAuthkey) {
+    auto cfg = Supla::Storage::ConfigInstance();
+    if (cfg && cfg->generateGuidAndAuthkey()) {
+      SUPLA_LOG_INFO("Successfully generated GUID and AuthKey");
+      char buf[512] = {};
+      if (cfg->getGUID(buf)) {
+        setGUID(buf);
+      }
+      if (cfg->getAuthKey(buf)) {
+        setAuthKey(buf);
+      }
+      generateHexString(
+          Supla::Channel::reg_dev.AuthKey, buf, SUPLA_AUTHKEY_SIZE);
+      SUPLA_LOG_DEBUG("New AuthKey: %s", buf);
+    } else {
+      SUPLA_LOG_ERROR("Failed to generate GUID and AuthKey");
+      status(STATUS_INVALID_GUID, "Missing GUID");
+      status(STATUS_INVALID_AUTHKEY, "Missing AuthKey");
+      return false;
+    }
   }
 
   char buf[SUPLA_GUID_SIZE * 2 + 1] = {};
@@ -285,7 +313,7 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
   SUPLA_LOG_DEBUG("Initializing network layer");
   char hostname[32] = {};
   generateHostname(hostname, 6);
-  Supla::Network::SetHostname(hostname, 6);
+  Supla::Network::SetHostname(hostname);
 
   for (auto proto = Supla::Protocol::ProtocolLayer::first(); proto != nullptr;
        proto = proto->next()) {
@@ -293,7 +321,7 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
     delay(0);
   }
 
-  status(STATUS_INITIALIZED, F("SuplaDevice initialized"));
+  status(STATUS_INITIALIZED, "SuplaDevice initialized");
 
   if ((allowOfflineMode == 1 && deviceMode == Supla::DEVICE_MODE_CONFIG &&
        configEmpty) ||
@@ -302,15 +330,10 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
     deviceMode = Supla::DEVICE_MODE_NORMAL;
     SUPLA_LOG_INFO("Disabling network setup, device work in offline mode");
     skipNetwork = true;
-    status(STATUS_OFFLINE_MODE, F("Offline mode"));
+    status(STATUS_OFFLINE_MODE, "Offline mode");
   }
 
   if (deviceMode == Supla::DEVICE_MODE_CONFIG) {
-    if (configEmpty) {
-      // For empty configuration we don't want to show all missing fields,
-      // so we clear logger
-      lastStateLogger->clear();
-    }
     enterConfigMode();
   } else {
     enterNormalMode();
@@ -361,6 +384,9 @@ void SuplaDeviceClass::iterate(void) {
   }
 
   uint32_t _millis = millis();
+//  if (_millis == lastIterateTime) {
+//    return;
+//  }
 
   auto cfg = Supla::Storage::ConfigInstance();
   if (cfg) {
@@ -467,7 +493,7 @@ void SuplaDeviceClass::iterate(void) {
       if (swUpdate == nullptr) {
         SUPLA_LOG_WARNING("Failed to create SW update instance");
       } else if (!swUpdate->isStarted()) {
-        status(STATUS_SW_DOWNLOAD, F("SW update in progress..."));
+        status(STATUS_SW_DOWNLOAD, "SW update in progress...");
         SUPLA_LOG_INFO("Starting SW update");
         Supla::Network::DisconnectProtocols();
         swUpdate->start();
@@ -511,10 +537,9 @@ int SuplaDeviceClass::getCurrentStatus() {
 }
 
 void SuplaDeviceClass::fillStateData(TDSC_ChannelState *channelState) {
-  if (showUptimeInChannelState) {
-    channelState->Fields |= SUPLA_CHANNELSTATE_FIELD_UPTIME;
-    channelState->Uptime = uptime.getUptime();
-  }
+  channelState->Fields |= SUPLA_CHANNELSTATE_FIELD_UPTIME;
+
+  channelState->Uptime = uptime.getUptime();
 
   if (!isSleepingDeviceEnabled()) {
     channelState->Fields |= SUPLA_CHANNELSTATE_FIELD_CONNECTIONUPTIME;
@@ -566,7 +591,7 @@ bool SuplaDeviceClass::loadDeviceConfig() {
   auto cfg = Supla::Storage::ConfigInstance();
 
   bool configComplete = true;
-  char buf[512] = {};
+  char buf[256] = {};
 
   // Device generic config
   memset(buf, 0, sizeof(buf));
@@ -574,40 +599,15 @@ bool SuplaDeviceClass::loadDeviceConfig() {
     setName(buf);
   }
 
-  bool generateGuidAndAuthkey = false;
   memset(buf, 0, sizeof(buf));
   if (cfg->getGUID(buf)) {
     setGUID(buf);
-  } else {
-    generateGuidAndAuthkey = true;
   }
 
   memset(buf, 0, sizeof(buf));
   if (cfg->getAuthKey(buf)) {
     setAuthKey(buf);
-  } else {
-    generateGuidAndAuthkey = true;
   }
-
-  if (generateGuidAndAuthkey) {
-    if (cfg->generateGuidAndAuthkey()) {
-      SUPLA_LOG_INFO("Successfully generated GUID and AuthKey");
-      if (cfg->getGUID(buf)) {
-        setGUID(buf);
-      }
-      if (cfg->getAuthKey(buf)) {
-        setAuthKey(buf);
-      }
-      generateHexString(
-          Supla::Channel::reg_dev.AuthKey, buf, SUPLA_AUTHKEY_SIZE);
-      SUPLA_LOG_DEBUG("New AuthKey: %s", buf);
-      cfg->initDefaultDeviceConfig();
-    } else {
-      SUPLA_LOG_ERROR("Failed to generate GUID and AuthKey");
-      return true;
-    }
-  }
-
 
   deviceMode = cfg->getDeviceMode();
   if (deviceMode == Supla::DEVICE_MODE_NOT_SET) {
@@ -631,10 +631,8 @@ bool SuplaDeviceClass::loadDeviceConfig() {
 
   // WiFi specific config
   auto net = Supla::Network::Instance();
-  Supla::Network::LoadConfig();
 
-  if (net != nullptr && !net->isIntfDisabledInConfig() &&
-      net->isWifiConfigRequired()) {
+  if (net != nullptr && net->isWifiConfigRequired()) {
     memset(buf, 0, sizeof(buf));
     if (cfg->getWiFiSSID(buf) && strlen(buf) > 0) {
       net->setSsid(buf);
@@ -685,7 +683,7 @@ bool SuplaDeviceClass::iterateNetworkSetup() {
   }
 
   // Restart network after >1 min of failed connection attempts
-  if (requestNetworkLayerRestart || Supla::Network::IsIpSetupTimeout()) {
+  if (requestNetworkLayerRestart) {
     requestNetworkLayerRestart = false;
     SUPLA_LOG_WARNING(
         "Network layer restart requested. Trying to setup network "
@@ -695,8 +693,8 @@ bool SuplaDeviceClass::iterateNetworkSetup() {
   }
 
   if (!Supla::Network::IsReady()) {
-    if (networkIsNotReadyCounter == 200) {  // > 20 s
-      status(STATUS_NETWORK_DISCONNECTED, F("No connection to network"));
+    if (networkIsNotReadyCounter == 100) {  // > 10 s
+      status(STATUS_NETWORK_DISCONNECTED, "No connection to network");
       uptime.setConnectionLostCause(
           SUPLA_LASTCONNECTIONRESETCAUSE_WIFI_CONNECTION_LOST);
     }
@@ -750,11 +748,11 @@ void SuplaDeviceClass::enterConfigMode() {
   if (Supla::WebServer::Instance()) {
     Supla::WebServer::Instance()->start();
   }
-  status(STATUS_CONFIG_MODE, F("Config mode"), true);
+  status(STATUS_CONFIG_MODE, "Config mode", true);
 }
 
 void SuplaDeviceClass::softRestart() {
-  status(STATUS_SOFTWARE_RESET, F("Software reset"));
+  status(STATUS_SOFTWARE_RESET, "Software reset");
 
   if (!triggerResetToFacotrySettings) {
     // skip writing to storage if reset is because of factory reset
@@ -844,7 +842,14 @@ void SuplaDeviceClass::saveStateToStorage() {
   if (triggerResetToFacotrySettings) {
     return;
   }
-  Supla::Storage::WriteStateStorage();
+
+  Supla::Storage::PrepareState();
+  for (auto element = Supla::Element::begin(); element != nullptr;
+       element = element->next()) {
+    element->onSaveState();
+    delay(0);
+  }
+  Supla::Storage::FinalizeSaveState();
 }
 
 int SuplaDeviceClass::generateHostname(char *buf, int macSize) {
@@ -866,31 +871,19 @@ int SuplaDeviceClass::generateHostname(char *buf, int macSize) {
     srcName = Supla::Channel::reg_dev.Name;
   }
 
-  int srcNameLength = strlen(srcName);
-  int targetNameLength = srcNameLength;
+  int nameLength = strlen(srcName);
+
+  if (nameLength + appendixSize > 31) {
+    nameLength = 31 - appendixSize;
+  }
+
+  if (nameLength == 0) {
+    setName("SUPLA-DEVICE");
+    nameLength = strlen(srcName);
+  }
 
   int destIdx = 0;
-  int i = 0;
-
-  if (strncmp(srcName, "OH!", 3) == 0) {
-    strncpy(name, "SUPLA-", 7);
-    destIdx = 6;
-    i = 3;
-    targetNameLength += 3;
-  }
-
-  int skipBytes = 0;
-
-  if (targetNameLength + appendixSize > 31) {
-    skipBytes = (targetNameLength + appendixSize) - 31;
-  }
-
-  if (srcNameLength == 0) {
-    setName("SUPLA-DEVICE");
-    srcNameLength = strlen(srcName);
-  }
-
-  for (; i < srcNameLength - skipBytes; i++) {
+  for (int i = 0; i < nameLength; i++) {
     if (srcName[i] < 32) {
       continue;
     } else if (srcName[i] < 48) {
@@ -906,24 +899,19 @@ int SuplaDeviceClass::generateHostname(char *buf, int macSize) {
     } else if (srcName[i] < 123) {
       name[destIdx++] = srcName[i] - 32;  // capitalize small chars
     }
-    if (destIdx == 1) {
-      if (name[0] == '-') {
-        if (skipBytes) {
-          skipBytes--;
-        }
-        destIdx--;
-      }
-    } else if (name[destIdx - 2] == '-' && name[destIdx - 1] == '-') {
-      if (skipBytes) {
-        skipBytes--;
-      }
-      destIdx--;
+  }
+
+  if (macSize > 0) {
+    uint8_t mac[6] = {};
+    if (Supla::Network::GetMacAddr(mac)) {
+      name[destIdx++] = '-';
+      destIdx +=
+          generateHexString(mac + (6 - macSize), &(name[destIdx]), macSize);
     }
   }
 
   name[destIdx++] = 0;
   strncpy(buf, name, 32);
-  buf[31] = 0;
 
   return destIdx;
 }
@@ -936,7 +924,6 @@ void SuplaDeviceClass::disableCfgModeTimeout() {
 
 void SuplaDeviceClass::scheduleSoftRestart(int timeout) {
   SUPLA_LOG_INFO("Triggering soft restart");
-  status(STATUS_SOFTWARE_RESET, F("Software reset"));
   if (timeout <= 0) {
     forceRestartTimeMs = 1;
   } else {
@@ -946,8 +933,8 @@ void SuplaDeviceClass::scheduleSoftRestart(int timeout) {
 }
 
 void SuplaDeviceClass::addLastStateLog(const char *msg) {
-  if (lastStateLogEnabled && lastStateLogger) {
-    lastStateLogger->log(msg, uptime.getUptime());
+  if (lastStateLogger) {
+    lastStateLogger->log(msg);
   }
 }
 
@@ -1019,7 +1006,6 @@ void SuplaDeviceClass::resetToFactorySettings() {
     cfg->removeAll();
     cfg->setGUID(Supla::Channel::reg_dev.GUID);
     cfg->setAuthKey(Supla::Channel::reg_dev.AuthKey);
-    cfg->initDefaultDeviceConfig();
     cfg->commit();
   }
 
@@ -1213,30 +1199,6 @@ bool SuplaDeviceClass::isSleepingAllowed() {
 
 void SuplaDeviceClass::allowWorkInOfflineMode(int mode) {
   allowOfflineMode = mode;
-}
-
-bool SuplaDeviceClass::isRemoteDeviceConfigEnabled() const {
-  return Supla::Channel::reg_dev.Flags &
-         SUPLA_DEVICE_FLAG_DEVICE_CONFIG_SUPPORTED;
-}
-
-void SuplaDeviceClass::enableLastStateLog() {
-  lastStateLogEnabled = true;
-}
-
-void SuplaDeviceClass::disableLastStateLog() {
-  lastStateLogEnabled = false;
-}
-
-void SuplaDeviceClass::setShowUptimeInChannelState(bool value) {
-  showUptimeInChannelState = value;
-}
-
-void SuplaDeviceClass::setProtoVerboseLog(bool value) {
-  createSrpcLayerIfNeeded();
-  if (srpcLayer) {
-    srpcLayer->setVerboseLog(value);
-  }
 }
 
 SuplaDeviceClass SuplaDevice;

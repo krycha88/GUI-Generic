@@ -53,14 +53,10 @@ class CalCfgResultPending {
 
 class SuplaSrpc : public ProtocolLayer {
  public:
-  static bool isSuplaSSLEnabled;
-
   explicit SuplaSrpc(SuplaDeviceClass *sdc, int version = 16);
   ~SuplaSrpc();
 
   static bool isSuplaPublicServerConfigured();
-
-  void setNetworkClient(Supla::Client *newClient);
 
   void onInit() override;
   bool onLoadConfig() override;
@@ -71,7 +67,6 @@ class SuplaSrpc : public ProtocolLayer {
   bool isNetworkRestartRequested() override;
   uint32_t getConnectionFailTime() override;
   bool isRegisteredAndReady() override;
-  void initClient();
 
   void sendActionTrigger(uint8_t channelNumber, uint32_t actionId) override;
   void sendRegisterNotification(
@@ -92,7 +87,6 @@ class SuplaSrpc : public ProtocolLayer {
       uint8_t configType) override;
 
   bool setDeviceConfig(TSDS_SetDeviceConfig *deviceConfig) override;
-  bool setInitialCaption(uint8_t channelNumber, const char *caption) override;
   void sendRemainingTimeValue(uint8_t channelNumber,
                               uint32_t timeMs,
                               uint8_t state,
@@ -139,28 +133,25 @@ class SuplaSrpc : public ProtocolLayer {
   void initializeSrpc();
   void deinitializeSrpc();
 
-  uint8_t version = 0;
-  uint8_t activityTimeoutS = 30;
-  uint8_t securityLevel = 0;
+  void *srpc = nullptr;
+  int version = 0;
   int8_t registered = 0;
+  uint8_t securityLevel = 0;
   bool requestNetworkRestart = false;
-  bool enabled = true;
-  bool setDeviceConfigReceivedAfterRegistration = false;
-  bool firstConnectionAttempt = true;
-  uint16_t connectionFailCounter = 0;
-
+  uint32_t activityTimeoutS = 30;
   uint32_t lastPingTimeMs = 0;
   uint32_t waitForIterate = 0;
   uint32_t lastIterateTime = 0;
   uint32_t lastResponseMs = 0;
   uint32_t lastSentMs = 0;
+  uint16_t connectionFailCounter = 0;
+  bool enabled = true;
+  bool setDeviceConfigReceivedAfterRegistration = false;
 
   int port = -1;
 
   const char *suplaCACert = nullptr;
   const char *supla3rdPartyCACert = nullptr;
-  const char *selectedCertificate = nullptr;
-  void *srpc = nullptr;
 
  private:
   Supla::Device::RemoteDeviceConfig *remoteDeviceConfig = nullptr;
