@@ -743,17 +743,6 @@ void setup() {
     }
 #endif
 
-#ifdef SUPLA_MS5611
-    if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_MS5611).toInt()) {
-      auto ms5611 = new Supla::Sensor::MS5611Sensor(ConfigManager->get(KEY_ALTITUDE_MS5611)->getValueInt());
-      /*
-      #ifdef SUPLA_CONDITIONS
-            Supla::GUI::Conditions::addConditionsSensor(SENSOR_MS5611, S_MS5611, ms5611);
-      #endif
-      */
-    }
-#endif
-
 #ifdef SUPLA_MAX44009_KPOP
     if (ConfigManager->get(KEY_ACTIVE_SENSOR)->getElement(SENSOR_I2C_MAX44009).toInt()) {
       auto max4409 = new Supla::Sensor::MAX_44009();
@@ -852,6 +841,18 @@ void setup() {
 #if defined(GUI_SENSOR_I2C_2)
   if (ConfigESP->getGpio(FUNCTION_SDA) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_SCL) != OFF_GPIO) {
     bool force400khz = false;
+
+#ifdef SUPLA_MS5611
+    if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_MS5611).toInt()) {
+      auto ms5611 = new Supla::Sensor::MS5611Sensor(ConfigManager->get(KEY_ALTITUDE_MS5611)->getValueInt());
+      /*
+      #ifdef SUPLA_CONDITIONS
+            Supla::GUI::Conditions::addConditionsSensor(SENSOR_MS5611, S_MS5611, ms5611);
+      #endif
+      */
+    }
+#endif
+
 #ifdef SUPLA_AHTX0
     if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_AHTX0).toInt()) {
       Supla::Sensor::AHTX0 *aht = nullptr;
