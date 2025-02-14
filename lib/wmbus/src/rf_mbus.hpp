@@ -85,8 +85,9 @@ uint16_t verifyCrcBytesCmodeA_local(uint8_t* pByte, uint8_t* pPacket, uint16_t p
 class rf_mbus {
   public:
     rf_mbus();
-    bool init(uint8_t mosi, uint8_t miso, uint8_t clk, uint8_t cs, uint8_t gdo0, uint8_t gdo2);
-    bool task();
+    bool init(uint8_t mosi, uint8_t miso, uint8_t clk, uint8_t cs,
+      uint8_t gdo0, uint8_t gdo2);
+          bool task();
     WMbusFrame get_frame();
     uint8_t MBpacket[291];
 

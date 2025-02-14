@@ -7,6 +7,7 @@
 
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 
+
 const std::string mode_to_string(WmBusFrameMode mode) {
   switch (mode) {
     case WMBUS_T1_MODE:
@@ -40,9 +41,11 @@ uint8_t rf_mbus::start(bool force) {
 
   int retries = 10;
   ELECHOUSE_cc1101.SpiStrobe(CC1101_SIDLE);
-  while((ELECHOUSE_cc1101.SpiReadStatus(CC1101_MARCSTATE) != MARCSTATE_IDLE && retries-- > 0)) {
+  int retries =5;
+  while((ELECHOUSE_cc1101.SpiReadStatus(CC1101_MARCSTATE) != MARCSTATE_IDLE) && (retries -- >0))
+  {
     delay(1);
-  };
+  }
   ELECHOUSE_cc1101.SpiStrobe(CC1101_SFTX);  //flush TXfifo
   ELECHOUSE_cc1101.SpiStrobe(CC1101_SFRX);  //flush RXfifo
 
@@ -68,9 +71,11 @@ uint8_t rf_mbus::start(bool force) {
   ELECHOUSE_cc1101.SpiWriteReg(CC1101_PKTCTRL0, INFINITE_PACKET_LENGTH);
 
   ELECHOUSE_cc1101.SpiStrobe(CC1101_SRX);
-  while((ELECHOUSE_cc1101.SpiReadStatus(CC1101_MARCSTATE) != MARCSTATE_RX && retries-- > 0)) {
+  retries =5;
+  while((ELECHOUSE_cc1101.SpiReadStatus(CC1101_MARCSTATE) != MARCSTATE_IDLE) && (retries -- >0))
+  {
     delay(1);
-  };
+  }
 
   RXinfo.state = 1;
 
@@ -168,7 +173,8 @@ uint16_t verifyCrcBytesCmodeA_local(uint8_t* pByte, uint8_t* pPacket, uint16_t p
   }
 }
 
-bool rf_mbus::init(uint8_t mosi, uint8_t miso, uint8_t clk, uint8_t cs, uint8_t gdo0, uint8_t gdo2) {
+bool rf_mbus::init(uint8_t mosi, uint8_t miso, uint8_t clk, uint8_t cs,
+                   uint8_t gdo0, uint8_t gdo2) {
   bool retVal = false;
   Serial.println("");
   this->gdo0 = gdo0;
@@ -183,6 +189,11 @@ bool rf_mbus::init(uint8_t mosi, uint8_t miso, uint8_t clk, uint8_t cs, uint8_t 
     ELECHOUSE_cc1101.SpiWriteReg(TMODE_RF_SETTINGS_BYTES[i << 1],
                                  TMODE_RF_SETTINGS_BYTES[(i << 1) + 1]);
   }
+
+
+  // ELECHOUSE_cc1101.SpiWriteReg(CC1101_FREQ2);
+  // ELECHOUSE_cc1101.SpiWriteReg(CC1101_FREQ1);
+  // ELECHOUSE_cc1101.SpiWriteReg(CC1101_FREQ0);
 
   ELECHOUSE_cc1101.SpiStrobe(CC1101_SCAL);
 
@@ -338,7 +349,7 @@ bool rf_mbus::task() {
         Serial.println("wMBus-lib: Processing C1 A frame");
         Serial.print(" FullFrame: ");
         for (int ii=0; ii < RXinfo.length; ii++) {
-          Serial.printf("%02X", (int)(this->MBbytes[ii]));
+          Serial.printf("0x%02X, ", (int)(this->MBbytes[ii]));
         }
         Serial.println("");
 
@@ -353,7 +364,7 @@ bool rf_mbus::task() {
         rxStatus = -1;
         Serial.print(" FullFrame: ");
         for (int ii=0; ii < RXinfo.length; ii++) {
-          Serial.printf("%02X", (int)(this->MBbytes[ii]));
+          Serial.printf("0x%02X, ", (int)(this->MBbytes[ii]));
         }
         Serial.println("");
       }
