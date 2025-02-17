@@ -1475,6 +1475,36 @@
 			}
 		}
 	},
+	"TEST": {
+		"SUPLA_ZIGBEE_GATEWAY": {
+			"name": "Zigbee Gateway",
+			"desc": "",
+			"alertOff": "",
+			"defOn": true,
+			"libs": "Z2S_Library",
+			"opts": "CORE_DEBUG_LEVEL=5,ARDUINO_ESP32C6_DEV,ARDUINO_USB_MODE=1,ZIGBEE_MODE_ZCZR,esp_zb_api_zczr,esp_zb_cli_command,zboss_stack.zczr,zboss_port",
+			"en": {
+				"name": "Zigbee Gateway",
+				"desc": "",
+				"alertOff": ""
+			},
+			"es": {
+				"name": "Zigbee Gateway",
+				"desc": "",
+				"alertOff": ""
+			},
+			"de": {
+				"name": "Zigbee Gateway",
+				"desc": "",
+				"alertOff": ""
+			},
+			"fr": {
+				"name": "Zigbee Gateway",
+				"desc": "",
+				"alertOff": ""
+			}
+		}
+	},
 	"SECTIONS": {
 		"BASIC": {
 			"pl": "Podstawowe",
