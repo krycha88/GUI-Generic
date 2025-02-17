@@ -323,8 +323,15 @@ void setup() {
       std::string sensorKey = ConfigManager->get(KEY_WMBUS_SENSOR_KEY)->getElement(0).c_str();
       int indexOfSensorProperty = ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_PROPERTY1).toInt();
       std::string sensorProperty = sensors_properties[indexOfSensorProperty];
-      meter = new Supla::Sensor::WmbusMeter(ConfigESP->getGpio(FUNCTION_MOSI), ConfigESP->getGpio(FUNCTION_MISO), ConfigESP->getGpio(FUNCTION_CLK),
-                                            ConfigESP->getGpio(FUNCTION_CS), ConfigESP->getGpio(FUNCTION_GDO0), ConfigESP->getGpio(FUNCTION_GDO2));
+
+      uint8_t mosi = ConfigESP->getGpio(FUNCTION_MOSI);
+      uint8_t miso = ConfigESP->getGpio(FUNCTION_MISO);
+      uint8_t clk = ConfigESP->getGpio(FUNCTION_CLK);
+      uint8_t cs = ConfigESP->getGpio(FUNCTION_CS);
+      uint8_t gdo0 = ConfigESP->getGpio(FUNCTION_GDO0);
+      uint8_t gdo2 = ConfigESP->getGpio(FUNCTION_GDO2);
+
+      meter = new Supla::Sensor::WmbusMeter(mosi, miso, clk, cs, gdo0, gdo2);
       Serial.println("wMBus-lib: Registered sensors:");
       meter->add_sensor(new Supla::Sensor::SensorInfo(sensorId, sensorType, sensorProperty, sensorKey));
       if (ConfigManager->get(KEY_WMBUS_SENSOR)->getElement(WMBUS_CFG_SENSOR_ENABLED2).toInt() == 1) {
