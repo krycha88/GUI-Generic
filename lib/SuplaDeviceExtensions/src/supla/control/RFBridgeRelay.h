@@ -22,6 +22,8 @@
 #include <RCSwitch.h>
 #include <supla/control/RFBridge.h>
 #include <supla/control/relay.h>
+#include <supla/storage/storage.h>
+#include <supla/io.h>
 
 namespace Supla {
 namespace Control {

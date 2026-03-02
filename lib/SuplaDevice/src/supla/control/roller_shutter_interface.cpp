@@ -197,6 +197,13 @@ int32_t RollerShutterInterface::handleNewValueFromServer(
         } else {
           tilt -= 10;
         }
+        if (tilt == UNKNOWN_POSITION) {
+          if (task == 110) {
+            tilt = 100;
+          } else if (task == 10) {
+            tilt = 0;
+          }
+        }
       } else {
         tilt = 0;
       }
@@ -258,8 +265,7 @@ void RollerShutterInterface::setTiltControlType(uint8_t newTiltControlType,
   }
 }
 
-void RollerShutterInterface::handleAction(int event, int action) {
-  (void)(event);
+void RollerShutterInterface::handleAction(int, int action) {
   switch (action) {
     case CLOSE_OR_STOP: {
       if (inMove()) {
@@ -682,12 +688,12 @@ int RollerShutterInterface::getCurrentPosition() const {
   if (currentPosition < 0) {
     return UNKNOWN_POSITION;
   }
-  return (currentPosition + 50) / 100;
+  return (currentPosition) / 100;
 }
 
 int RollerShutterInterface::getCurrentTilt() const {
   if (isTiltFunctionEnabled() && currentTilt >= 0) {
-    return (currentTilt + 50) / 100;
+    return (currentTilt) / 100;
   }
   return UNKNOWN_POSITION;
 }
@@ -1356,19 +1362,19 @@ bool RollerShutterInterface::isTiltConfigured() const {
 }
 
 bool RollerShutterInterface::isTopReached() const  {
-  bool posTop = (getCurrentPosition() == 0);
+  bool posTop = (currentPosition == 0);
   bool tiltTop = !isTiltFunctionEnabled();
   if (!tiltTop) {
-    tiltTop = isTiltConfigured() && (getCurrentTilt() == 0);
+    tiltTop = isTiltConfigured() && (currentTilt == 0);
   }
   return posTop && tiltTop;
 }
 
 bool RollerShutterInterface::isBottomReached() const {
-  bool posBottom = (getCurrentPosition() == 100);
+  bool posBottom = (currentPosition == 10000);
   bool tiltBottom = !isTiltFunctionEnabled();
   if (!tiltBottom) {
-    tiltBottom = isTiltConfigured() && (getCurrentTilt() == 100);
+    tiltBottom = isTiltConfigured() && (currentTilt == 10000);
   }
   return posBottom && tiltBottom;
 }

@@ -27,7 +27,7 @@
 
 namespace Supla {
 namespace Control {
-class ExpanderPCF8574 : public Supla::Io, public Supla::Element {
+class ExpanderPCF8574 : public Supla::Io::Base, public Supla::Element {
  public:
   ExpanderPCF8574(TwoWire *wire, uint8_t address);
 

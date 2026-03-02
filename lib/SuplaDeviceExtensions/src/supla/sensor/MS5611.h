@@ -31,6 +31,8 @@ class MS5611Sensor : public ThermPressMeter {
  public:
   MS5611Sensor(int altitude) {
     this->altitude=altitude;
+    Serial.print(F("MS5611 initialized with altitude: "));
+    Serial.println(altitude);
   }
 
   double getValue() {

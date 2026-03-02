@@ -1,0 +1,159 @@
+BOARD:  Arduino UNO R3
+IDE:    1.8.19
+
+(Hardware SPI)
+
+D:\Rob\WORK\Arduino\libraries\INA229\examples\INA229_performance\INA229_performance.ino
+
+INA229_LIB_VERSION: 0.4.1
+
+
+========================================================
+Speed: 1000000
+
+test_core
+getBusVoltage:	64
+getShuntVoltage:	64
+getCurrent:	68
+getPower:	68
+getTemperature:	52
+getEnergy:	100
+getCharge:	92
+
+test_config
+getAccumulation:	44
+getConversionDelay:	48
+getTemperatureCompensation:	48
+getADCRange:	48
+
+test_adc_config
+getMode:	48
+getBusVoltageConversionTime:	44
+getShuntVoltageConversionTime:	48
+getTemperatureConversionTime:	48
+getAverage:	48
+
+test_others
+getShuntTemperatureCoefficent:	44
+getDiagnoseAlert:	44
+
+test_thresholds
+getShuntOvervoltageTH:	44
+getShuntUndervoltageTH:	44
+getBusOvervoltageTH:	44
+getBusUndervoltageTH:	44
+getTemperatureOverLimitTH:	44
+getPowerOverLimitTH:	48
+
+========================================================
+Speed: 2000000
+
+test_core
+getBusVoltage:	48
+getShuntVoltage:	52
+getCurrent:	48
+getPower:	52
+getTemperature:	44
+getEnergy:	76
+getCharge:	72
+
+test_config
+getAccumulation:	40
+getConversionDelay:	36
+getTemperatureCompensation:	36
+getADCRange:	40
+
+test_adc_config
+getMode:	32
+getBusVoltageConversionTime:	36
+getShuntVoltageConversionTime:	36
+getTemperatureConversionTime:	36
+getAverage:	36
+
+test_others
+getShuntTemperatureCoefficent:	36
+getDiagnoseAlert:	36
+
+test_thresholds
+getShuntOvervoltageTH:	32
+getShuntUndervoltageTH:	32
+getBusOvervoltageTH:	32
+getBusUndervoltageTH:	36
+getTemperatureOverLimitTH:	36
+getPowerOverLimitTH:	32
+
+========================================================
+Speed: 4000000
+
+test_core
+getBusVoltage:	40
+getShuntVoltage:	40
+getCurrent:	40
+getPower:	44
+getTemperature:	32
+getEnergy:	60
+getCharge:	60
+
+test_config
+getAccumulation:	32
+getConversionDelay:	28
+getTemperatureCompensation:	28
+getADCRange:	32
+
+test_adc_config
+getMode:	28
+getBusVoltageConversionTime:	32
+getShuntVoltageConversionTime:	28
+getTemperatureConversionTime:	28
+getAverage:	28
+
+test_others
+getShuntTemperatureCoefficent:	28
+getDiagnoseAlert:	28
+
+test_thresholds
+getShuntOvervoltageTH:	28
+getShuntUndervoltageTH:	28
+getBusOvervoltageTH:	28
+getBusUndervoltageTH:	28
+getTemperatureOverLimitTH:	28
+getPowerOverLimitTH:	32
+
+========================================================
+Speed: 8000000
+
+test_core
+getBusVoltage:	36
+getShuntVoltage:	36
+getCurrent:	36
+getPower:	40
+getTemperature:	32
+getEnergy:	60
+getCharge:	56
+
+test_config
+getAccumulation:	24
+getConversionDelay:	28
+getTemperatureCompensation:	28
+getADCRange:	28
+
+test_adc_config
+getMode:	28
+getBusVoltageConversionTime:	24
+getShuntVoltageConversionTime:	28
+getTemperatureConversionTime:	28
+getAverage:	24
+
+test_others
+getShuntTemperatureCoefficent:	28
+getDiagnoseAlert:	28
+
+test_thresholds
+getShuntOvervoltageTH:	24
+getShuntUndervoltageTH:	28
+getBusOvervoltageTH:	24
+getBusUndervoltageTH:	24
+getTemperatureOverLimitTH:	24
+getPowerOverLimitTH:	24
+
+Done

@@ -1,29 +1,29 @@
 // ---------------------------------------------------------------------------
-// NewPing Library - v1.9.1 - 07/15/2018
+// NewPing Library - v1.9.7 - 02/16/2023
 //
 // AUTHOR/LICENSE:
-// Created by Tim Eckel - teckel@leethost.com
-// Copyright 2018 License: Forks and derivitive works are NOT permitted without
+// Created by Tim Eckel - eckel.tim@gmail.com
+// Copyright 2023 License: Forks and derivitive works are NOT permitted without
 // permission. Permission is only granted to use as-is for private and
 // commercial use. If you wish to contribute, make changes, or enhancements,
-// please create a pull request. I get a TON of support issues from this
-// library, most of which comes from old versions, buggy forks or sites without
-// proper documentation, just trying to wrangle this project together.
+// please create a pull request. I get a lot of support issues from this
+// library, much of which comes from old versions, buggy forks or sites without
+// proper documentation. Trying to wrangle this project together, thanks!
 //
 // LINKS:
 // Project home: https://bitbucket.org/teckel12/arduino-new-ping/wiki/Home
-// Blog: http://arduino.cc/forum/index.php/topic,106043.0.html
+// Support: https://bitbucket.org/teckel12/arduino-new-ping/issues?status=new&status=open
 //
 // DISCLAIMER:
-// This software is furnished "as is", without technical support, and with no 
+// This software is furnished "as is", without technical support, and with no
 // warranty, express or implied, as to its usefulness for any purpose.
 //
 // BACKGROUND:
-// When I first received an ultrasonic sensor I was not happy with how poorly
-// it worked. Quickly I realized the problem wasn't the sensor, it was the
-// available ping and ultrasonic libraries causing the problem. The NewPing
-// library totally fixes these problems, adds many new features, and breaths
-// new life into these very affordable distance sensors. 
+// Initially, I wasn't happy with how poorly ultrasonic sensors performed. I
+// soon realized the problem wasn't the sensor, it was the available ping and
+// ultrasonic libraries causing the problem. The NewPing library totally fixes
+// these problems, adds many new features, and breathes new life into these
+// very affordable distance sensors.
 //
 // FEATURES:
 // * Works with many different ultrasonic sensors: SR04, SRF05, SRF06, DYP-ME007, URM37 & Parallax PING)))™.
@@ -47,7 +47,7 @@
 //     max_cm_distance - [Optional] Maximum distance you wish to sense. Default=500cm.
 //
 // METHODS:
-//   sonar.ping([max_cm_distance]) - Send a ping and get the echo time (in microseconds) as a result. [max_cm_distance] allows you to optionally set a new max distance. 
+//   sonar.ping([max_cm_distance]) - Send a ping and get the echo time (in microseconds) as a result. [max_cm_distance] allows you to optionally set a new max distance.
 //   sonar.ping_in([max_cm_distance]) - Send a ping and get the distance in whole inches. [max_cm_distance] allows you to optionally set a new max distance.
 //   sonar.ping_cm([max_cm_distance]) - Send a ping and get the distance in whole centimeters. [max_cm_distance] allows you to optionally set a new max distance.
 //   sonar.ping_median(iterations [, max_cm_distance]) - Do multiple pings (default=5), discard out of range pings and return median in microseconds. [max_cm_distance] allows you to optionally set a new max distance.
@@ -60,13 +60,31 @@
 //   NewPing::timer_stop() - Stop the timer.
 //
 // HISTORY:
+// 02/16/2023 v1.9.7 - ONE_PIN_ENABLED mode is now automatic, based on if you
+//   use the same trigger and echo pins. TRIGGER_WIDTH can now be modified if
+//   your sensors are out of spec (defaults to 12uS, previously 10uS).
+//
+// 12/15/2022 v1.9.6 - Reverted timer overflow commit as it contained bugs.
+//
+// 12/13/2022 v1.9.5 - Resolved micros() timer overflow bug. Changed example
+//   sketch extensions so they load in latest release of the Arduino IDE.
+//   Changed private members to protected for easier 3rd party customization.
+//
+// 01/26/2022 v1.9.4 - Added esp32 to the compatible architectures (note:
+//   non-timer methods only)
+//
+// 01/20/2022 v1.9.3 - Default to disable timer methods for non-AVR
+//   microcontrollers and on the ATmega4809 used in the Nano Every.
+//
 // 07/15/2018 v1.9.1 - Added support for ATtiny441 and ATtiny841
 //   microcontrollers.
+//
 // 12/09/2017 v1.9.0 - Added support for the ARM-based Particle devices. If
 //   other ARM-based microcontrollers adopt a similar timer method that the
 //   Particle and Teensy 3.x share, support for other ARM-based microcontrollers
 //   could be possible. Attempt to add to Arduino library manager. License
 //   changed.
+//
 // 07/30/2016 v1.8 - Added support for non-AVR microcontrollers. For non-AVR
 //   microcontrollers, advanced ping_timer() timer methods are disabled due to
 //   inconsistencies or no support at all between platforms. However, standard
@@ -144,18 +162,18 @@
 
 	#define NewPing_h
 
-	#if defined (ARDUINO) && ARDUINO >= 100
+	#if defined(ARDUINO) && ARDUINO >= 100
 		#include <Arduino.h>
 	#else
 		#include <WProgram.h>
-		#if defined (PARTICLE)
+		#if defined(PARTICLE)
 			#include <SparkIntervalTimer.h>
 		#else
 			#include <pins_arduino.h>
 		#endif
 	#endif
 
-	#if defined (__AVR__)
+	#if defined(__AVR__)
 		#include <avr/io.h>
 		#include <avr/interrupt.h>
 	#endif
@@ -163,19 +181,16 @@
 	// Shouldn't need to change these values unless you have a specific need to do so.
 	#define MAX_SENSOR_DISTANCE 500 // Maximum sensor distance can be as high as 500cm, no reason to wait for ping longer than sound takes to travel this distance and back. Default=500
 	#define US_ROUNDTRIP_CM 57      // Microseconds (uS) it takes sound to travel round-trip 1cm (2cm total), uses integer to save compiled code space. Default=57
-	#define US_ROUNDTRIP_IN 146     // Microseconds (uS) it takes sound to travel round-trip 1 inch (2 inches total), uses integer to save compiled code space. Defalult=146
-	#define ONE_PIN_ENABLED true    // Set to "false" to disable one pin mode which saves around 14-26 bytes of binary size. Default=true
+	#define US_ROUNDTRIP_IN 146     // Microseconds (uS) it takes sound to travel round-trip 1 inch (2 inches total), uses integer to save compiled code space. Default=146
 	#define ROUNDING_ENABLED false  // Set to "true" to enable distance rounding which also adds 64 bytes to binary size. Default=false
 	#define URM37_ENABLED false     // Set to "true" to enable support for the URM37 sensor in PWM mode. Default=false
-	#define TIMER_ENABLED true      // Set to "false" to disable the timer ISR (if getting "__vector_7" compile errors set this to false). Default=true
+	#define TRIGGER_WIDTH 12        // Microseconds (uS) notch to trigger sensor to start ping. Sensor specs state notch should be 10uS, defaults to 12uS for out of spec sensors. Default=12
 
 	// Probably shouldn't change these values unless you really know what you're doing.
 	#define NO_ECHO 0               // Value returned if there's no ping echo within the specified MAX_SENSOR_DISTANCE or max_cm_distance. Default=0
 	#define MAX_SENSOR_DELAY 5800   // Maximum uS it takes for sensor to start the ping. Default=5800
-	#define ECHO_TIMER_FREQ 24      // Frequency to check for a ping echo (every 24uS is about 0.4cm accuracy). Default=24
-	#define PING_MEDIAN_DELAY 29000 // Microsecond delay between pings in the ping_median method. Default=29000
-	#define PING_OVERHEAD 5         // Ping overhead in microseconds (uS). Default=5
-	#define PING_TIMER_OVERHEAD 13  // Ping timer overhead in microseconds (uS). Default=13
+	#define ECHO_TIMER_FREQ 24      // Frequency (in microseconds) to check for a ping echo (every 24uS is about 0.4cm accuracy). Default=24
+	#define PING_MEDIAN_DELAY 30000 // Microsecond delay between pings in the ping_median method. Default=30000
 	#if URM37_ENABLED == true
 		#undef  US_ROUNDTRIP_CM
 		#undef  US_ROUNDTRIP_IN
@@ -187,32 +202,31 @@
 	#define NewPingConvert(echoTime, conversionFactor) (max(((unsigned int)echoTime + conversionFactor / 2) / conversionFactor, (echoTime ? 1 : 0)))
 
 	// Detect non-AVR microcontrollers (Teensy 3.x, Arduino DUE, etc.) and don't use port registers or timer interrupts as required.
-	#if (defined (__arm__) && (defined (TEENSYDUINO) || defined (PARTICLE)))
-		#undef  PING_OVERHEAD
+	#if (defined(__arm__) && (defined(TEENSYDUINO) || defined(PARTICLE)))
 		#define PING_OVERHEAD 1
-		#undef  PING_TIMER_OVERHEAD
 		#define PING_TIMER_OVERHEAD 1
+		#define TIMER_ENABLED true
 		#define DO_BITWISE true
-	#elif !defined (__AVR__)
-		#undef  PING_OVERHEAD
+	#elif defined(__AVR__)
+		#define PING_OVERHEAD 5        // Ping overhead in microseconds (uS). Default=5
+		#define PING_TIMER_OVERHEAD 13 // Ping timer overhead in microseconds (uS). Default=13
+		#define TIMER_ENABLED true
+		#define DO_BITWISE true
+	#else
 		#define PING_OVERHEAD 1
-		#undef  PING_TIMER_OVERHEAD
 		#define PING_TIMER_OVERHEAD 1
-		#undef  TIMER_ENABLED
 		#define TIMER_ENABLED false
 		#define DO_BITWISE false
-	#else
-		#define DO_BITWISE true
 	#endif
 
-	// Disable the timer interrupts when using ATmega128 and all ATtiny microcontrollers.
-	#if defined (__AVR_ATmega128__) || defined (__AVR_ATtiny24__) || defined (__AVR_ATtiny44__) || defined (__AVR_ATtiny441__) || defined (__AVR_ATtiny84__) || defined (__AVR_ATtiny841__) || defined (__AVR_ATtiny25__) || defined (__AVR_ATtiny45__) || defined (__AVR_ATtiny85__) || defined (__AVR_ATtiny261__) || defined (__AVR_ATtiny461__) || defined (__AVR_ATtiny861__) || defined (__AVR_ATtiny43U__)
+	// Disable the timer interrupts when using ATmega128, ATmega4809 and all ATtiny microcontrollers.
+	#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega4809__) || defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny441__) || defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny841__) || defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__) || defined(__AVR_ATtiny261__) || defined(__AVR_ATtiny461__) || defined(__AVR_ATtiny861__) || defined(__AVR_ATtiny43U__) || defined(__AVR_ATtiny1614__)
 		#undef  TIMER_ENABLED
 		#define TIMER_ENABLED false
 	#endif
 
 	// Define timers when using ATmega8, ATmega16, ATmega32 and ATmega8535 microcontrollers.
-	#if defined (__AVR_ATmega8__) || defined (__AVR_ATmega16__) || defined (__AVR_ATmega32__) || defined (__AVR_ATmega8535__)
+	#if defined(__AVR_ATmega8__) || defined(__AVR_ATmega16__) || defined(__AVR_ATmega32__) || defined(__AVR_ATmega8535__)
 		#define OCR2A OCR2
 		#define TIMSK2 TIMSK
 		#define OCIE2A OCIE2
@@ -235,7 +249,7 @@
 			static void timer_ms(unsigned long frequency, void (*userFunc)(void));
 			static void timer_stop();
 	#endif
-		private:
+		protected:
 			boolean ping_trigger();
 			void set_max_distance(unsigned int max_cm_distance);
 	#if TIMER_ENABLED == true
@@ -249,10 +263,10 @@
 			uint8_t _echoBit;
 		#if defined(PARTICLE)
 			#if !defined(portModeRegister)
-				#if defined (STM32F10X_MD)
-					#define portModeRegister(port)     ( &(port->CRL) )
-				#elif defined (STM32F2XX)
-					#define portModeRegister(port)     ( &(port->MODER) )
+				#if defined(STM32F10X_MD)
+					#define portModeRegister(port) ( &(port->CRL) )
+				#elif defined(STM32F2XX)
+					#define portModeRegister(port) ( &(port->MODER) )
 				#endif
 			#endif
 			volatile uint32_t *_triggerOutput;
@@ -269,6 +283,7 @@
 	#endif
 			unsigned int _maxEchoTime;
 			unsigned long _max_time;
+			bool _one_pin_mode;
 	};
 
 

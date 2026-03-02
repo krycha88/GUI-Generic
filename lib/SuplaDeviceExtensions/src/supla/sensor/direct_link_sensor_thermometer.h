@@ -29,6 +29,7 @@
 #include <supla/actions.h>
 #include <supla/channel_element.h>
 #include <supla/sensor/thermometer.h>
+#include <WiFiClient.h>
 
 namespace Supla {
 namespace Sensor {

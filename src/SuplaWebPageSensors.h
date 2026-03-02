@@ -23,6 +23,7 @@
 #include "SuplaWebPageSensorSpi.h"
 #include "SuplaWebPageSensorAnalog.h"
 #include "SuplaWebPageOther.h"
+#include "SuplaWebPageDebug.h"
 
 void createWebPageSensors();
 

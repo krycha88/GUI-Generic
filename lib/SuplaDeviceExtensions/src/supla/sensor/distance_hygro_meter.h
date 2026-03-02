@@ -41,6 +41,7 @@ class DistanceHumidityMeter : public Distance {
 
  protected:
   Channel humidityChannel;
+  unsigned long lastCommunicationTimeMs;
 };
 
 };  // namespace Sensor

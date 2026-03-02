@@ -20,7 +20,8 @@
 #include "SuplaDeviceGUI.h"
 
 /* Define GUI_SENSOR_I2C_2 if any of these sensors are selected. */
-#if defined(SUPLA_MS5611) || defined(SUPLA_AHTX0) || defined(SUPLA_SPS30_KPOP) || defined(SUPLA_INA219)
+#if defined(SUPLA_MS5611) || defined(SUPLA_AHTX0) || defined(SUPLA_SPS30_KPOP) || defined(SUPLA_INA219) || defined(SUPLA_INA226) || \
+    defined(SUPLA_INA228) || defined(SUPLA_INA236) || defined(SUPLA_INA260)
 #define GUI_SENSOR_I2C_2
 #endif
 
@@ -60,7 +61,14 @@ enum _sensor2
   SENSOR_SPI_CC1101,
   SENSOR_I2C_AHTX0,
   SENSOR_I2C_SPS30,
-  SENSOR_I2C_INA219
+  SENSOR_I2C_INA219,
+  SENSOR_I2C_INA226,
+  SENSOR_I2C_INA228,
+  SENSOR_SPI_INA229,
+  SENSOR_I2C_INA236, 
+  SENSOR_I2C_INA238,
+  SENSOR_SPI_INA239,
+  SENSOR_I2C_INA260
 };
 
 #if defined(GUI_SENSOR_I2C) || defined(GUI_SENSOR_I2C_ENERGY_METER)
@@ -184,6 +192,61 @@ enum _ahtAdress
 
 #ifdef SUPLA_INA219
 #define INPUT_INA219 "iina"
+#endif
+
+#if defined(SUPLA_INA219) || defined(SUPLA_INA226) || defined(SUPLA_INA228) || defined(SUPLA_INA236) || defined(SUPLA_INA238) || defined(SUPLA_INA260)
+
+enum _ina219Adress
+{
+  INA219_ADDRESS_0X40 = 1,
+  INA219_ADDRESS_0X41,
+  INA219_ADDRESS_0X44,
+  INA219_ADDRESS_0X45
+};
+enum _inaAdress
+{
+  INA_ADDRESS_0X40 = 1,
+  INA_ADDRESS_0X41,
+  INA_ADDRESS_0X42,
+  INA_ADDRESS_0X43,
+  INA_ADDRESS_0X44,
+  INA_ADDRESS_0X45,
+  INA_ADDRESS_0X46,
+  INA_ADDRESS_0X47,
+  INA_ADDRESS_0X48,
+  INA_ADDRESS_0X49,
+  INA_ADDRESS_0X4A,
+  INA_ADDRESS_0X4B,
+  INA_ADDRESS_0X4C,
+  INA_ADDRESS_0X4D,
+  INA_ADDRESS_0X4E,
+  INA_ADDRESS_0X4F
+};
+#endif
+
+#ifdef SUPLA_INA226
+#define INPUT_INA226 "iina226"
+#endif
+
+#ifdef SUPLA_INA228
+#define INPUT_INA228 "iina228"
+#endif
+
+#ifdef SUPLA_INA229
+#define INPUT_INA229 "iina229"
+#endif
+
+#ifdef SUPLA_INA236
+#define INPUT_INA236 "iina236"
+
+#endif
+
+#ifdef SUPLA_INA238
+#define INPUT_INA238 "iina238"
+#endif
+
+#ifdef SUPLA_INA260
+#define INPUT_INA260 "iina260"
 #endif
 
 #endif  // defined(GUI_SENSOR_I2C)

@@ -341,7 +341,6 @@ class Channel : public LocalAction {
    */
   uint8_t getDefaultIcon() const;
 
-  static uint32_t lastCommunicationTimeMs;
   void fillRawValue(void *value);
   int8_t *getValuePtr();
 
@@ -378,8 +377,9 @@ class Channel : public LocalAction {
 
   char *initialCaption = nullptr;
 
-  uint64_t channelFlags = 0;
   uint32_t functionsBitmap = 0;
+
+  uint64_t channelFlags = 0;
   uint32_t validityTimeSec = 0;
 
   int16_t channelNumber = -1;

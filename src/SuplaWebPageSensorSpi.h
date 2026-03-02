@@ -19,7 +19,7 @@
 
 #include "SuplaDeviceGUI.h"
 
-#if defined(SUPLA_MAX6675) || defined(SUPLA_MAX31855) || defined (SUPLA_CC1101)
+#if defined(SUPLA_MAX6675) || defined(SUPLA_MAX31855) || defined (SUPLA_CC1101) || defined(SUPLA_INA229) || defined(SUPLA_INA239)
 #define GUI_SENSOR_SPI
 #endif
 
@@ -31,7 +31,7 @@
 #define INPUT_MAX31855 "imax31855"
 #define INPUT_CLK_GPIO "clk"
 #define INPUT_CS_GPIO  "cs"
-#define INPUT_MISO_GPIO  "d0"
+#define INPUT_MISO_GPIO  "miso"
 #define INPUT_MOSI_GPIO "mosi"
 
 
@@ -130,6 +130,14 @@ enum _wmbus_config_positions
   WMBUS_CFG_SENSOR_PROPERTY4,
   WMBUS_CFG_SENSOR_ENABLED4
 };
+#endif
+
+#ifdef SUPLA_INA229
+#define INPUT_INA229 "iina229"
+#endif
+
+#ifdef SUPLA_INA239
+#define INPUT_INA239 "iina239"
 #endif
 
 void createWebPageSensorSpi();

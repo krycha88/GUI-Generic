@@ -1,6 +1,6 @@
 #ifndef _SensorInfo_h
 #define _SensorInfo_h
-
+#include <Arduino.h>
 #include <vector>
 #include <string>
 #include <stdint.h>
@@ -20,8 +20,12 @@ namespace Supla
                 channel.setDefault(SUPLA_CHANNELFNC_IC_WATER_METER);
             };
 
-            void setNewValue(double value)
+            void setNewValue(uint64_t value)
             {
+                Serial.print("wMBus-lib: Setting new value for sensor with id: ");
+                Serial.print(this->get_meter_id().c_str());
+                Serial.print(" value: ");
+                Serial.println(value);
                 channel.setNewValue(value);
             };
         };

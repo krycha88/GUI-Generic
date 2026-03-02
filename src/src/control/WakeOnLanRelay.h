@@ -19,6 +19,7 @@
 
 #include <Arduino.h>
 #include <WakeOnLan.h>
+#include <supla/storage/storage.h>
 #include <supla/control/virtual_relay.h>
 
 #define MAC_ADDRESS_SIZE 18

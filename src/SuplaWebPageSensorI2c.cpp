@@ -144,7 +144,7 @@ void handleSensorI2c(int save) {
     addFormHeader();
     addListBox(INPUT_MS5611, F("MS5611"), STATE_P, 2, selected);
     if (ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_MS5611).toInt())
-      addNumberBox(INPUT_ALTITUDE_MS5611, S_ALTITUDE_ABOVE_SEA_LEVEL, KEY_ALTITUDE_MS5611, 9000);
+      addNumberBox(INPUT_ALTITUDE_MS5611, S_ALTITUDE_ABOVE_SEA_LEVEL, KEY_ALTITUDE_MS5611,9000);
     addFormHeaderEnd();
 #endif
 
@@ -171,9 +171,43 @@ void handleSensorI2c(int save) {
 
 #ifdef SUPLA_INA219
     selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_INA219).toInt();
-    uint8_t ina219_addresses[] = {0x40, 0x44};
     addFormHeader();
-    addListBox(INPUT_INA219, F("INA219 Address"), ina219_addresses, 2, selected, 0, true);
+    addListBox(INPUT_INA219, F("INA219 Address"), INA219_P, 4, selected, 0, true);
+    addFormHeaderEnd();
+#endif
+
+#ifdef SUPLA_INA226
+    selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_INA226).toInt();
+    addFormHeader();
+    addListBox(INPUT_INA226, F("INA226 Address"), INA2XX_P, 16, selected, 0, true);
+    addFormHeaderEnd();
+#endif
+
+#ifdef SUPLA_INA228
+    selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_INA228).toInt();
+    addFormHeader();
+    addListBox(INPUT_INA228, F("INA228 Address (85V 20-bit)"), INA2XX_P, 16, selected, 0, true);
+    addFormHeaderEnd();
+#endif
+
+#ifdef SUPLA_INA236
+    selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_INA236).toInt();
+    addFormHeader();
+    addListBox(INPUT_INA236, F("INA236 Address (48V 16-bit)"), INA2XX_P, 16, selected, 0, true);
+    addFormHeaderEnd();
+#endif
+
+#ifdef SUPLA_INA238
+    selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_INA238).toInt();
+    addFormHeader();
+    addListBox(INPUT_INA238, F("INA238 Address (I2C 16-bit)"), INA2XX_P, 16, selected, 0, true);
+    addFormHeaderEnd();
+#endif
+
+#ifdef SUPLA_INA260
+    selected = ConfigManager->get(KEY_ACTIVE_SENSOR_2)->getElement(SENSOR_I2C_INA260).toInt();
+    addFormHeader();
+    addListBox(INPUT_INA260, F("INA260 Address (36V 16-bit)"), INA2XX_P, 16, selected, 0, true);
     addFormHeaderEnd();
 #endif
 
@@ -255,7 +289,7 @@ void handleSensorI2c(int save) {
   }
 
 #ifdef ARDUINO_ARCH_ESP32
-#if !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+#if !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_I2C + "2");
   addListGPIOBox(INPUT_SDA_2, String(S_SDA) + "2", FUNCTION_SDA_2);
   addListGPIOBox(INPUT_SCL_2, String(S_SCL) + "2", FUNCTION_SCL_2);
@@ -493,9 +527,53 @@ void handleSensorI2cSave() {
   key = KEY_ACTIVE_SENSOR_2;
   input = INPUT_INA219;
 
-  const char* selectedInput = WebServer->httpServer->arg(input).c_str();
-  if (strcmp(selectedInput, "") != 0) {
-    ConfigManager->setElementHex(key, SENSOR_I2C_INA219, selectedInput);
+  if (strcmp(WebServer->httpServer->arg(input).c_str(), "") != 0) {
+    ConfigManager->setElement(key, SENSOR_I2C_INA219, static_cast<int>(WebServer->httpServer->arg(input).toInt()));
+  }
+#endif
+
+#ifdef SUPLA_INA226
+  key = KEY_ACTIVE_SENSOR_2;
+  input = INPUT_INA226;
+
+  if (strcmp(WebServer->httpServer->arg(input).c_str(), "") != 0) {
+    ConfigManager->setElement(key, SENSOR_I2C_INA226, static_cast<int>(WebServer->httpServer->arg(input).toInt()));
+  }
+#endif
+
+#ifdef SUPLA_INA228
+  key = KEY_ACTIVE_SENSOR_2;
+  input = INPUT_INA228;
+
+  if (strcmp(WebServer->httpServer->arg(input).c_str(), "") != 0) {
+    ConfigManager->setElement(key, SENSOR_I2C_INA228, static_cast<int>(WebServer->httpServer->arg(input).toInt()));
+  }
+#endif
+
+#ifdef SUPLA_INA236
+  key = KEY_ACTIVE_SENSOR_2;
+  input = INPUT_INA236;
+
+  if (strcmp(WebServer->httpServer->arg(input).c_str(), "") != 0) {
+    ConfigManager->setElement(key, SENSOR_I2C_INA236, static_cast<int>(WebServer->httpServer->arg(input).toInt()));
+  }
+#endif
+
+#ifdef SUPLA_INA238
+  key = KEY_ACTIVE_SENSOR_2;
+  input = INPUT_INA238;
+
+  if (strcmp(WebServer->httpServer->arg(input).c_str(), "") != 0) {
+    ConfigManager->setElement(key, SENSOR_I2C_INA238, static_cast<int>(WebServer->httpServer->arg(input).toInt()));
+  }
+#endif
+
+#ifdef SUPLA_INA260
+  key = KEY_ACTIVE_SENSOR_2;
+  input = INPUT_INA260;
+
+  if (strcmp(WebServer->httpServer->arg(input).c_str(), "") != 0) {
+    ConfigManager->setElement(key, SENSOR_I2C_INA260, static_cast<int>(WebServer->httpServer->arg(input).toInt()));
   }
 #endif
 

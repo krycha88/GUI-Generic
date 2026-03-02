@@ -22,7 +22,9 @@
 #define CONFIG_MAX_SIZE 1048 
 #elif ARDUINO_ARCH_ESP32
 #include "SPIFFS.h"
+#ifndef CONFIG_IDF_TARGET_ESP32C5
 #include <os.h>
+#endif
 #include <esp_wifi.h>
 #include <time.h>
 #define CONFIG_MAX_SIZE 4096
@@ -77,6 +79,16 @@
 
 #ifdef ARDUINO_ARCH_ESP8266
 #define MAX_GPIO 17
+#elif defined(CONFIG_IDF_TARGET_ESP32C6) || defined(ARDUINO_ESP32C6_DEV)
+#define MAX_GPIO 30
+#elif defined(CONFIG_IDF_TARGET_ESP32C5) || defined(ARDUINO_ESP32C5_DEV)
+#define MAX_GPIO 28
+#elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ARDUINO_ESP32C3_DEV)
+#define MAX_GPIO 21
+#elif defined(CONFIG_IDF_TARGET_ESP32S2) || defined(ARDUINO_ESP32S2_DEV)
+#define MAX_GPIO 46
+#elif defined(CONFIG_IDF_TARGET_ESP32S3) || defined(ARDUINO_ESP32S3_DEV)
+#define MAX_GPIO 48
 #elif ARDUINO_ARCH_ESP32
 #define MAX_GPIO 39
 #endif
@@ -184,6 +196,7 @@ enum _key
   KEY_WMBUS_SENSOR,
   KEY_WMBUS_SENSOR_ID,
   KEY_WMBUS_SENSOR_KEY,
+  KEY_PRECONFIGURED_STATE,
   OPTION_COUNT
 };
 

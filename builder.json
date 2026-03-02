@@ -1196,6 +1196,174 @@
 				"name": "Compteur d´énergie SDM Modbus 3F",
 				"desc": "Il permet le fonctionnement du compteur d´énergie SDM Modbus 3F."
 			}
+		},
+		"SUPLA_INA219": {
+			"name": "Licznik mocy INA219",
+			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA219.",
+			"defOn": false,
+			"en": {
+				"name": "Power monitor INA219",
+				"desc": "Device settings->I2C. Enables support for INA219 power monitor."
+			},
+			"es": {
+				"name": "Monitor de energía INA219",
+				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA219."
+			},
+			"de": {
+				"name": "Leistungsmesser INA219",
+				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA219-Leistungsmesser."
+			},
+			"fr": {
+				"name": "Moniteur de puissance INA219",
+				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA219."
+			}
+		},
+		"SUPLA_INA226": {
+			"name": "Licznik mocy INA226",
+			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA226.",
+			"defOn": false,
+			"en": {
+				"name": "Power monitor INA226",
+				"desc": "Device settings->I2C. Enables support for INA226 power monitor."
+			},
+			"es": {
+				"name": "Monitor de energía INA226",
+				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA226."
+			},
+			"de": {
+				"name": "Leistungsmesser INA226",
+				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA226-Leistungsmesser."
+			},
+			"fr": {
+				"name": "Moniteur de puissance INA226",
+				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA226."
+			}
+		},
+		"SUPLA_INA228": {
+			"name": "Licznik mocy INA228 (85V 20-bit)",
+			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA228 (85V 20-bit).",
+			"defOn": false,
+			"en": {
+				"name": "Power monitor INA228 (85V 20-bit)",
+				"desc": "Device settings->I2C. Enables support for INA228 power monitor (85V 20-bit)."
+			},
+			"es": {
+				"name": "Monitor de energía INA228 (85V 20-bit)",
+				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA228 (85V 20-bit)."
+			},
+			"de": {
+				"name": "Leistungsmesser INA228 (85V 20-bit)",
+				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA228-Leistungsmesser (85V 20-bit)."
+			},
+			"fr": {
+				"name": "Moniteur de puissance INA228 (85V 20-bit)",
+				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA228 (85V 20-bit)."
+			}
+		},
+		"SUPLA_INA229": {
+			"name": "Licznik mocy INA229 SPI (85V 20-bit)",
+			"desc": "Ustawienia urządzenia->SPI. Umożliwia obsługę licznika mocy INA229 SPI (85V 20-bit).",
+			"defOn": false,
+			"en": {
+				"name": "Power monitor INA229 SPI (85V 20-bit)",
+				"desc": "Device settings->SPI. Enables support for INA229 SPI power monitor (85V 20-bit)."
+			},
+			"es": {
+				"name": "Monitor de energía INA229 SPI (85V 20-bit)",
+				"desc": "Configuración del dispositivo->SPI. Habilita el soporte para el monitor de energía INA229 SPI (85V 20-bit)."
+			},
+			"de": {
+				"name": "Leistungsmesser INA229 SPI (85V 20-bit)",
+				"desc": "Geräteeinstellungen->SPI. Aktiviert die Unterstützung für INA229 SPI-Leistungsmesser (85V 20-bit)."
+			},
+			"fr": {
+				"name": "Moniteur de puissance INA229 SPI (85V 20-bit)",
+				"desc": "Paramètres de l´appareil->SPI. Active la prise en charge du moniteur de puissance INA229 SPI (85V 20-bit)."
+			}
+		},
+		"SUPLA_INA236": {
+			"name": "Licznik mocy INA236 (48V 16-bit)",
+			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA236 (48V 16-bit).",
+			"defOn": false,
+			"en": {
+				"name": "Power monitor INA236 (48V 16-bit)",
+				"desc": "Device settings->I2C. Enables support for INA236 power monitor (48V 16-bit)."
+			},
+			"es": {
+				"name": "Monitor de energía INA236 (48V 16-bit)",
+				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA236 (48V 16-bit)."
+			},
+			"de": {
+				"name": "Leistungsmesser INA236 (48V 16-bit)",
+				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA236-Leistungsmesser (48V 16-bit)."
+			},
+			"fr": {
+				"name": "Moniteur de puissance INA236 (48V 16-bit)",
+				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA236 (48V 16-bit)."
+			}
+		},
+		"SUPLA_INA238": {
+			"name": "Licznik mocy INA238 (16-bit)",
+			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA238 (16-bit).",
+			"defOn": false,
+			"en": {
+				"name": "Power monitor INA238 (16-bit)",
+				"desc": "Device settings->I2C. Enables support for INA238 power monitor (16-bit)."
+			},
+			"es": {
+				"name": "Monitor de energía INA238 (16-bit)",
+				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA238 (16-bit)."
+			},
+			"de": {
+				"name": "Leistungsmesser INA238 (16-bit)",
+				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA238-Leistungsmesser (16-bit)."
+			},
+			"fr": {
+				"name": "Moniteur de puissance INA238 (16-bit)",
+				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA238 (16-bit)."
+			}
+		},
+		"SUPLA_INA239": {
+			"name": "Licznik mocy INA239 SPI (85V 16-bit)",
+			"desc": "Ustawienia urządzenia->SPI. Umożliwia obsługę licznika mocy INA239 SPI (85V 16-bit).",
+			"defOn": false,
+			"en": {
+				"name": "Power monitor INA239 SPI (85V 16-bit)",
+				"desc": "Device settings->SPI. Enables support for INA239 SPI power monitor (85V 16-bit)."
+			},
+			"es": {
+				"name": "Monitor de energía INA239 SPI (85V 16-bit)",
+				"desc": "Configuración del dispositivo->SPI. Habilita el soporte para el monitor de energía INA239 SPI (85V 16-bit)."
+			},
+			"de": {
+				"name": "Leistungsmesser INA239 SPI (85V 16-bit)",
+				"desc": "Geräteeinstellungen->SPI. Aktiviert die Unterstützung für INA239 SPI-Leistungsmesser (85V 16-bit)."
+			},
+			"fr": {
+				"name": "Moniteur de puissance INA239 SPI (85V 16-bit)",
+				"desc": "Paramètres de l´appareil->SPI. Active la prise en charge du moniteur de puissance INA239 SPI (85V 16-bit)."
+			}
+		},
+		"SUPLA_INA260": {
+			"name": "Licznik mocy INA260 (36V 16-bit)",
+			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA260 (36V 16-bit).",
+			"defOn": false,
+			"en": {
+				"name": "Power monitor INA260 (36V 16-bit)",
+				"desc": "Device settings->I2C. Enables support for INA260 power monitor (36V 16-bit)."
+			},
+			"es": {
+				"name": "Monitor de energía INA260 (36V 16-bit)",
+				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA260 (36V 16-bit)."
+			},
+			"de": {
+				"name": "Leistungsmesser INA260 (36V 16-bit)",
+				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA260-Leistungsmesser (36V 16-bit)."
+			},
+			"fr": {
+				"name": "Moniteur de puissance INA260 (36V 16-bit)",
+				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA260 (36V 16-bit)."
+			}
 		}
 	},
 	"OTHER": {

@@ -21,6 +21,8 @@ Supla::Eeprom eeprom(STORAGE_OFFSET);
 namespace Supla {
 namespace GUI {
 void begin() {
+  setupPreConfiguredSettingsIfAvailable();
+
   setupConnection();
   enableConnectionSSL(ConfigESP->checkSSL());
 
@@ -30,13 +32,241 @@ void begin() {
   SuplaDevice.setSwVersion(ver.c_str());
 #endif
 
+  Supla::InitialMode initialMode = Supla::InitialMode::StartInCfgMode;
+
+#ifdef Parameter_SUPLA_INITIALCONFIG_Mode
+  initialMode = static_cast<Supla::InitialMode>(Parameter_SUPLA_INITIALCONFIG_Mode);
+#endif
+
+  SuplaDevice.setInitialMode(initialMode);
+
+  int cfgModeTimeout = 0;
+
+#if defined(Parameter_SUPLA_INITIALCONFIG_Mode) && defined(Parameter_SUPLA_INITIALCONFIG_TimeoutInMin) && (Parameter_SUPLA_INITIALCONFIG_TimeoutInMin > 0)
+  cfgModeTimeout = Parameter_SUPLA_INITIALCONFIG_TimeoutInMin;
+#endif
+
+  SuplaDevice.setLeaveCfgModeAfterInactivityMin(cfgModeTimeout);
   SuplaDevice.begin();
+}
 
-  if (ConfigESP->configModeESP == Supla::DEVICE_MODE_CONFIG)
-    Supla::Network::SetConfigMode();
+/// @brief Set up initial credentials if they are defined in the build flags
+void setupPreConfiguredSettingsIfAvailable() {
+  if (ConfigManager->get(KEY_PRECONFIGURED_STATE)->getValueInt() == 1) {
+    Serial.println(F("Preconfigured settings already applied."));
+    return;
+  }
 
-  // if (getCountChannels() == 0)
-  //   ConfigESP->configModeInit();
+#if defined(Parameter_SUPLA_INITIALCONFIG_UseBuildConfiguration) && Parameter_SUPLA_INITIALCONFIG_UseBuildConfiguration > 0
+  Serial.println(F("Applying preconfigured settings from build configuration..."));
+#ifdef Parameter_SUPLA_INITIALCONFIG_WIFISsid
+  ConfigManager->setWiFiSSID(Parameter_SUPLA_INITIALCONFIG_WIFISsid);
+#endif  // Parameter_SUPLA_INITIALCONFIG_WIFISsid
+#ifdef Parameter_SUPLA_INITIALCONFIG_WIFIPass
+  ConfigManager->setWiFiPassword(Parameter_SUPLA_INITIALCONFIG_WIFIPass);
+#endif  // Parameter_SUPLA_INITIALCONFIG_WIFIPass
+#ifdef Parameter_SUPLA_INITIALCONFIG_Server
+  ConfigManager->setSuplaServer(Parameter_SUPLA_INITIALCONFIG_Server);
+#endif  // Parameter_SUPLA_INITIALCONFIG_Server
+#ifdef Parameter_SUPLA_INITIALCONFIG_Email
+  ConfigManager->setEmail(Parameter_SUPLA_INITIALCONFIG_Email);
+#endif  // Parameter_SUPLA_INITIALCONFIG_Email
+#ifdef Parameter_SUPLA_INITIALCONFIG_DeviceName
+  ConfigManager->setDeviceName(Parameter_SUPLA_INITIALCONFIG_DeviceName);
+#endif  // Parameter_SUPLA_INITIALCONFIG_DeviceName
+#ifdef Parameter_SUPLA_INITIALCONFIG_Login
+  ConfigManager->set(KEY_LOGIN, Parameter_SUPLA_INITIALCONFIG_Login);
+#endif  // Parameter_SUPLA_INITIALCONFIG_Login
+#ifdef Parameter_SUPLA_INITIALCONFIG_Password
+  ConfigManager->set(KEY_LOGIN_PASS, Parameter_SUPLA_INITIALCONFIG_Password);
+#endif  // Parameter_SUPLA_INITIALCONFIG_Password
+#ifdef Parameter_SUPLA_INITIALCONFIG_DeviceName
+  ConfigManager->set(KEY_HOST_NAME, Parameter_SUPLA_INITIALCONFIG_DeviceName);
+#endif  // Parameter_SUPLA_INITIALCONFIG_DeviceName
+
+#if defined(GLOBALPARAMETERS_SCL) && defined(GLOBALPARAMETERS_SDA)
+  ConfigESP->setGpio(GLOBALPARAMETERS_SCL, FUNCTION_SCL);
+  ConfigESP->setGpio(GLOBALPARAMETERS_SDA, FUNCTION_SDA);
+#endif  // GLOBALPARAMETERS_SCL && GLOBALPARAMETERS_SDA
+
+#if defined(GLOBALPARAMETERS_SCL2) && defined(GLOBALPARAMETERS_SDA2)
+  ConfigESP->setGpio(GLOBALPARAMETERS_SDA2, FUNCTION_SDA_2);
+  ConfigESP->setGpio(GLOBALPARAMETERS_SCL2, FUNCTION_SCL_2);
+#endif  // GLOBALPARAMETERS_SCL2 && GLOBALPARAMETERS_SDA2
+
+#if defined(SUPLA_MS5611)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_I2C_MS5611, Parameter_SUPLA_MS5611_Address);
+#if defined(Parameter_SUPLA_MS5611_Altitude)
+  ConfigManager->set(KEY_ALTITUDE_MS5611, Parameter_SUPLA_MS5611_Altitude);
+#endif  // Parameter_SUPLA_MS5611_Altitude
+#endif  // SUPLA_MS5611
+
+#if defined(SUPLA_BMP280)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR, SENSOR_I2C_BMP280, Parameter_SUPLA_BMP280_Address);
+#if defined(Parameter_SUPLA_BMP280_Altitude)
+  ConfigManager->set(KEY_ALTITUDE_BMX280, Parameter_SUPLA_BMP280_Altitude);
+#endif  // Parameter_SUPLA_BMP280_Altitude
+#endif  // SUPLA_BMP280
+
+#if defined(SUPLA_BME280)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR, SENSOR_I2C_BME280, Parameter_SUPLA_BME280_Address);
+#if defined(Parameter_SUPLA_BME280_Altitude)
+  ConfigManager->set(KEY_ALTITUDE_BMX280, Parameter_SUPLA_BME280_Altitude);
+#endif  // Parameter_SUPLA_BME280_Altitude
+#endif  // SUPLA_BME280
+
+#if defined(SUPLA_HDC1080)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR, SENSOR_I2C_HDC1080, Parameter_SUPLA_HDC1080_Address);
+#endif  // SUPLA_HDC1080
+
+#if defined(SUPLA_BH1750)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR, SENSOR_I2C_BH1750, 1);
+#endif  // SUPLA_BH1750
+
+#if defined(SUPLA_MAX44009)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR, SENSOR_I2C_MAX44009, 1);
+#endif  // SUPLA_MAX44009
+
+#if defined(SUPLA_AHTX0)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_I2C_AHTX0, 1);
+#endif  // SUPLA_AHTX0
+
+#if defined(SUPLA_INA219)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_I2C_INA219, 1);
+#endif  // SUPLA_INA219
+
+#if defined(SUPLA_INA226)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_I2C_INA226, 1);
+#endif  // SUPLA_INA226
+
+#if defined(SUPLA_INA228)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_I2C_INA228, 1);
+#endif  // SUPLA_INA228
+
+#if defined(SUPLA_INA236)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_I2C_INA236, 1);
+#endif  // SUPLA_INA236
+
+#if defined(SUPLA_INA238)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_I2C_INA238, 1);
+#endif  // SUPLA_INA238
+
+#if defined(SUPLA_INA260)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_I2C_INA260, 1);
+#endif  // SUPLA_INA260
+
+#if defined(SUPLA_OLED)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR, SENSOR_I2C_OLED, 1);
+#endif  // SUPLA_OLED
+
+#if defined(SUPLA_SPS30)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_I2C_SPS30, 1);
+#endif  // SUPLA_SPS30
+
+// SPI
+#if defined(GLOBALPARAMETERS_MISO)
+  ConfigESP->setGpio(GLOBALPARAMETERS_MISO, FUNCTION_MISO);
+#endif  // GLOBALPARAMETERS_MISO
+
+#if defined(GLOBALPARAMETERS_CLK)
+  ConfigESP->setGpio(GLOBALPARAMETERS_CLK, FUNCTION_CLK);
+#endif  // GLOBALPARAMETERS_CLK
+
+#if defined(GLOBALPARAMETERS_CS)
+  ConfigESP->setGpio(GLOBALPARAMETERS_CS, FUNCTION_CS);
+#endif  // GLOBALPARAMETERS_CS
+
+#if defined(GLOBALPARAMETERS_MOSI)
+  ConfigESP->setGpio(GLOBALPARAMETERS_MOSI, FUNCTION_MOSI);
+#endif  // GLOBALPARAMETERS_MOSI
+
+#if defined(GLOBALPARAMETERS_GDO0)
+  ConfigESP->setGpio(GLOBALPARAMETERS_GDO0, FUNCTION_GDO0);
+#endif  // GLOBALPARAMETERS_GDO0
+
+#if defined(GLOBALPARAMETERS_GDO2)
+  ConfigESP->setGpio(GLOBALPARAMETERS_GDO2, FUNCTION_GDO2);
+#endif  // GLOBALPARAMETERS_GDO2
+
+#if defined(SUPLA_CC1101)
+  ConfigManager->setElement(KEY_ACTIVE_SENSOR_2, SENSOR_SPI_CC1101, 1);
+
+#if defined(Parameter_SUPLA_CC1101_Enabled1) && Parameter_SUPLA_CC1101_Enabled1 > 0
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_ENABLED1, 1);
+#endif  // Parameter_SUPLA_CC1101_Enabled1
+
+#if defined(Parameter_SUPLA_CC1101_SensorType1)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_TYPE1, Parameter_SUPLA_CC1101_SensorType1);
+#endif  // Parameter_SUPLA_CC1101_SensorType
+#if defined(Parameter_SUPLA_CC1101_SensorID1)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR_ID, 0, Parameter_SUPLA_CC1101_SensorID1);
+#endif  // Parameter_SUPLA_CC1101_SensorID
+#if defined(Parameter_SUPLA_CC1101_SensorKey1)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR_KEY, 0, Parameter_SUPLA_CC1101_SensorKey1);
+#endif  // Parameter_SUPLA_CC1101_SensorKey
+#if defined(Parameter_SUPLA_CC1101_SensorProperty1)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_PROPERTY1, Parameter_SUPLA_CC1101_SensorProperty1);
+#endif  // Parameter_SUPLA_CC1101_SensorProperty
+
+#if defined(Parameter_SUPLA_CC1101_Enabled2) && Parameter_SUPLA_CC1101_Enabled2 > 0
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_ENABLED2, 1);
+
+#if defined(Parameter_SUPLA_CC1101_SensorType2)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_TYPE2, Parameter_SUPLA_CC1101_SensorType2);
+#endif  // Parameter_SUPLA_CC1101_SensorType2
+#if defined(Parameter_SUPLA_CC1101_SensorID2)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR_ID, 1, Parameter_SUPLA_CC1101_SensorID2);
+#endif  // Parameter_SUPLA_CC1101_SensorID2
+#if defined(Parameter_SUPLA_CC1101_SensorKey2)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR_KEY, 1, Parameter_SUPLA_CC1101_SensorKey2);
+#endif  // Parameter_SUPLA_CC1101_SensorKey2
+#if defined(Parameter_SUPLA_CC1101_SensorProperty2)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_PROPERTY2, Parameter_SUPLA_CC1101_SensorProperty2);
+#endif  // Parameter_SUPLA_CC1101_SensorProperty2
+
+#endif  // Parameter_SUPLA_CC1101_Enabled2
+
+#if defined(Parameter_SUPLA_CC1101_Enabled3) && Parameter_SUPLA_CC1101_Enabled3 > 0
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_ENABLED3, 1);
+
+#if defined(Parameter_SUPLA_CC1101_SensorType3)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_TYPE3, Parameter_SUPLA_CC1101_SensorType3);
+#endif  // Parameter_SUPLA_CC1101_SensorType3
+#if defined(Parameter_SUPLA_CC1101_SensorID3)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR_ID, 2, Parameter_SUPLA_CC1101_SensorID3);
+#endif  // Parameter_SUPLA_CC1101_SensorID3
+#if defined(Parameter_SUPLA_CC1101_SensorKey3)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR_KEY, 2, Parameter_SUPLA_CC1101_SensorKey3);
+#endif  // Parameter_SUPLA_CC1101_SensorKey3
+#if defined(Parameter_SUPLA_CC1101_SensorProperty3)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_PROPERTY3, Parameter_SUPLA_CC1101_SensorProperty3);
+#endif  // Parameter_SUPLA_CC1101_SensorProperty3
+
+#endif  // Parameter_SUPLA_CC1101_Enabled3
+
+#if defined(Parameter_SUPLA_CC1101_Enabled4) && Parameter_SUPLA_CC1101_Enabled4 > 0
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_ENABLED4, 1);
+
+#if defined(Parameter_SUPLA_CC1101_SensorType4)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_TYPE4, Parameter_SUPLA_CC1101_SensorType4);
+#endif  // Parameter_SUPLA_CC1101_SensorType4
+#if defined(Parameter_SUPLA_CC1101_SensorID4)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR_ID, 3, Parameter_SUPLA_CC1101_SensorID4);
+#endif  // Parameter_SUPLA_CC1101_SensorID4
+#if defined(Parameter_SUPLA_CC1101_SensorKey4)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR_KEY, 3, Parameter_SUPLA_CC1101_SensorKey4);
+#endif  // Parameter_SUPLA_CC1101_SensorKey4
+#if defined(Parameter_SUPLA_CC1101_SensorProperty4)
+  ConfigManager->setElement(KEY_WMBUS_SENSOR, WMBUS_CFG_SENSOR_PROPERTY4, Parameter_SUPLA_CC1101_SensorProperty4);
+#endif  // Parameter_SUPLA_CC1101_SensorProperty4
+
+#endif  // Parameter_SUPLA_CC1101_Enabled4
+
+#endif  // SUPLA_CC1101
+
+  ConfigManager->set(KEY_PRECONFIGURED_STATE, 1);
+  ConfigManager->save();
+#endif  // Parameter_SUPLA_INITIALCONFIG_UseBuildConfiguration > 0
 }
 
 void setupConnection() {
@@ -208,10 +438,13 @@ void addButtonToRelay(uint8_t nrRelay, Supla::Element *element, Supla::ActionHan
           //   button->addAction(buttonActionInternal, relay[nrButton], buttonEvent);
           //   break;
 
-          // case Supla::Event::ON_CHANGE:
-          //   button->setButtonType(Supla::Control::Button::ButtonType::BISTABLE);
-          //   relay[nrButton]->attach(button);
-          //   break;
+        case Supla::GUI::Event::ON_CHANGE:
+          button->setButtonType(Supla::Control::Button::ButtonType::BISTABLE);
+          if (relay) {
+            relay->attach(button);
+          }
+          break;
+
         case Supla::GUI::Event::ON_MOTION_SENSOR:
           button->setButtonType(Supla::Control::Button::ButtonType::MOTION_SENSOR);
           if (relay) {

@@ -206,8 +206,8 @@ uint8_t ConfigExpander::getNrExpander(uint8_t adress) {
   return OFF_GPIO_EXPENDER;
 }
 
-Supla::Io *ConfigExpander::getIoExpender(uint8_t nr, uint8_t function) {
-  Supla::Io *io = nullptr;
+Supla::Io::Base *ConfigExpander::getIoExpender(uint8_t nr, uint8_t function) {
+  Supla::Io::Base *io = nullptr;
   uint8_t address = getAdressExpander(nr, function);
   uint8_t addressHex = 0x20 | (address & 0x07);
 
@@ -238,7 +238,7 @@ Supla::Io *ConfigExpander::getIoExpender(uint8_t nr, uint8_t function) {
         break;
 #endif
 
-#ifdef ARDUINO_ARCH_ESP32
+#if defined(ARDUINO_ARCH_ESP32) && SOC_HP_I2C_NUM > 1
 #ifdef SUPLA_PCF8575
       case EXPENDER_PCF8575_I2C2:
         if (ioExpender[address].io_Wire1 == nullptr) {

@@ -187,14 +187,15 @@ SuplaConfigManager::SuplaConfigManager() : Supla::SPIFFSConfig(CONFIG_MAX_SIZE) 
     this->addKey(KEY_LOGIN, MAX_MLOGIN);
     this->addKey(KEY_LOGIN_PASS, MAX_MPASSWORD);
     this->addKey(KEY_HOST_NAME, DEFAULT_HOSTNAME, MAX_HOSTNAME);
-    this->addKey(KEY_SUPLA_SERVER, DEFAULT_SERVER, MAX_SUPLA_SERVER);
-    this->addKey(KEY_SUPLA_EMAIL, DEFAULT_EMAIL, MAX_EMAIL);
+    this->addKey(KEY_SUPLA_SERVER, "", MAX_SUPLA_SERVER);
+    this->addKey(KEY_SUPLA_EMAIL, "", MAX_EMAIL);
 
     this->addKey(KEY_CFG_MODE, 2);
     this->addKey(KEY_ENABLE_GUI, 1);
     this->addKey(KEY_ENABLE_SSL, 1);
 
     this->addKey(KEY_BOARD, 2);
+    this->addKey(KEY_PRECONFIGURED_STATE, 1);
 
 #ifdef ARDUINO_ARCH_ESP8266
     uint8_t nr, key;

@@ -79,6 +79,10 @@ void SuplaWebServer::createWebServer() {
 #ifdef SUPLA_CONDITIONS
   createWebConditions();
 #endif
+
+#ifdef SUPLA_DEBUG_MODE
+  createWebPageDebug();
+#endif
 }
 
 void SuplaWebServer::sendHeaderStart() {

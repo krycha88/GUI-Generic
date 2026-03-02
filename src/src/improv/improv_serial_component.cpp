@@ -5,7 +5,11 @@
 
 ImprovSerialComponent::ImprovSerialComponent() {
 #ifdef USE_ARDUINO
-  this->hw_serial_ = &Serial;
+#ifdef ARDUINO_ARCH_ESP8266
+  this->hw_serial_ = &Serial;  // ESP8266 Serial is HardwareSerial type
+#else
+  this->hw_serial_ = &Serial1;  // ESP32 Serial1 is HardwareSerial, avoiding USB CDC type mismatch
+#endif
 #endif
 #ifdef USE_ESP_IDF
   this->uart_num_ = &UART_NUM_0;

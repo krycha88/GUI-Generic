@@ -70,6 +70,7 @@ Supla::Control::RollerShutter *RollerShutter(int pinUp, int pinDown, bool highIs
 #endif
   if (rollerShutterRelay == nullptr) {
     rollerShutterRelay = new Supla::Control::RollerShutter(pinUp, pinDown, highIsOn);
+    rollerShutterRelay->addTiltFunctions();
   }
 
   return rollerShutterRelay;

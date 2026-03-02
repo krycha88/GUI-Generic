@@ -21,7 +21,7 @@
 
 Supla::Sensor::PressMeter::PressMeter() {
   pressureChannel.setType(SUPLA_CHANNELTYPE_PRESSURESENSOR);
-  pressureChannel.setDefault(SUPLA_CHANNELFNC_PRESSURESENSOR);
+  pressureChannel.setDefaultFunction(SUPLA_CHANNELFNC_PRESSURESENSOR);
 }
 
 double Supla::Sensor::PressMeter::getPressure() {
@@ -37,8 +37,8 @@ void Supla::Sensor::PressMeter::iterateAlways() {
 bool Supla::Sensor::PressMeter::iterateConnected() {
   bool response = true;
   if (pressureChannel.isUpdateReady() &&
-      millis() - pressureChannel.lastCommunicationTimeMs > 100) {
-    pressureChannel.lastCommunicationTimeMs = millis();
+      millis() - lastCommunicationTimeMs > 100) {
+    lastCommunicationTimeMs = millis();
     pressureChannel.sendUpdate();
     response = false;
   }

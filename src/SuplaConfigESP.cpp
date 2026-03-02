@@ -65,11 +65,6 @@ void SuplaConfigESP::addConfigESP(int _pinNumberConfig, int _pinLedConfig) {
   uint8_t pinLedConfig = _pinLedConfig;
   uint8_t modeConfigButton = ConfigManager->get(KEY_CFG_MODE)->getValueInt();
 
-  if (pinLedConfig != OFF_GPIO) {
-    pinMode(pinLedConfig, OUTPUT);
-    digitalWrite(pinLedConfig, ConfigESP->getLevel(pinLedConfig) ? LOW : HIGH);
-  }
-
   if (pinNumberConfig != OFF_GPIO) {
     bool pullUp = true, invertLogic = true;
 
@@ -112,7 +107,6 @@ void SuplaConfigESP::rebootESP() {
 void SuplaConfigESP::configModeInit() {
   if (configModeESP != Supla::DEVICE_MODE_CONFIG) {
     configModeESP = Supla::DEVICE_MODE_CONFIG;
-    ledBlinking(100);
 
 #ifndef SUPLA_WT32_ETH01_LAN8720
     Supla::GUI::enableConnectionSSL(false);
@@ -172,18 +166,6 @@ int SuplaConfigESP::getLastStatusSupla() {
   return supla_status.status;
 }
 
-void SuplaConfigESP::ledBlinking(int time) {
-  if (ConfigESP->getGpio(FUNCTION_CFG_LED) != OFF_GPIO)
-    led.attach_ms(time, ledBlinkingTicker);
-}
-
-void SuplaConfigESP::ledBlinkingStop(void) {
-  if (ConfigESP->getGpio(FUNCTION_CFG_LED) != OFF_GPIO) {
-    led.detach();
-    digitalWrite(ConfigESP->getGpio(FUNCTION_CFG_LED), ConfigESP->getLevel(ConfigESP->getGpio(FUNCTION_CFG_LED)) ? LOW : HIGH);
-  }
-}
-
 String SuplaConfigESP::getMacAddress(bool formating) {
   uint8_t mac[6];
   WiFi.macAddress(mac);
@@ -212,11 +194,6 @@ void SuplaConfigESP::getMacAddress(char *macAddress, bool formating) {
 void SuplaConfigESP::getFreeHeapAsString(char *freeHeapStr) {
   float freeHeap = ESP.getFreeHeap() / 1024.0;
   snprintf(freeHeapStr, 10, "%.2f", freeHeap);
-}
-
-void ledBlinkingTicker() {
-  int val = digitalRead(ConfigESP->getGpio(FUNCTION_CFG_LED));
-  digitalWrite(ConfigESP->getGpio(FUNCTION_CFG_LED), val == HIGH ? LOW : HIGH);
 }
 
 void status_func(int status, const char *msg) {
@@ -292,7 +269,6 @@ void status_func(int status, const char *msg) {
       break;
     case STATUS_CONFIG_MODE:
       ConfigESP->configModeESP = Supla::DEVICE_MODE_CONFIG;
-      ConfigESP->ledBlinking(100);
       break;
     default:
       ConfigESP->supla_status.msg = msg;
@@ -300,12 +276,7 @@ void status_func(int status, const char *msg) {
   }
   ConfigESP->supla_status.status = status;
 
-  if (ConfigESP->configModeESP == Supla::DEVICE_MODE_NORMAL) {
-    if (status == STATUS_REGISTERED_AND_READY)
-      ConfigESP->ledBlinkingStop();
-    else
-      ConfigESP->ledBlinking(500);
-  }
+  // StatusLed automatically handles all LED blinking patterns based on device status
 }
 
 int SuplaConfigESP::getGpio(int nr, int function) {
@@ -368,6 +339,10 @@ HardwareSerial &SuplaConfigESP::getHardwareSerial(int8_t rxPin, int8_t txPin) {
 #define SOC_RX0 44
 #elif CONFIG_IDF_TARGET_ESP32C3
 #define SOC_RX0 20
+#elif CONFIG_IDF_TARGET_ESP32C2
+#define SOC_RX0 18
+#elif CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C6
+#define SOC_RX0 18
 #endif
 #endif
 
@@ -378,6 +353,10 @@ HardwareSerial &SuplaConfigESP::getHardwareSerial(int8_t rxPin, int8_t txPin) {
 #define SOC_TX0 43
 #elif CONFIG_IDF_TARGET_ESP32C3
 #define SOC_TX0 21
+#elif CONFIG_IDF_TARGET_ESP32C2
+#define SOC_TX0 19
+#elif CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C6
+#define SOC_TX0 19
 #endif
 #endif
 
@@ -391,6 +370,10 @@ HardwareSerial &SuplaConfigESP::getHardwareSerial(int8_t rxPin, int8_t txPin) {
 #define RX1 18
 #elif CONFIG_IDF_TARGET_ESP32S3
 #define RX1 15
+#elif CONFIG_IDF_TARGET_ESP32C2
+#define RX1 18
+#elif CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C6
+#define RX1 18
 #endif
 #endif
 
@@ -403,6 +386,10 @@ HardwareSerial &SuplaConfigESP::getHardwareSerial(int8_t rxPin, int8_t txPin) {
 #define TX1 19
 #elif CONFIG_IDF_TARGET_ESP32S3
 #define TX1 16
+#elif CONFIG_IDF_TARGET_ESP32C2
+#define TX1 19
+#elif CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C6
+#define TX1 19
 #endif
 #endif
 
@@ -411,7 +398,7 @@ HardwareSerial &SuplaConfigESP::getHardwareSerial(int8_t rxPin, int8_t txPin) {
     return Serial1;
   }
 #else
-  return Serial;
+  return Serial1;
 #endif
 #endif
 
@@ -437,9 +424,12 @@ HardwareSerial &SuplaConfigESP::getHardwareSerial(int8_t rxPin, int8_t txPin) {
     return Serial2;
   }
 #else
-  return Serial;
+  return Serial1;
 #endif
 #endif
+
+  // Default to Serial1 for ESP32 to avoid USBCDC type mismatch
+  return Serial1;
 
 #endif
 
@@ -452,9 +442,13 @@ HardwareSerial &SuplaConfigESP::getHardwareSerial(int8_t rxPin, int8_t txPin) {
   if (rxPin == 2 && txPin == -1) {
     return Serial1;
   }
-#endif
 
+  // Default to Serial for ESP8266 (HardwareSerial type)
   return Serial;
+#else
+  // Default to Serial1 for ESP32 to avoid USBCDC type mismatch
+  return Serial1;
+#endif
 }
 
 uint8_t SuplaConfigESP::getBaudRate(uint8_t gpio) {
@@ -799,6 +793,24 @@ bool SuplaConfigESP::checkGpio(int gpio) {
   return true;
 }
 
+uint8_t SuplaConfigESP::getDefaultLedGpio() {
+#if CONFIG_IDF_TARGET_ESP32C6
+  return 8;   // ESP32-C6 DevKitC-1 has LED on GPIO8
+#elif CONFIG_IDF_TARGET_ESP32C5
+  return 8;   // ESP32-C5 DevKitC has LED on GPIO8
+#elif CONFIG_IDF_TARGET_ESP32C3
+  return 8;   // ESP32-C3 DevKitC-02 has LED on GPIO8
+#elif CONFIG_IDF_TARGET_ESP32S3
+  return 48;  // ESP32-S3 has RGB LED on GPIO48
+#elif CONFIG_IDF_TARGET_ESP32S2
+  return 15;  // ESP32-S2 Saola has LED on GPIO15
+#elif ARDUINO_ARCH_ESP8266
+  return 2;   // ESP8266 NodeMCU has LED on GPIO2
+#else
+  return 2;   // ESP32 classic has LED on GPIO2
+#endif
+}
+
 void SuplaConfigESP::commonReset(const char *resetMessage, ResetType resetType, bool forceReset) {
   struct KeyValuePair {
     uint8_t key;
@@ -837,8 +849,9 @@ void SuplaConfigESP::commonReset(const char *resetMessage, ResetType resetType, 
 #else
     if (resetType == RESET_FACTORY_DATA) {
       if (ConfigESP->getGpio(FUNCTION_CFG_LED) == OFF_GPIO) {
-        ConfigESP->setGpio(2, FUNCTION_CFG_LED);
-        ConfigESP->setLevel(2, LOW);
+        uint8_t ledGpio = getDefaultLedGpio();
+        ConfigESP->setGpio(ledGpio, FUNCTION_CFG_LED);
+        ConfigESP->setLevel(ledGpio, LOW);
       }
 
       if (ConfigESP->getGpio(FUNCTION_CFG_BUTTON) == OFF_GPIO) {

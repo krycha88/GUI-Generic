@@ -2523,8 +2523,7 @@ bool HvacBase::isUseSeparateHeatCoolOutputs() const {
 }
 
 bool HvacBase::isMinOnOffTimeValid(uint16_t seconds) const {
-  return seconds <= 600;  // TODO(klew): is this range ok? from 1 s to 10 min
-                          // 0 - disabled
+  return seconds <= 3600;  // 1..3600 = 1 hour; 0 - disabled
 }
 
 bool HvacBase::setMinOnTimeS(uint16_t seconds) {
@@ -3141,7 +3140,7 @@ void HvacBase::setOutput(int value, bool force) {
   if (lastValue > 0 && value <= 0) {
     if (!force && lastOutputStateChangeTimestampMs != 0 &&
         millis() - lastOutputStateChangeTimestampMs <
-            config.MinOnTimeS * 1000) {
+            static_cast<uint32_t>(config.MinOnTimeS) * 1000) {
       return;
     }
     // when output should change from heating to cooling, we add off step
@@ -3162,7 +3161,7 @@ void HvacBase::setOutput(int value, bool force) {
   if (lastValue < 0 && value >= 0) {
     if (!force && lastOutputStateChangeTimestampMs != 0 &&
         millis() - lastOutputStateChangeTimestampMs <
-            config.MinOnTimeS * 1000) {
+            static_cast<uint32_t>(config.MinOnTimeS) * 1000) {
       return;
     }
     // when output should change from cooling to heating, we add off step

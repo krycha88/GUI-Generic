@@ -105,6 +105,9 @@ void setup() {
   buttonCfgRelay->configureAsConfigButton(&SuplaDevice);
   buttonCfgRelay->addAction(Supla::TOGGLE, r1, Supla::ON_CLICK_1);
 
+  buttonCfgRelay->addAction(Supla::ENTER_CONFIG_MODE, r1, Supla::ON_HOLD);
+  buttonCfgRelay->setHoldTime(1000);
+
   // Action trigger configuration
   at1->setRelatedChannel(rs);
   at1->attach(buttonOpen);
@@ -115,7 +118,24 @@ void setup() {
   at3->setRelatedChannel(r1);
   at3->attach(buttonCfgRelay);
 
-  SuplaDevice.setInitialMode(Supla::InitialMode::StartInCfgMode);
+  /** When device starts with factory defaults, it will enable AP and enter
+   * config mode (legacy behavior).
+   */
+  // StartInCfgMode = 0,
+  /** When device starts with factory defaults, it will enter offline mode
+   *  immediately. No AP will be started and no config mode will be entered
+   *  automatically.
+   */
+  // StartOffline = 1,
+  /** When device starts with factory defaults, it will enable AP and enter
+   *  config mode for 1 hour and then if will fall back to offline mode.
+   */
+  // StartWithCfgModeThenOffline = 2,
+  /** When device starts with factory defaults, it will enter not configured
+   *  mode (default).
+   */
+  // StartInNotConfiguredMode = 3
+  SuplaDevice.setInitialMode(Supla::InitialMode::StartOffline);
   SuplaDevice.begin();
 }
 

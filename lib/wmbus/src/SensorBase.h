@@ -32,7 +32,7 @@ namespace Supla
         return this->_keyString;
       };
 
-      void virtual setNewValue(int value){};
+      void virtual setNewValue(uint64_t value){};
       void virtual iterateAlways(){};
 
      protected:

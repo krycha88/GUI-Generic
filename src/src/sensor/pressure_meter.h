@@ -41,6 +41,7 @@ class PressMeter : public Element {
  protected:
   Channel pressureChannel;
   unsigned long lastReadTime;
+  unsigned long lastCommunicationTimeMs;
 };
 
 };  // namespace Sensor

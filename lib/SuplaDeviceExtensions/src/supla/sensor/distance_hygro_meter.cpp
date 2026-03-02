@@ -21,7 +21,7 @@
 
 Supla::Sensor::DistanceHumidityMeter::DistanceHumidityMeter() {
   humidityChannel.setType(SUPLA_CHANNELTYPE_HUMIDITYSENSOR);
-  humidityChannel.setDefault(SUPLA_CHANNELFNC_HUMIDITY);
+  humidityChannel.setDefaultFunction(SUPLA_CHANNELFNC_HUMIDITY);
   // humidityChannel.setNewValue(HUMIDITY_NOT_AVAILABLE);
 }
 
@@ -39,8 +39,8 @@ void Supla::Sensor::DistanceHumidityMeter::iterateAlways() {
 bool Supla::Sensor::DistanceHumidityMeter::iterateConnected() {
   bool response = true;
   if (humidityChannel.isUpdateReady() &&
-      millis() - humidityChannel.lastCommunicationTimeMs > 100) {
-    humidityChannel.lastCommunicationTimeMs = millis();
+      millis() - lastCommunicationTimeMs > 100) {
+    lastCommunicationTimeMs = millis();
     humidityChannel.sendUpdate();
     response = false;
   }

@@ -324,6 +324,66 @@ struct Driver {
     return ret_val;
   };
 
+  // Volume flow: DIF=0A (2-byte BCD), VIF=3B (l/h) -> m3/h
+  float get_0A3B(std::vector<unsigned char> &telegram) {
+    float ret_val{};
+    uint32_t usage = 0;
+    size_t i = 11;
+    uint32_t total_register = 0x0A3B;
+    while (i < telegram.size()) {
+      uint32_t c = (((uint32_t)telegram[i + 0] << 8) | ((uint32_t)telegram[i + 1]));
+      if (c == total_register) {
+        i += 2;
+        usage = bcd_2_int(telegram, i, 2);
+        // l/h -> m3/h
+        ret_val = usage / 1000.0;
+        break;
+      }
+      i++;
+    }
+    return ret_val;
+  };
+
+  // Operating time: DIF=04 (4-byte int LE), VIF=76 (hours)
+  float get_0476(std::vector<unsigned char> &telegram) {
+    float ret_val{};
+    uint32_t usage = 0;
+    size_t i = 11;
+    uint32_t total_register = 0x0476;
+    while (i < telegram.size()) {
+      uint32_t c = (((uint32_t)telegram[i + 0] << 8) | ((uint32_t)telegram[i + 1]));
+      if (c == total_register) {
+        i += 2;
+        usage = ((uint32_t)telegram[i + 3] << 24) | ((uint32_t)telegram[i + 2] << 16) |
+                ((uint32_t)telegram[i + 1] << 8) | ((uint32_t)telegram[i + 0]);
+        ret_val = (float)usage;
+        break;
+      }
+      i++;
+    }
+    return ret_val;
+  };
+
+  // Operating time in error state: DIF=04 (4-byte int LE), VIF=7E (hours in error)
+  float get_047E(std::vector<unsigned char> &telegram) {
+    float ret_val{};
+    uint32_t usage = 0;
+    size_t i = 11;
+    uint32_t total_register = 0x047E;
+    while (i < telegram.size()) {
+      uint32_t c = (((uint32_t)telegram[i + 0] << 8) | ((uint32_t)telegram[i + 1]));
+      if (c == total_register) {
+        i += 2;
+        usage = ((uint32_t)telegram[i + 3] << 24) | ((uint32_t)telegram[i + 2] << 16) |
+                ((uint32_t)telegram[i + 1] << 8) | ((uint32_t)telegram[i + 0]);
+        ret_val = (float)usage;
+        break;
+      }
+      i++;
+    }
+    return ret_val;
+  };
+
  private:
   Driver();
   std::string driver_type_;

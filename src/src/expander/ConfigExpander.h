@@ -130,13 +130,13 @@ class ConfigExpander {
   bool checkActiveExpander(uint8_t function);
   uint8_t getFunctionExpander(uint8_t adress);
   uint8_t getNrExpander(uint8_t adress);
-  Supla::Io* getIoExpender(uint8_t nr, uint8_t function);
+  Supla::Io::Base* getIoExpender(uint8_t nr, uint8_t function);
 
  protected:
   struct IoExpender {
-    Supla::Io* io = {nullptr};
+    Supla::Io::Base* io = {nullptr};
 #ifdef ARDUINO_ARCH_ESP32
-    Supla::Io* io_Wire1 = {nullptr};
+    Supla::Io::Base* io_Wire1 = {nullptr};
 #endif
   };
 

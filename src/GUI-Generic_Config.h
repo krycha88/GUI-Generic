@@ -82,5 +82,7 @@
 // #define SUPLA_NTC_10K
 // #define SUPLA_MPX_5XXX
 
+// #define SUPLA_DEBUG
+
 #endif  // USE_CUSTOM
 #endif  // GUI-Generic_Config_h

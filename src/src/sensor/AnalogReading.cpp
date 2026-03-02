@@ -16,6 +16,7 @@
 // */
 #ifdef SUPLA_ANALOG_READING_KPOP
 #include "AnalogReading.h"
+#include <esp_adc/adc_cali_scheme.h>
 
 #ifdef ARDUINO_ARCH_ESP32
 namespace {
@@ -32,7 +33,9 @@ void Supla::Sensor::initADC() {
       Serial.println("ADC initialization failed or ADC1 is already in use");
       return;
     }
+// https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/api-reference/peripherals/adc/adc_calibration.html
 
+#if ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
     adc_cali_line_fitting_config_t cali_config = {
         .unit_id = ADC_UNIT_1,
         .atten = ADC_ATTEN_DB_12,
@@ -40,6 +43,17 @@ void Supla::Sensor::initADC() {
     };
     adc_cali_create_scheme_line_fitting(&cali_config, &cali_handle);
   }
+#endif
+
+#if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+    adc_cali_curve_fitting_config_t cali_config = {
+        .unit_id = ADC_UNIT_1,
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+    };
+    adc_cali_create_scheme_curve_fitting(&cali_config, &cali_handle);
+  }
+#endif
 }
 
 void Supla::Sensor::cleanupADC() {
@@ -48,13 +62,50 @@ void Supla::Sensor::cleanupADC() {
     adc_handle = nullptr;
   }
   if (cali_handle) {
+
+    #if ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
     adc_cali_delete_scheme_line_fitting(cali_handle);
+    #endif
+    #if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+    adc_cali_delete_scheme_curve_fitting(cali_handle);
+    #endif
     cali_handle = nullptr;
   }
 }
 
 adc_channel_t Supla::Sensor::AnalogReading::get_ADC_channel(uint8_t pin) {
   switch (pin) {
+#if defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    case 0:
+      return ADC_CHANNEL_0;
+
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    case 1:
+      return ADC_CHANNEL_1;
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    case 2:
+      return ADC_CHANNEL_2;
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    case 3:
+      return ADC_CHANNEL_3;
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    case 4:
+      return ADC_CHANNEL_4;
+#endif
+// here for C3 it is from ADC2 , needs some refactoring in higher function
+#if defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    case 5:
+      return ADC_CHANNEL_5;
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5)
+    case 6:
+      return ADC_CHANNEL_6;
+
+#endif
     case 32:
       return ADC_CHANNEL_4;
 #ifndef CONFIG_IDF_TARGET_ESP32C3

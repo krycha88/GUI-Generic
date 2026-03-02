@@ -54,6 +54,9 @@
 #include "Markup.h"
 #include "SuplaConditions.h"
 #include "SuplaWebPageHome.h"
+#include <supla/device/status_led.h>
+#include <supla/io/rgb_led.h>
+
 
 #ifdef SUPLA_OLED
 #include "src/display/OledButtonController.h"
@@ -262,6 +265,34 @@
 #include "src/sensor/INA_219.h"
 #endif
 
+#ifdef SUPLA_INA226
+#include "src/sensor/INA_226.h"
+#endif
+
+#ifdef SUPLA_INA228
+#include "src/sensor/INA_228.h"
+#endif
+
+#ifdef SUPLA_INA236
+#include "src/sensor/INA_236.h"
+#endif
+
+#ifdef SUPLA_INA260
+#include "src/sensor/INA_260.h"
+#endif
+
+#ifdef SUPLA_INA229
+#include "src/sensor/INA_229.h"
+#endif
+
+#ifdef SUPLA_INA238
+#include "src/sensor/INA_238.h"
+#endif
+
+#ifdef SUPLA_INA239
+#include "src/sensor/INA_239.h"
+#endif
+
 // #ifdef SUPLA_MDNS
 // #ifdef ARDUINO_ARCH_ESP8266
 // #include <cont.h>
@@ -287,6 +318,7 @@ namespace Supla {
 namespace GUI {
 
 void begin();
+void setupPreConfiguredSettingsIfAvailable();
 void setupConnection();
 void enableConnectionSSL(bool value);
 void crateWebServer();

@@ -19,7 +19,7 @@
 
 #include <Arduino.h>
 #include <supla/channel_element.h>
-
+#include <supla/protocol/protocol_layer.h>
 #include "../../SuplaDeviceGUI.h"
 
 namespace Supla {
