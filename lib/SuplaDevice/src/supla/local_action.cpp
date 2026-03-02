@@ -16,6 +16,8 @@
 
 #include "local_action.h"
 
+#include <supla/action_handler.h>
+
 namespace Supla {
 
 ActionHandlerClient::ActionHandlerClient() {
@@ -100,7 +102,7 @@ void LocalAction::addAction(uint16_t action,
   LocalAction::addAction(action, *client, event, alwaysEnabled);
 }
 
-void LocalAction::runAction(uint16_t event) {
+void LocalAction::runAction(uint16_t event) const {
   auto ptr = ActionHandlerClient::begin;
   while (ptr) {
     if (ptr->client && ptr->trigger == this && ptr->onEvent == event &&
@@ -198,10 +200,10 @@ void LocalAction::disableAction(int32_t action,
   uint16_t eventToCheck = 0;
   uint16_t actionToCheck = 0;
   if (action >= 0 && action <= 65535) {
-    actionToCheck = action;
+    actionToCheck = static_cast<uint16_t>(action);
   }
   if (event >= 0 && event <= 65535) {
-    eventToCheck = event;
+    eventToCheck = static_cast<uint16_t>(event);
   }
 
   while (ptr) {
@@ -222,10 +224,10 @@ void LocalAction::enableAction(int32_t action,
   uint16_t eventToCheck = 0;
   uint16_t actionToCheck = 0;
   if (action >= 0 && action <= 65535) {
-    actionToCheck = action;
+    actionToCheck = static_cast<uint16_t>(action);
   }
   if (event >= 0 && event <= 65535) {
-    eventToCheck = event;
+    eventToCheck = static_cast<uint16_t>(event);
   }
   while (ptr) {
     if (ptr->trigger == this && (ptr->onEvent == eventToCheck || allEvents) &&

@@ -61,6 +61,8 @@ bool Storage::Init() {
     if (!storageInitDone) {
       storageInitDone = true;
       result = Instance()->init();
+    } else {
+      result = Instance()->getInitResult();
     }
   } else {
     SUPLA_LOG_DEBUG("Main storage not configured");
@@ -69,6 +71,8 @@ bool Storage::Init() {
     if (!configInitDone) {
       configInitDone = true;
       result = ConfigInstance()->init();
+    } else {
+      result = ConfigInstance()->getInitResult();
     }
   } else {
     SUPLA_LOG_DEBUG("Config storage not configured");
@@ -88,6 +92,12 @@ bool Storage::WriteState(const unsigned char *buf, int size) {
     return Instance()->stateStorage->writeState(buf, size);
   }
   return false;
+}
+
+void Storage::EraseSector(unsigned int offset, int size) {
+  if (Instance()) {
+    Instance()->eraseSector(offset, size);
+  }
 }
 
 bool Storage::SaveStateAllowed(uint32_t ms) {
@@ -199,20 +209,25 @@ bool Storage::init() {
 
   if (stateStorage == nullptr) {
     SUPLA_LOG_WARNING("Storage: stateStorage is null, abort");
-    return false;
+    initResult = false;
+    return initResult;
   }
 
-  return stateStorage->loadPreambles(storageStartingOffset, availableSize);
+  initResult =
+      stateStorage->loadPreambles(storageStartingOffset, availableSize);
+  return initResult;
 }
 
 void Storage::deleteAll() {
-  char emptyTag[5] = {};
-  writeStorage(
-      storageStartingOffset, (unsigned char *)&emptyTag, sizeof(emptyTag));
-  if (stateStorage != nullptr) {
-    stateStorage->deleteAll();
+  if (deleteAllMethodEnabled) {
+    char emptyTag[5] = {};
+    writeStorage(
+        storageStartingOffset, (unsigned char *)&emptyTag, sizeof(emptyTag));
+    if (stateStorage != nullptr) {
+      stateStorage->deleteAll();
+    }
+    commit();
   }
-  commit();
 }
 
 int Storage::updateStorage(unsigned int offset,
@@ -316,6 +331,7 @@ bool Storage::readSection(int sectionId, unsigned char *data, int size) {
             ptr->size, size);
         return false;
       }
+      unsigned char *buffer = new unsigned char[size];
       for (int entry = 0; entry < (ptr->addBackupCopy ? 2 : 1); entry++) {
         // offset is set to ptr->offset for first entry;
         // for backup entry we add section size and crc (if used)
@@ -326,9 +342,10 @@ bool Storage::readSection(int sectionId, unsigned char *data, int size) {
             " entry %d at offset %d, size %d",
             sectionId, entry, offset, ptr->size);
 
-        auto readBytes = readStorage(offset, data, size);
+        auto readBytes = readStorage(offset, buffer, size);
         if (readBytes != size) {
           SUPLA_LOG_ERROR("Storage: failed to read special section");
+          delete[] buffer;
           return false;
         }
         if (ptr->addCrc) {
@@ -337,7 +354,7 @@ bool Storage::readSection(int sectionId, unsigned char *data, int size) {
               reinterpret_cast<unsigned char *>(&readCrc), sizeof(readCrc));
           uint16_t calcCrc = 0xFFFF;
           for (int i = 0; i < size; i++) {
-            calcCrc = crc16_update(calcCrc, data[i]);
+            calcCrc = crc16_update(calcCrc, buffer[i]);
           }
           if (readCrc != calcCrc) {
             SUPLA_LOG_WARNING(
@@ -347,8 +364,11 @@ bool Storage::readSection(int sectionId, unsigned char *data, int size) {
             continue;
           }
         }
+        memcpy(data, buffer, size);
+        delete[] buffer;
         return true;
       }
+      delete[] buffer;
       return false;
     }
   }
@@ -562,6 +582,14 @@ void Storage::enableChannelNumbers() {
 
 bool Storage::isAddChannelNumbersEnabled() const {
   return addChannelNumbers;
+}
+
+void Storage::setDeleteAllMethodEnabled(bool value) {
+  deleteAllMethodEnabled = value;
+}
+
+bool Storage::getInitResult() const {
+  return initResult;
 }
 
 }  // namespace Supla

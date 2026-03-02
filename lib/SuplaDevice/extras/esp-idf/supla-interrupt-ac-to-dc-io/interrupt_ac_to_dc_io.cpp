@@ -39,7 +39,7 @@ void IRAM_ATTR interruptHandler(void* arg) {
 
 }  // namespace
 
-InterruptAcToDcIo::InterruptAcToDcIo() : Supla::Io(false) {
+InterruptAcToDcIo::InterruptAcToDcIo() : Supla::Io::Base(false) {
   for (int i = 0; i < INTERRUPT_AC_TO_DC_IO_MAX_GPIOS; i++) {
     gpioState[i] = 255;
   }
@@ -135,7 +135,7 @@ void InterruptAcToDcIo::onFastTimer() {
         gpioState[i] = 2;
       } else if (gpioState[i] == 2) {
         // for "AC" case we update to ON after second interrupt
-        SUPLA_LOG_DEBUG(" *** GPIO %d is ON ***", i);
+        SUPLA_LOG_DEBUG(" *** GPIO %d is ON (AC) ***", i);
         gpioState[i] = 1;
       }
       gpioLastTimestampMs[i] = now;
@@ -144,16 +144,20 @@ void InterruptAcToDcIo::onFastTimer() {
     if (gpioLastTimestampMs[i] != 0 &&
         now - gpioLastTimestampMs[i] > gpioMinOffTimeout[i]) {
       gpioLastTimestampMs[i] = 0;
-      if (gpio_get_level(static_cast<gpio_num_t>(i)) == 0) {
+      if (gpio_get_level(static_cast<gpio_num_t>(i)) == offStateLevel) {
         gpioState[i] = 0;
         SUPLA_LOG_DEBUG(" *** GPIO %d is OFF ***", i);
       } else {
         // for "DC" case we update to ON after filtering timeout
         gpioState[i] = 1;
-        SUPLA_LOG_DEBUG(" *** GPIO %d is ON ***", i);
+        SUPLA_LOG_DEBUG(" *** GPIO %d is ON (DC)***", i);
       }
     }
   }
+}
+
+void InterruptAcToDcIo::setOffStateLevel(uint8_t level) {
+  offStateLevel = level;
 }
 
 void InterruptAcToDcIo::customPinMode(int channelNumber,

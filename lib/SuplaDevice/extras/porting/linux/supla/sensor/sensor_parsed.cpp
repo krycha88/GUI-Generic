@@ -74,6 +74,7 @@ std::variant<int, bool, std::string> SensorParsedBase::getStateParameterValue(
 
 bool SensorParsedBase::refreshParserSource() {
   if (parser && parser->refreshParserSource()) {
+    updateBatteryInfoFlags();
     return true;
   }
   return false;
@@ -94,6 +95,15 @@ int SensorParsedBase::getStateValue() {
   std::variant<int, bool, std::string> valueYes = std::string("Yes");
   std::variant<int, bool, std::string> valueYES = std::string("YES");
   std::variant<int, bool, std::string> valueY = std::string("Y");
+
+  std::variant<int, bool, std::string> value0 = 0;
+  std::variant<int, bool, std::string> valueFalse = false;
+  std::variant<int, bool, std::string> value_no = std::string("no");
+  std::variant<int, bool, std::string> valueNo = std::string("No");
+  std::variant<int, bool, std::string> valueNO = std::string("NO");
+  std::variant<int, bool, std::string> valueN = std::string("N");
+
+
   int state = -1;
 
   if (isParameterConfigured(Supla::Parser::State)) {
@@ -103,7 +113,6 @@ int SensorParsedBase::getStateValue() {
 
       std::visit(
           [&value](auto &&arg) {
-            using T = std::decay_t<decltype(arg)>;
             value = arg;
           },
           result);
@@ -123,7 +132,9 @@ int SensorParsedBase::getStateValue() {
               value == valueON || value == value_on || value == value_yes ||
               value == valueY || value == valueYes || value == valueYES) {
             state = 1;
-          } else {
+          } else if (value == value0 || value == valueFalse ||
+                     value == value_no || value == valueNo || value == valueN ||
+                     value == valueNO) {
             state = 0;
           }
         }
@@ -252,4 +263,44 @@ void SensorParsedBase::registerActions() {
 void SensorParsedBase::registerAtName(std::string name,
                                       Supla::Control::ActionTriggerParsed *at) {
   atMap[name] = at;
+}
+
+void SensorParsedBase::updateBatteryInfoFlags() {
+  if (auto channel = getChannel()) {
+    unsigned char batteryLevel = 255;
+    bool batteryPowered = true;
+    bool batteryPoweredConfigured = false;
+    if (isParameterConfigured(ForceBatteryPowered)) {
+      batteryPowered = true;
+      batteryPoweredConfigured = true;
+    } else {
+      if (isParameterConfigured(BatteryPowered)) {
+        batteryPoweredConfigured = true;
+        batteryPowered = (getParameterValue(BatteryPowered) == 1);
+        if (!parser->isValid()) {
+          batteryPowered = true;
+        }
+      }
+    }
+    if (isParameterConfigured(BatteryLevel)) {
+      batteryLevel = getParameterValue(BatteryLevel);
+      if (!parser->isValid()) {
+        batteryLevel = 255;
+      }
+      if (batteryLevel <= 100) {
+        channel->setBatteryLevel(batteryLevel);
+      }
+      if (auto secondaryChannel = getSecondaryChannel()) {
+        if (batteryLevel <= 100) {
+          secondaryChannel->setBatteryLevel(batteryLevel);
+        }
+      }
+    }
+    if (batteryPoweredConfigured) {
+      channel->setBatteryPowered(batteryPowered);
+      if (auto secondaryChannel = getSecondaryChannel()) {
+        secondaryChannel->setBatteryPowered(batteryPowered);
+      }
+    }
+  }
 }

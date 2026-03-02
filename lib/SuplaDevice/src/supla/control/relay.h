@@ -25,11 +25,7 @@
 #include <stdint.h>
 
 #include "../action_handler.h"
-#include "../actions.h"
 #include "../channel_element.h"
-#include "../io.h"
-#include "../local_action.h"
-#include "../storage/storage.h"
 
 #define STATE_ON_INIT_RESTORED_OFF -3
 #define STATE_ON_INIT_RESTORED_ON  -2
@@ -40,15 +36,20 @@
 #define RELAY_FLAGS_ON (1 << 0)
 #define RELAY_FLAGS_STAIRCASE (1 << 1)
 #define RELAY_FLAGS_IMPULSE_FUNCTION (1 << 2)  // i.e. gate, door, gateway
+#define RELAY_FLAGS_OVERCURRENT (1 << 3)
 
 
 namespace Supla {
+namespace Io {
+class Base;
+}
+
 namespace Control {
 class Button;
 
 class Relay : public ChannelElement, public ActionHandler {
  public:
-  explicit Relay(Supla::Io *io, int pin,
+  explicit Relay(Supla::Io::Base *io, int pin,
         bool highIsOn = true,
         _supla_int_t functions = (0xFF ^
                                   SUPLA_BIT_FUNC_CONTROLLINGTHEROLLERSHUTTER));
@@ -76,6 +77,7 @@ class Relay : public ChannelElement, public ActionHandler {
   void handleAction(int event, int action) override;
 
   void onLoadConfig(SuplaDeviceClass *sdc) override;
+  void purgeConfig() override;
   void onInit() override;
   void onLoadState() override;
   void onSaveState() override;
@@ -83,7 +85,7 @@ class Relay : public ChannelElement, public ActionHandler {
   bool iterateConnected() override;
   int32_t handleNewValueFromServer(TSD_SuplaChannelNewValue *newValue) override;
   void onRegistered(Supla::Protocol::SuplaSrpc *suplaSrpc) override;
-  uint8_t applyChannelConfig(TSD_ChannelConfig *result,
+  Supla::ApplyConfigResult applyChannelConfig(TSD_ChannelConfig *result,
                               bool local = false) override;
 
   // Method is used by external integrations to prepare TSD_SuplaChannelNewValue
@@ -92,19 +94,86 @@ class Relay : public ChannelElement, public ActionHandler {
   void fillSuplaChannelNewValue(TSD_SuplaChannelNewValue *value) override;
 
   unsigned _supla_int_t getStoredTurnOnDurationMs();
+  void setStoredTurnOnDurationMs(uint32_t durationMs);
 
-  bool isStaircaseFunction() const;
-  bool isImpulseFunction() const;
+  bool isStaircaseFunction(uint32_t functionToCheck = 0) const;
+  bool isImpulseFunction(uint32_t functionToCheck = 0) const;
   void disableCountdownTimerFunction();
   void enableCountdownTimerFunction();
   bool isCountdownTimerFunctionEnabled() const;
   void setMinimumAllowedDurationMs(uint32_t durationMs);
-  void fillChannelConfig(void *channelConfig, int *size) override;
+  void fillChannelConfig(void *channelConfig,
+                         int *size,
+                         uint8_t configType) override;
 
   static void setRelayStorageSaveDelay(int delayMs);
 
+  bool isDefaultRelatedMeterChannelSet() const;
+  uint32_t getCurrentValueFromMeter() const;
   void setDefaultRelatedMeterChannelNo(int channelNo);
   void setTurnOffWhenEmptyAggregator(bool turnOff);
+
+  /**
+   * Set overcurrent threshold
+   *
+   * @param value Value in 0.01 A. Value of 0 means disabled
+   */
+  void setOvercurrentThreshold(uint32_t value);
+
+  /**
+   * Get overcurrent threshold
+   *
+   * @return Value in 0.01 A
+   */
+  uint32_t getOvercurrentThreshold() const { return overcurrentThreshold; }
+
+  /**
+   * Set overcurrent max level allowed
+   *
+   * @param value Value in 0.01 A. Value of 0 means disabled
+   */
+  void setOvercurrentMaxAllowed(uint32_t value);
+
+  /**
+   * Get overcurrent max level allowed
+   *
+   * @return Value in 0.01 A
+   */
+  uint32_t getOvercurrentMaxAllowed() const { return overcurrentMaxAllowed; }
+
+  /**
+   * Set default duration for staircase timer function
+   *
+   * @param durationMs
+   */
+  void setDefaultStaircaseDurationMs(uint16_t durationMs) {
+    defaultStaircaseDurationMs = durationMs;
+  }
+
+  /**
+   * Set default duration for impulse functions (controlling gate, door etc.)
+   *
+   * @param durationMs
+   */
+  void setDefaultImpulseDurationMs(uint16_t durationMs) {
+    defaultImpulseDurationMs = durationMs;
+  }
+
+  bool setAndSaveFunction(uint32_t channelFunction) override;
+
+  /**
+   * Set restart timer on toggle for staircase and impulse functions
+   *
+   * @param restart true to restart timer on toggle, false to not
+   */
+  void setRestartTimerOnToggle(bool restart);
+
+  /**
+   * Get restart timer on toggle for staircase and impulse functions
+   *
+   * @return true if restart timer on toggle, false if not
+   */
+  bool isRestartTimerOnToggle() const;
 
  protected:
   struct ButtonListElement {
@@ -112,18 +181,23 @@ class Relay : public ChannelElement, public ActionHandler {
     ButtonListElement *next = nullptr;
   };
 
-  void setChannelFunction(_supla_int_t newFunction);
+  void saveConfig() const;
   void updateTimerValue();
   void updateRelayHvacAggregator();
-  int32_t channelFunction = 0;
   uint32_t durationMs = 0;
   uint32_t storedTurnOnDurationMs = 0;
   uint32_t durationTimestamp = 0;
-  uint32_t overcurrentThreshold = 0;
+  uint16_t defaultStaircaseDurationMs = 10000;
+  uint16_t defaultImpulseDurationMs = 500;
+
+  uint32_t overcurrentThreshold = 0;   // 0.01 A
+  uint32_t overcurrentMaxAllowed = 0;  // 0.01 A
+  uint32_t overcurrentActiveTimestamp = 0;
+  uint32_t overcurrentCheckTimestamp = 0;
 
   uint32_t timerUpdateTimestamp = 0;
 
-  Supla::Io *io = nullptr;
+  Supla::Io::Base *io = nullptr;
   ButtonListElement *buttonList = nullptr;
 
   uint16_t minimumAllowedDurationMs = 0;
@@ -131,8 +205,9 @@ class Relay : public ChannelElement, public ActionHandler {
 
   bool highIsOn = true;
   bool keepTurnOnDurationMs = false;
-  bool lastStateOnTimerUpdate = false;
   bool turnOffWhenEmptyAggregator = true;
+  bool initDone = false;
+  bool restartTimerOnToggle = false;
 
   int8_t stateOnInit = STATE_ON_INIT_OFF;
 

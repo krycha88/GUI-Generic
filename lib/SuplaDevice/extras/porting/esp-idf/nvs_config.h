@@ -20,18 +20,30 @@
 #define EXTRAS_PORTING_ESP_IDF_NVS_CONFIG_H_
 
 #include <nvs.h>
+#include <esp_partition.h>
 #include <supla/storage/config.h>
 
 namespace Supla {
 
 class NvsConfig : public Config {
  public:
+  typedef char DeviceDataBuf[16 * 8];
+
   NvsConfig();
   virtual ~NvsConfig();
+
+  bool isEncryptionEnabled() override;
+
   bool init() override;
   void removeAll() override;
 
   bool generateGuidAndAuthkey() override;
+  bool getAESKey(uint8_t* result) override;
+  bool isDeviceDataPartitionAvailable();
+  bool getGUID(char* result) override;
+  bool getAuthKey(char* result) override;
+  bool setGUID(const char* key) override;
+  bool setAuthKey(const char* key) override;
 
   // Generic getters and setters
   bool setString(const char* key, const char* value) override;
@@ -56,8 +68,21 @@ class NvsConfig : public Config {
 
  protected:
   int getBlobSize(const char* key) override;
+  bool readDataPartition(int offset, char* buffer, int size);
+  bool readDataPartitionImp(int address, char* buf, int size);
+  bool initDeviceDataPartitionCopyAndChecksum();
+  bool isDeviceDataValid(const DeviceDataBuf &buf) const;
+  bool isDeviceDataFilled(const DeviceDataBuf &deviceDataBuf) const;
+  void printStats(const char* partitionName) const;
+
   nvs_handle_t nvsHandle = 0;
+  const char* nvsPartitionName = nullptr;
+  const esp_partition_t *dataPartition = nullptr;
+  int dataPartitionOffset = 0;
+  bool dataPartitionInitiazlied = false;
+  bool nvsEncrypted = false;
+  bool flashEncryptionReleaseMode = false;
 };
-};  // namespace Supla
+}  // namespace Supla
 
 #endif  // EXTRAS_PORTING_ESP_IDF_NVS_CONFIG_H_

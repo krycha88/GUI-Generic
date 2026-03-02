@@ -26,6 +26,7 @@
 #if defined(PZEM004_SOFTSERIAL)
 #include <SoftwareSerial.h>
 #endif
+#include <supla/time.h>
 
 #include "electricity_meter.h"
 
@@ -70,6 +71,7 @@ class ThreePhasePZEMv3 : public ElectricityMeter {
 #endif
 
   void onInit() {
+    lastReadTime = millis();
     readValuesFromDevice();
     updateChannelValues();
   }
@@ -81,6 +83,7 @@ class ThreePhasePZEMv3 : public ElectricityMeter {
       // If current reading is NAN, we assume that PZEM there is no valid
       // communication with PZEM. Sensor shouldn't show any data
       if (isnan(current)) {
+        resetReadParametersForPhase(i);
         continue;
       }
 

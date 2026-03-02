@@ -21,12 +21,7 @@
 #include <string.h>
 #include <supla-common/proto.h>
 #include <supla/log_wrapper.h>
-
-#if defined(ESP8266)
-#include <Esp.h>
-#elif defined(ESP32)
-#include <esp_random.h>
-#endif
+#include <supla/tools.h>
 
 namespace Supla {
 KeyValue::~KeyValue() {
@@ -51,17 +46,8 @@ bool KeyValue::generateGuidAndAuthkey() {
   uint8_t guid[SUPLA_GUID_SIZE] = {};
   uint8_t authkey[SUPLA_AUTHKEY_SIZE] = {};
 
-  // Both ESP varaints use HW RNG after enabling Wi-Fi, so there is no need
-  // to initialize seed
-#if defined(ESP8266)
-  ESP.random(guid, SUPLA_GUID_SIZE);
-  ESP.random(authkey, SUPLA_AUTHKEY_SIZE);
-#elif defined(ESP32)
-  esp_fill_random(guid, SUPLA_GUID_SIZE);
-  esp_fill_random(authkey, SUPLA_AUTHKEY_SIZE);
-#else
-  // TODO(klew): Arduino MEGA
-#endif
+  Supla::fillRandom(guid, SUPLA_GUID_SIZE);
+  Supla::fillRandom(authkey, SUPLA_AUTHKEY_SIZE);
 
   setGUID(reinterpret_cast<char*>(guid));
   setAuthKey(reinterpret_cast<char*>(authkey));
@@ -72,6 +58,10 @@ bool KeyValue::generateGuidAndAuthkey() {
 bool KeyValue::initFromMemory(uint8_t* input, size_t inputSize) {
   if (first) {
     // init can be done only on empty storage
+    return false;
+  }
+
+  if (inputSize < SUPLA_STORAGE_KEY_SIZE + 1 + 2) {
     return false;
   }
 
@@ -360,6 +350,9 @@ void KeyValueElement::setNext(KeyValueElement* toBeSet) {
 }
 
 bool KeyValueElement::setString(const char* value) {
+  if (value == nullptr) {
+    return false;
+  }
   unsigned int newSize = strlen(value) + 1;
   if (dataType == DATA_TYPE_NOT_SET) {
     dataType = DATA_TYPE_STRING;
@@ -375,6 +368,7 @@ bool KeyValueElement::setString(const char* value) {
     data.charPtr = new char[size];
   }
   strncpy(data.charPtr, value, size);
+  data.charPtr[size - 1] = '\0';
   return true;
 }
 
@@ -385,6 +379,7 @@ bool KeyValueElement::getString(char* value, size_t maxSize) {
 
   if (size <= maxSize) {
     strncpy(value, data.charPtr, maxSize);
+    value[size - 1] = '\0';
     return true;
   }
   return false;
@@ -538,7 +533,9 @@ size_t KeyValueElement::serialize(uint8_t* destination, size_t maxSize) {
   }
 
   if (blockSize > maxSize) {
-    SUPLA_LOG_ERROR("Key value too big");
+    SUPLA_LOG_ERROR(
+        "KeyValue: serialized configuration size is too big. Config will not "
+        "work and may be lost");
     return 0;
   }
 

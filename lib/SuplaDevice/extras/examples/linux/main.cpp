@@ -17,9 +17,6 @@
 #include <supla-common/tools.h>
 #include <linux_network.h>
 #include <unistd.h>
-#include <fstream>
-#include <iostream>
-#include <cxxopts.hpp>
 
 #include <SuplaDevice.h>
 #include <supla/control/dimmer_leds.h>
@@ -29,7 +26,6 @@
 #include <supla/time.h>
 #include <supla/version.h>
 #include <supla/log_wrapper.h>
-#include <supla/device/supla_ca_cert.h>
 
 // Below includes are added just for CI compilation check. Some of them
 // are not used in any cpp file, so they would not be compiled otherwise.
@@ -86,9 +82,12 @@
 #include <supla/tools.h>
 #include <supla/uptime.h>
 
-#include <cstdlib>
-
 #include <linux_mqtt_client.h>
+
+#include <cstdlib>
+#include <iostream>
+#include <cxxopts.hpp>
+
 
 // reguired by linux_log.c
 int logLevel = LOG_INFO;
@@ -177,10 +176,6 @@ int main(int argc, char* argv[]) {
         new Supla::Device::FileStateLogger(config->getStateFilesPath()));
     Supla::LinuxNetwork network;
 
-    // configure defualt Supla CA certificate
-    SuplaDevice.setSuplaCACert(suplaCACert);
-    SuplaDevice.setSupla3rdPartyCACert(supla3rdCACert);
-
     auto clock = std::make_unique<Supla::LinuxClock>();
     (void)(clock);
 
@@ -200,7 +195,7 @@ int main(int argc, char* argv[]) {
     SUPLA_LOG_INFO("Exit");
 
     exit(0);
-  } catch (const cxxopts::OptionException& e) {
+  } catch (const cxxopts::exceptions::exception& e) {
     std::cout << "error parsing options: " << e.what() << std::endl;
     exit(1);
   }

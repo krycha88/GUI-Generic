@@ -19,7 +19,6 @@
 #include "cmd_relay.h"
 
 #include <supla/log_wrapper.h>
-#include <supla/sensor/binary_parsed.h>
 #include <supla/time.h>
 
 #include <cstdio>
@@ -34,6 +33,7 @@ Supla::Control::CmdRelay::CmdRelay(Supla::Parser::Parser *parser,
 void Supla::Control::CmdRelay::onInit() {
   VirtualRelay::onInit();
   registerActions();
+  handleGetChannelState(nullptr);
 }
 
 void Supla::Control::CmdRelay::turnOn(_supla_int_t duration) {
@@ -88,12 +88,13 @@ void Supla::Control::CmdRelay::iterateAlways() {
   Supla::Control::Relay::iterateAlways();
 
   if (parser && (millis() - lastReadTime > 100)) {
+    refreshParserSource();
     lastReadTime = millis();
     channel.setNewValue(isOn());
     if (isOffline()) {
-      channel.setOffline();
+      channel.setStateOffline();
     } else {
-      channel.setOnline();
+      channel.setStateOnline();
     }
   }
 }

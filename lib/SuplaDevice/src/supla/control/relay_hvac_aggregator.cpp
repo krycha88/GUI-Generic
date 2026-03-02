@@ -91,10 +91,22 @@ RelayHvacAggregator *RelayHvacAggregator::GetInstance(int relayChannelNumber) {
   return nullptr;
 }
 
+void RelayHvacAggregator::UnregisterHvac(HvacBase *hvac) {
+  auto *ptr = FirstInstance;
+  while (ptr != nullptr) {
+    ptr->unregisterHvac(hvac);
+    ptr = ptr->nextPtr;
+  }
+}
+
 void RelayHvacAggregator::registerHvac(HvacBase *hvac) {
-  SUPLA_LOG_DEBUG("RelayHvacAggregator[%d] hvac[%d] registered",
-                  relayChannelNumber,
-                  hvac->getChannelNumber());
+  if (isHvacRegistered(hvac)) {
+    SUPLA_LOG_DEBUG("RelayHvacAggregator[%d] hvac[%d @ %X] already registered",
+                    relayChannelNumber,
+                    hvac->getChannelNumber(),
+                    hvac);
+    return;
+  }
   if (firstHvacPtr == nullptr) {
     firstHvacPtr = new HvacPtr;
     firstHvacPtr->hvac = hvac;
@@ -106,13 +118,17 @@ void RelayHvacAggregator::registerHvac(HvacBase *hvac) {
     ptr->nextPtr = new HvacPtr;
     ptr->nextPtr->hvac = hvac;
   }
+  SUPLA_LOG_DEBUG("RelayHvacAggregator[%d] hvac[%d @ %X] registered",
+                  relayChannelNumber,
+                  hvac->getChannelNumber(),
+                  hvac);
 }
 
 void RelayHvacAggregator::unregisterHvac(HvacBase *hvac) {
-  SUPLA_LOG_DEBUG("RelayHvacAggregator[%d] hvac[%d] unregistered",
+  SUPLA_LOG_DEBUG("RelayHvacAggregator[%d] hvac[%X] unregistered",
                   relayChannelNumber,
-                  hvac->getChannelNumber());
-  auto *ptr = firstHvacPtr;
+                  hvac);
+  HvacPtr *ptr = firstHvacPtr;
   HvacPtr *prevPtr = nullptr;
   while (ptr != nullptr) {
     if (ptr->hvac == hvac) {
@@ -137,6 +153,15 @@ void RelayHvacAggregator::iterateAlways() {
     return;
   }
 
+  if (millis() - lastStateUpdateTimestamp > 5000 || lastRelayState == -1) {
+    if (relay->isOn()) {
+      lastRelayState = 1;
+    } else {
+      lastRelayState = 0;
+    }
+    lastStateUpdateTimestamp = millis();
+  }
+
   lastUpdateTimestamp = millis();
 
   bool state = false;
@@ -156,8 +181,12 @@ void RelayHvacAggregator::iterateAlways() {
     ptr = ptr->nextPtr;
   }
 
-  if (ignore && !turnOffWhenEmpty) {
+  if (ignore && (!turnOffWhenEmpty || state == lastValueSend)) {
     return;
+  }
+
+  if (!ignore && !turnOffWhenEmpty) {
+    lastValueSend = lastRelayState;
   }
 
   if (state) {

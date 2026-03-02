@@ -27,13 +27,19 @@
 #ifndef SRC_SUPLA_CONTROL_BISTABLE_RELAY_H_
 #define SRC_SUPLA_CONTROL_BISTABLE_RELAY_H_
 
+#include <supla-common/proto.h>
+#include <stdint.h>
 #include "relay.h"
 
 namespace Supla {
+namespace Io {
+class Base;
+}
+
 namespace Control {
 class BistableRelay : public Relay {
  public:
-  BistableRelay(Supla::Io *io,
+  BistableRelay(Supla::Io::Base *io,
                 int pin,
                 int statusPin = -1,
                 bool statusPullUp = true,

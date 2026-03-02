@@ -22,7 +22,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "definitions.h"
-#include "supla/IEEE754tools.h"
 
 void float2DoublePacked(float number, uint8_t *bar, int byteOrder = LSBFIRST);
 float doublePacked2float(uint8_t *bar);
@@ -90,11 +89,37 @@ const char *getManufacturer(int16_t id);
 namespace Supla {
 int getPlatformId();
 int getBitNumber(uint64_t value);
-int rssiToSignalStrength(int rssi);
+int rssiToSignalStrength(int rssi, int rssiZero = -100);
 bool isLastResetPower();
 
 const char *getRelayChannelName(int channelFunction);
 const char *getBinarySensorChannelName(int channelFunction);
+
+/**
+ * Checks if current platform is little endian byte order
+ *
+ * @return true if current platform is little endian
+ */
+bool isLittleEndian();
+
+/**
+ * Compares two semantic versions
+ *
+ * @param sw1 Software version 1 to compare
+ * @param sw2 Software version 2 to compare
+ *
+ * @return 1 if sw1 > sw2, 0 if sw1 == sw2, -1 if sw1 < sw2
+ */
+int compareSemVer(const char *sw1, const char *sw2);
+
+/**
+ * Fills buffer with random bytes
+ *
+ * @param buffer
+ * @param size
+ */
+void fillRandom(uint8_t *buffer, int size);
+
 }  // namespace Supla
 
 

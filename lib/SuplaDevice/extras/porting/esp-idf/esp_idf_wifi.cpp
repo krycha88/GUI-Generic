@@ -39,10 +39,12 @@
 #include <supla/tools.h>
 #include <esp_event.h>
 #include <esp_netif.h>
-
+#include <arpa/inet.h>
 #include <cstring>
 
 #include "esp_idf_network_common.h"
+
+constexpr int SUPLA_MAX_AP_TX_POWER = 60;
 
 static Supla::EspIdfWifi *thisNetIntfPtr = nullptr;
 
@@ -66,6 +68,7 @@ static void eventHandler(void *arg,
                          int32_t eventId,
                          void *eventData) {
   static bool firstWiFiScanDone = false;
+  SUPLA_LOG_DEBUG("[%s] Got Event: %d", thisNetIntfPtr->getIntfName(), eventId);
   if (thisNetIntfPtr == nullptr) {
     return;
   }
@@ -134,6 +137,19 @@ static void eventHandler(void *arg,
         SUPLA_LOG_DEBUG("[%s] Lost IP", thisNetIntfPtr->getIntfName());
         break;
       }
+//      case IP_EVENT_ASSIGNED_IP_TO_CLIENT: {   <- esp-idf 6.0
+      case IP_EVENT_AP_STAIPASSIGNED: {
+//        ip_event_assigned_ip_to_client_t *data =   <- esp-idf 6.0
+//            reinterpret_cast<ip_event_assigned_ip_to_client_t *>(eventData);
+        ip_event_ap_staipassigned_t *data =
+            reinterpret_cast<ip_event_ap_staipassigned_t *>(eventData);
+        char log[SUPLA_SECURITY_LOG_TEXT_SIZE] = {};
+        constexpr char LogText[] = "Device (" MACSTR ") joined";
+        static_assert(sizeof(log) > sizeof(LogText));
+        snprintf(log, sizeof(log) - 1, LogText, MAC2STR(data->mac));
+        thisNetIntfPtr->addSecurityLog(ntohl(data->ip.addr), log);
+        break;
+      }
     }
   }
 }
@@ -147,8 +163,15 @@ uint32_t Supla::EspIdfWifi::getIP() {
 
 void Supla::EspIdfWifi::setup() {
   setIpReady(false);
+  delay(50);
+  int txPower = maxTxPower;
+  if (txPower < 0) {
+    txPower = 80;  // set max value
+  }
+
   if (!initDone) {
     Supla::initEspNetif();
+
 
 #ifdef SUPLA_DEVICE_ESP32
     apNetIf = esp_netif_create_default_wifi_ap();
@@ -166,21 +189,40 @@ void Supla::EspIdfWifi::setup() {
         IP_EVENT, IP_EVENT_STA_GOT_IP, &eventHandler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(
         IP_EVENT, IP_EVENT_STA_LOST_IP, &eventHandler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(
+        IP_EVENT, IP_EVENT_AP_STAIPASSIGNED, &eventHandler, NULL));
+//  esp-idf 6.0:
+//    ESP_ERROR_CHECK(esp_event_handler_register(
+//        IP_EVENT, IP_EVENT_ASSIGNED_IP_TO_CLIENT, &eventHandler, NULL));
+
     esp_wifi_set_ps(WIFI_PS_NONE);
 
   } else {
+    SUPLA_LOG_DEBUG("[%s] reinitializing WiFi connection", getIntfName());
     disable();
   }
 
-  if (mode == Supla::DEVICE_MODE_CONFIG) {
+  if (mode == Supla::DEVICE_MODE_OFFLINE) {
+    SUPLA_LOG_DEBUG("[%s] offline mode, skipping WiFi connection",
+                    getIntfName());
+    return;
+  } else if (mode == Supla::DEVICE_MODE_CONFIG) {
+    SUPLA_LOG_DEBUG("[%s] starting AP config mode", getIntfName());
     wifi_config_t wifi_config = {};
 
     memcpy(wifi_config.ap.ssid, hostname, strlen(hostname));
     wifi_config.ap.max_connection = 4;  // default
     wifi_config.ap.channel = 6;
+    wifi_config.ap.beacon_interval = 200;
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+    uint8_t proto = WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G;
+    esp_wifi_set_protocol(WIFI_IF_AP, proto);
+    if (txPower > SUPLA_MAX_AP_TX_POWER) {
+      txPower = SUPLA_MAX_AP_TX_POWER;  // limit TX power in AP mode
+    }
+
   } else {
     SUPLA_LOG_INFO(
         "[%s] establishing connection with SSID: \"%s\"", getIntfName(), ssid);
@@ -188,7 +230,13 @@ void Supla::EspIdfWifi::setup() {
     memcpy(wifi_config.sta.ssid, ssid, MAX_SSID_SIZE);
     memcpy(wifi_config.sta.password, password, MAX_WIFI_PASSWORD_SIZE);
     wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-    wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    if (testMode) {
+      SUPLA_LOG_INFO("[%s] test mode enabled, using fast scan", getIntfName());
+      wifi_config.sta.scan_method = WIFI_FAST_SCAN;
+    } else {
+      wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    }
+
     wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
 #ifdef SUPLA_DEVICE_ESP32
     wifi_config.sta.failure_retry_cnt = 2;
@@ -201,11 +249,14 @@ void Supla::EspIdfWifi::setup() {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   }
-  ESP_ERROR_CHECK(esp_wifi_start());
+  delay(50);
 
-  if (maxTxPower >= 0) {
-    ESP_ERROR_CHECK(esp_wifi_set_max_tx_power(maxTxPower));
+  ESP_ERROR_CHECK(esp_wifi_start());
+  if (txPower >= 0) {
+    SUPLA_LOG_INFO("[%s] setting TX power to %d", getIntfName(), txPower);
+    ESP_ERROR_CHECK(esp_wifi_set_max_tx_power(txPower));
   }
+
 
   allowDisable = true;
   initDone = true;
@@ -416,4 +467,16 @@ bool Supla::EspIdfWifi::isIpSetupTimeout() {
 
 void Supla::EspIdfWifi::setMaxTxPower(int power) {
   maxTxPower = power;
+}
+
+#ifdef SUPLA_DEVICE_ESP32
+esp_netif_t *Supla::EspIdfWifi::getStaNetIf() const {
+  return staNetIf;
+}
+#endif
+
+void Supla::EspIdfWifi::addSecurityLog(uint32_t ip, const char *log) const {
+  if (sdc) {
+    sdc->addSecurityLog(ip, log);
+  }
 }

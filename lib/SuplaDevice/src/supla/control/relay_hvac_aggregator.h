@@ -37,6 +37,7 @@ class RelayHvacAggregator : public Element {
   static RelayHvacAggregator *GetInstance(int relayChannelNumber);
   static RelayHvacAggregator *Add(int relayChannelNumber, Relay *relay);
   static bool Remove(int relayChannelNumber);
+  static void UnregisterHvac(HvacBase *hvac);
 
   void registerHvac(HvacBase *hvac);
   void unregisterHvac(HvacBase *hvac);
@@ -56,8 +57,10 @@ class RelayHvacAggregator : public Element {
   Relay *relay = nullptr;
   int relayChannelNumber = 0;
   uint32_t lastUpdateTimestamp = 0;
+  uint32_t lastStateUpdateTimestamp = 0;
   bool turnOffWhenEmpty = true;
   int8_t lastValueSend = -1;
+  int8_t lastRelayState = -1;
 };
 
 }  // namespace Control

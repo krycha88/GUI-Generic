@@ -21,14 +21,19 @@
 #include <supla/element.h>
 #include <supla/time.h>
 #include <supla/storage/config.h>
+#include <supla/storage/storage.h>
 #include <supla/log_wrapper.h>
 #include <supla/clock/clock.h>
 #include <supla/storage/config_tags.h>
+#include <supla/modbus/modbus_configurator.h>
+#include <supla/device/auto_update_policy.h>
 
 using Supla::Device::RemoteDeviceConfig;
 
 uint64_t RemoteDeviceConfig::fieldBitsUsedByDevice = 0;
 uint64_t RemoteDeviceConfig::homeScreenContentAvailable = 0;
+Supla::Modbus::ConfigProperties RemoteDeviceConfig::modbusProperties;
+uint8_t RemoteDeviceConfig::resendAttempts = 0;
 
 RemoteDeviceConfig::RemoteDeviceConfig(bool firstDeviceConfigAfterRegistration)
     : firstDeviceConfigAfterRegistration(firstDeviceConfigAfterRegistration) {
@@ -37,15 +42,21 @@ RemoteDeviceConfig::RemoteDeviceConfig(bool firstDeviceConfigAfterRegistration)
 RemoteDeviceConfig::~RemoteDeviceConfig() {
 }
 
+void RemoteDeviceConfig::ClearResendAttemptsCounter() {
+  resendAttempts = 0;
+}
+
 void RemoteDeviceConfig::RegisterConfigField(uint64_t fieldBit) {
   if (fieldBit == 0 || (fieldBit & (fieldBit - 1)) != 0) {
     // (fieldBit & (fieldBit) - 1) will evaluate to 0 only when fieldBit had
     // only one bit set to 1 (that number was power of 2)
-    SUPLA_LOG_WARNING("RemoteDeviceConfig: invalid field 0x%08llx", fieldBit);
+    SUPLA_LOG_WARNING("RemoteDeviceConfig: invalid field 0x%X%08X",
+                      PRINTF_UINT64_HEX(fieldBit));
     return;
   }
   if (!(fieldBitsUsedByDevice & fieldBit)) {
-    SUPLA_LOG_INFO("RemoteDeviceConfig: Registering field 0x%08llx", fieldBit);
+    SUPLA_LOG_INFO("RemoteDeviceConfig: Registering field 0x%X%08X",
+                   PRINTF_UINT64_HEX(fieldBit));
   }
   fieldBitsUsedByDevice |= fieldBit;
 }
@@ -53,8 +64,8 @@ void RemoteDeviceConfig::RegisterConfigField(uint64_t fieldBit) {
 void RemoteDeviceConfig::SetHomeScreenContentAvailable(uint64_t allValues) {
   if (allValues != homeScreenContentAvailable) {
     homeScreenContentAvailable = allValues;
-    SUPLA_LOG_INFO("RemoteDeviceConfig: SetHomeScreenContentAvailable 0x%08llx",
-                 homeScreenContentAvailable);
+    SUPLA_LOG_INFO("RemoteDeviceConfig: SetHomeScreenContentAvailable 0x%X%08X",
+                   PRINTF_UINT64_HEX(homeScreenContentAvailable));
   }
 }
 
@@ -67,7 +78,8 @@ enum Supla::HomeScreenContent RemoteDeviceConfig::HomeScreenContentBitToEnum(
   if (fieldBit == 0 || (fieldBit & (fieldBit - 1)) != 0) {
     // (fieldBit & (fieldBit) - 1) will evaluate to 0 only when fieldBit had
     // only one bit set to 1 (that number was power of 2)
-    SUPLA_LOG_WARNING("RemoteDeviceConfig: invalid field 0x%08llx", fieldBit);
+    SUPLA_LOG_WARNING("RemoteDeviceConfig: invalid field 0x%X%08X",
+                      PRINTF_UINT64_HEX(fieldBit));
     return Supla::HomeScreenContent::HOME_SCREEN_OFF;
   }
 
@@ -113,6 +125,12 @@ uint64_t RemoteDeviceConfig::HomeScreenIntToBit(int mode) {
   return (1ULL << mode);
 }
 
+void RemoteDeviceConfig::SetModbusProperties(
+    const Supla::Modbus::ConfigProperties &properties) {
+  modbusProperties = properties;
+  RegisterConfigField(SUPLA_DEVICE_CONFIG_FIELD_MODBUS);
+}
+
 void RemoteDeviceConfig::processConfig(TSDS_SetDeviceConfig *config) {
   endFlagReceived = (config->EndOfDataFlag != 0);
   messageCounter++;
@@ -127,11 +145,11 @@ void RemoteDeviceConfig::processConfig(TSDS_SetDeviceConfig *config) {
       requireSetDeviceConfigFields =
           config->AvailableFields ^ fieldBitsUsedByDevice;
       SUPLA_LOG_INFO(
-          "RemoteDeviceConfig: Config fields mismatch (0x%08llx != 0x%08llx) - "
-          "sending device config for fields 0x%08llx",
-          config->AvailableFields,
-          fieldBitsUsedByDevice,
-          requireSetDeviceConfigFields);
+          "RemoteDeviceConfig: Config fields mismatch (0x%X%08X != 0x%X%08X) - "
+          "sending device config for fields 0x%X%08X",
+          PRINTF_UINT64_HEX(config->AvailableFields),
+          PRINTF_UINT64_HEX(fieldBitsUsedByDevice),
+          PRINTF_UINT64_HEX(requireSetDeviceConfigFields));
     }
   }
 
@@ -188,9 +206,17 @@ void RemoteDeviceConfig::processConfig(TSDS_SetDeviceConfig *config) {
           dataIndex += sizeof(TDeviceConfig_HomeScreenOffDelayType);
           break;
         }
+        case SUPLA_DEVICE_CONFIG_FIELD_MODBUS: {
+          dataIndex += sizeof(TDeviceConfig_Modbus);
+          break;
+        }
+        case SUPLA_DEVICE_CONFIG_FIELD_FIRMWARE_UPDATE: {
+          dataIndex += sizeof(TDeviceConfig_FirmwareUpdate);
+          break;
+        }
         default: {
-          SUPLA_LOG_WARNING("RemoteDeviceConfig: unknown field 0x%08llx",
-                            fieldBit);
+          SUPLA_LOG_WARNING("RemoteDeviceConfig: unknown field 0x%X%08X",
+                            PRINTF_UINT64_HEX(fieldBit));
           resultCode = SUPLA_CONFIG_RESULT_TYPE_NOT_SUPPORTED;
           return;
         }
@@ -342,12 +368,41 @@ void RemoteDeviceConfig::processConfig(TSDS_SetDeviceConfig *config) {
               fieldBit,
               reinterpret_cast<TDeviceConfig_HomeScreenOffDelayType *>(
                   config->Config + dataIndex));
-          dataIndex += sizeof(TDeviceConfig_HomeScreenOffDelay);
+          dataIndex += sizeof(TDeviceConfig_HomeScreenOffDelayType);
+          break;
+        }
+        case SUPLA_DEVICE_CONFIG_FIELD_MODBUS: {
+          SUPLA_LOG_DEBUG("Processing Modbus config");
+          if (dataIndex + sizeof(TDeviceConfig_Modbus) > config->ConfigSize) {
+            SUPLA_LOG_WARNING("RemoteDeviceConfig: invalid ConfigSize");
+            resultCode = SUPLA_CONFIG_RESULT_DATA_ERROR;
+            return;
+          }
+          processModbusConfig(
+              fieldBit,
+              reinterpret_cast<TDeviceConfig_Modbus *>(config->Config +
+                                                       dataIndex));
+          dataIndex += sizeof(TDeviceConfig_Modbus);
+          break;
+        }
+        case SUPLA_DEVICE_CONFIG_FIELD_FIRMWARE_UPDATE: {
+          SUPLA_LOG_DEBUG("Processing FirmwareUpdate config");
+          if (dataIndex + sizeof(TDeviceConfig_FirmwareUpdate) >
+              config->ConfigSize) {
+            SUPLA_LOG_WARNING("RemoteDeviceConfig: invalid ConfigSize");
+            resultCode = SUPLA_CONFIG_RESULT_DATA_ERROR;
+            return;
+          }
+          processFirmwareUpdateConfig(
+              fieldBit,
+              reinterpret_cast<TDeviceConfig_FirmwareUpdate *>(
+                  config->Config + dataIndex));
+          dataIndex += sizeof(TDeviceConfig_FirmwareUpdate);
           break;
         }
         default: {
-          SUPLA_LOG_WARNING("RemoteDeviceConfig: unknown field 0x%08llx",
-                            fieldBit);
+          SUPLA_LOG_WARNING("RemoteDeviceConfig: unknown field 0x%X%08X",
+                            PRINTF_UINT64_HEX(fieldBit));
           resultCode = SUPLA_CONFIG_RESULT_TYPE_NOT_SUPPORTED;
           return;
         }
@@ -489,13 +544,13 @@ void RemoteDeviceConfig::processHomeScreenContentConfig(uint64_t fieldBit,
     return;
   }
   SUPLA_LOG_DEBUG(
-      "config->HomeScreenContent %04x, homeScreenContentAvailable %08llx",
-      config->HomeScreenContent,
-      homeScreenContentAvailable);
+      "config->HomeScreenContent %X%08X, homeScreenContentAvailable %X%08X",
+      PRINTF_UINT64_HEX(config->HomeScreenContent),
+      PRINTF_UINT64_HEX(homeScreenContentAvailable));
   if ((config->HomeScreenContent & homeScreenContentAvailable) == 0) {
     SUPLA_LOG_WARNING(
-        "Selected HomeScreenContent %d is not supported by this device",
-        config->HomeScreenContent);
+        "Selected HomeScreenContent %X%08X is not supported by this device",
+        PRINTF_UINT64_HEX(config->HomeScreenContent));
     return;
   }
   int8_t currentValue = 0;
@@ -918,9 +973,35 @@ bool RemoteDeviceConfig::fillSetDeviceConfig(
           dataIndex += sizeof(TDeviceConfig_HomeScreenOffDelayType);
           break;
         }
+        case SUPLA_DEVICE_CONFIG_FIELD_MODBUS: {
+          SUPLA_LOG_DEBUG("Adding Modbus config field");
+          if (dataIndex + sizeof(TDeviceConfig_Modbus) >
+              SUPLA_DEVICE_CONFIG_MAXSIZE) {
+            SUPLA_LOG_ERROR("RemoteDeviceConfig: ConfigSize too big");
+            return false;
+          }
+          fillModbusConfig(reinterpret_cast<TDeviceConfig_Modbus *>(
+              config->Config + dataIndex));
+          dataIndex += sizeof(TDeviceConfig_Modbus);
+          break;
+        }
+        case SUPLA_DEVICE_CONFIG_FIELD_FIRMWARE_UPDATE: {
+          SUPLA_LOG_DEBUG("Adding FirmwareUpdate config field");
+          if (dataIndex + sizeof(TDeviceConfig_FirmwareUpdate) >
+              SUPLA_DEVICE_CONFIG_MAXSIZE) {
+            SUPLA_LOG_ERROR("RemoteDeviceConfig: ConfigSize too big");
+            return false;
+          }
+          fillFirmwareUpdateConfig(
+              reinterpret_cast<TDeviceConfig_FirmwareUpdate *>(config->Config +
+                                                               dataIndex));
+          dataIndex += sizeof(TDeviceConfig_FirmwareUpdate);
+          break;
+        }
+
         default: {
-          SUPLA_LOG_WARNING("RemoteDeviceConfig: unknown field 0x%08llx",
-                            fieldBit);
+          SUPLA_LOG_WARNING("RemoteDeviceConfig: unknown field 0x%X%08X",
+                            PRINTF_UINT64_HEX(fieldBit));
           break;
         }
       }
@@ -935,6 +1016,9 @@ bool RemoteDeviceConfig::fillSetDeviceConfig(
 void RemoteDeviceConfig::handleSetDeviceConfigResult(
     TSDS_SetDeviceConfigResult *result) {
   (void)(result);
+  if (result->Result == SUPLA_CONFIG_RESULT_TRUE) {
+    ClearResendAttemptsCounter();
+  }
   // received set device config result means that we updated all local
   // config changes to the server. We can clear localConfigChange flag
   auto cfg = Supla::Storage::ConfigInstance();
@@ -990,3 +1074,203 @@ void RemoteDeviceConfig::fillHomeScreenDelayTypeConfig(
     config->HomeScreenOffDelayType = value;
   }
 }
+void RemoteDeviceConfig::fillModbusConfig(TDeviceConfig_Modbus *config) const {
+  if (config == nullptr) {
+    return;
+  }
+
+  // copy properties
+  config->Properties.Baudrate.B4800 = modbusProperties.baudrate.b4800;
+  config->Properties.Baudrate.B9600 = modbusProperties.baudrate.b9600;
+  config->Properties.Baudrate.B19200 = modbusProperties.baudrate.b19200;
+  config->Properties.Baudrate.B38400 = modbusProperties.baudrate.b38400;
+  config->Properties.Baudrate.B57600 = modbusProperties.baudrate.b57600;
+  config->Properties.Baudrate.B115200 = modbusProperties.baudrate.b115200;
+  config->Properties.StopBits.One = modbusProperties.stopBits.one;
+  config->Properties.StopBits.OneAndHalf = modbusProperties.stopBits.oneAndHalf;
+  config->Properties.StopBits.Two = modbusProperties.stopBits.two;
+  config->Properties.Protocol.Master = modbusProperties.protocol.master;
+  config->Properties.Protocol.Slave = modbusProperties.protocol.slave;
+  config->Properties.Protocol.Rtu = modbusProperties.protocol.rtu;
+  config->Properties.Protocol.Ascii = modbusProperties.protocol.ascii;
+  config->Properties.Protocol.Tcp = modbusProperties.protocol.tcp;
+  config->Properties.Protocol.Udp = modbusProperties.protocol.udp;
+
+  // copy config
+  auto cfg = Supla::Storage::ConfigInstance();
+  if (cfg) {
+    Supla::Modbus::Config modbusConfig = {};
+    cfg->getBlob(
+        Supla::ConfigTag::ModbusCfgTag, reinterpret_cast<char *>(&modbusConfig),
+        sizeof(modbusConfig));
+
+    config->ModbusAddress = modbusConfig.modbusAddress;
+    config->Role = static_cast<unsigned char>(modbusConfig.role);
+    config->SlaveTimeoutMs = modbusConfig.slaveTimeoutMs;
+    config->SerialConfig.Mode =
+        static_cast<unsigned char>(modbusConfig.serial.mode);
+    config->SerialConfig.Baudrate = modbusConfig.serial.baudrate;
+    config->SerialConfig.StopBits =
+        static_cast<unsigned char>(modbusConfig.serial.stopBits);
+    config->NetworkConfig.Mode =
+        static_cast<unsigned char>(modbusConfig.network.mode);
+    config->NetworkConfig.Port = modbusConfig.network.port;
+  }
+}
+
+void RemoteDeviceConfig::processModbusConfig(uint64_t fieldBit,
+                                             TDeviceConfig_Modbus *config) {
+  auto cfg = Supla::Storage::ConfigInstance();
+  if (cfg) {
+    bool changed = false;
+    bool valid = true;
+    Supla::Modbus::Config modbusConfig = {};
+    cfg->getBlob(
+        Supla::ConfigTag::ModbusCfgTag, reinterpret_cast<char *>(&modbusConfig),
+        sizeof(modbusConfig));
+
+    if (modbusConfig.modbusAddress != config->ModbusAddress) {
+      modbusConfig.modbusAddress = config->ModbusAddress;
+      changed = true;
+    }
+
+    if (config->Role > MODBUS_ROLE_SLAVE) {
+      SUPLA_LOG_WARNING("RemoteDeviceConfig: invalid modbus role %d",
+                        config->Role);
+      valid = false;
+    } else if (static_cast<unsigned char>(modbusConfig.role) != config->Role) {
+      modbusConfig.role =
+          static_cast<Supla::Modbus::Role>(config->Role);
+      changed = true;
+    }
+
+    if (modbusConfig.slaveTimeoutMs != config->SlaveTimeoutMs) {
+      modbusConfig.slaveTimeoutMs = config->SlaveTimeoutMs;
+      changed = true;
+    }
+
+    if (config->SerialConfig.Mode > MODBUS_SERIAL_MODE_ASCII) {
+      SUPLA_LOG_WARNING("RemoteDeviceConfig: invalid modbus serial mode %d",
+                        config->SerialConfig.Mode);
+      valid = false;
+    } else if (static_cast<unsigned char>(modbusConfig.serial.mode) !=
+               config->SerialConfig.Mode) {
+      modbusConfig.serial.mode =
+          static_cast<Supla::Modbus::ModeSerial>(config->SerialConfig.Mode);
+      changed = true;
+    }
+
+    if (modbusConfig.serial.baudrate != config->SerialConfig.Baudrate) {
+      modbusConfig.serial.baudrate = config->SerialConfig.Baudrate;
+      changed = true;
+    }
+
+    if (config->SerialConfig.StopBits > MODBUS_SERIAL_STOP_BITS_TWO) {
+      SUPLA_LOG_WARNING(
+          "RemoteDeviceConfig: invalid modbus serial stop bits %d",
+          config->SerialConfig.StopBits);
+      valid = false;
+    } else if (static_cast<unsigned char>(modbusConfig.serial.stopBits) !=
+               config->SerialConfig.StopBits) {
+      modbusConfig.serial.stopBits = static_cast<Supla::Modbus::SerialStopBits>(
+          config->SerialConfig.StopBits);
+      changed = true;
+    }
+
+    if (modbusConfig.validateAndFix(modbusProperties)) {
+      SUPLA_LOG_WARNING("RemoteDeviceConfig: modbus validation problem");
+      valid = false;
+      changed = true;
+    }
+
+    if (modbusProperties != config->Properties) {
+      valid = false;
+    }
+
+    if (changed) {
+      cfg->setBlob(
+          Supla::ConfigTag::ModbusCfgTag,
+          reinterpret_cast<const char *>(&modbusConfig),
+          sizeof(modbusConfig));
+      cfg->saveWithDelay(1000);
+      Supla::Element::NotifyElementsAboutConfigChange(fieldBit);
+    }
+
+    if (!valid) {
+      resendAttempts++;
+      if (resendAttempts > 3) {
+        SUPLA_LOG_WARNING(
+            "RemoteDeviceConfig: resending modbus config failed too many "
+            "times");
+      } else {
+        requireSetDeviceConfigFields |= fieldBit;
+      }
+    }
+  }
+}
+
+void RemoteDeviceConfig::fillFirmwareUpdateConfig(
+    TDeviceConfig_FirmwareUpdate *config) const {
+  auto cfg = Supla::Storage::ConfigInstance();
+  if (cfg) {
+    auto otaPolicy = cfg->getAutoUpdatePolicy();
+    switch (otaPolicy) {
+      case Supla::AutoUpdatePolicy::Disabled: {
+        config->Policy = SUPLA_FIRMWARE_UPDATE_POLICY_DISABLED;
+        break;
+      }
+      case Supla::AutoUpdatePolicy::SecurityOnly: {
+        config->Policy = SUPLA_FIRMWARE_UPDATE_POLICY_SECURITY_ONLY;
+        break;
+      }
+      case Supla::AutoUpdatePolicy::AllUpdates: {
+        config->Policy = SUPLA_FIRMWARE_UPDATE_POLICY_ALL_ENABLED;
+        break;
+      }
+      case Supla::AutoUpdatePolicy::ForcedOff: {
+        config->Policy = SUPLA_FIRMWARE_UPDATE_POLICY_FORCED_OFF;
+        break;
+      }
+    }
+    config->Policy = static_cast<unsigned char>(otaPolicy);
+  }
+}
+
+void RemoteDeviceConfig::processFirmwareUpdateConfig(
+    uint64_t fieldBit, TDeviceConfig_FirmwareUpdate *config) {
+  auto cfg = Supla::Storage::ConfigInstance();
+  bool valid = true;
+  if (config->Policy > SUPLA_FIRMWARE_UPDATE_POLICY_ALL_ENABLED) {
+    SUPLA_LOG_WARNING(
+        "RemoteDeviceConfig: invalid firmware update policy %d",
+        config->Policy);
+    valid = false;
+  } else if (cfg) {
+    auto otaPolicy = static_cast<Supla::AutoUpdatePolicy>(config->Policy);
+    auto currentPolicy = cfg->getAutoUpdatePolicy();
+    if (otaPolicy != currentPolicy) {
+      if (currentPolicy == Supla::AutoUpdatePolicy::ForcedOff) {
+        SUPLA_LOG_INFO(
+            "Firmware update is forced off. Changing policy is not allowed");
+        valid = false;
+      } else {
+        SUPLA_LOG_INFO("Firmware update policy changed to %d", otaPolicy);
+        cfg->setAutoUpdatePolicy(otaPolicy);
+        cfg->saveWithDelay(1000);
+      }
+    }
+    Supla::Element::NotifyElementsAboutConfigChange(fieldBit);
+  }
+
+  if (!valid) {
+    resendAttempts++;
+    if (resendAttempts > 3) {
+      SUPLA_LOG_WARNING(
+          "RemoteDeviceConfig: resending firmware update config failed too "
+          "many times");
+    } else {
+      requireSetDeviceConfigFields |= fieldBit;
+    }
+  }
+}
+

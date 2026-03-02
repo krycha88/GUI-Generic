@@ -18,12 +18,11 @@
 #define SRC_SUPLA_LOCAL_ACTION_H_
 
 #include <stdint.h>
-#include "action_handler.h"
 
 namespace Supla {
 
+class ActionHandler;
 class LocalAction;
-class Condition;
 
 class ActionHandlerClient {
  public:
@@ -60,7 +59,7 @@ class LocalAction {
   virtual void addAction(uint16_t action, ActionHandler *client, uint16_t event,
       bool alwaysEnabled = false);
 
-  virtual void runAction(uint16_t event);
+  virtual void runAction(uint16_t event) const;
 
   virtual bool isEventAlreadyUsed(uint16_t event, bool ignoreAlwaysEnabled);
   virtual ActionHandlerClient *getHandlerForFirstClient(uint16_t event);

@@ -31,6 +31,7 @@
 #include <supla/network/network.h>
 #include <supla/network/web_server.h>
 #include <supla/storage/config.h>
+#include <supla/storage/config_tags.h>
 #include <supla/storage/storage.h>
 #include <supla/time.h>
 #include <supla/timer.h>
@@ -41,6 +42,12 @@
 #include <supla/auto_lock.h>
 #include <supla/device/subdevice_pairing_handler.h>
 #include <supla/device/status_led.h>
+#include <supla/clock/clock.h>
+#include <supla/device/remote_device_config.h>
+#include <supla/device/auto_update_policy.h>
+#include <supla/device/device_mode.h>
+#include <supla/device/security_logger.h>
+#include <supla/device/factory_test.h>
 
 #ifndef ARDUINO
 #ifndef F
@@ -60,14 +67,10 @@ void SuplaDeviceClass::status(int newStatus,
   const char *msgActual = msg;
 #endif
 
-  if ((currentStatus == STATUS_CONFIG_MODE ||
-       currentStatus == STATUS_TEST_WAIT_FOR_CFG_BUTTON) &&
-      newStatus != STATUS_SOFTWARE_RESET && newStatus != STATUS_INVALID_GUID &&
-      newStatus != STATUS_INVALID_AUTHKEY &&
-      newStatus != STATUS_OFFLINE_MODE) {
-    // Config mode and testing is final state and the only exit goes through
-    // reset with exception for: invalid GUID and AUTHKEY, offline mode (2)
-    // after timeout (it goes from config mode to offline mode)
+  if (currentStatus == STATUS_TEST_WAIT_FOR_CFG_BUTTON &&
+      newStatus != STATUS_SOFTWARE_RESET) {
+    // testing mode is final state and the only exit goes through
+    // reset with exception for: software reset
     return;
   }
 
@@ -152,18 +155,25 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
   }
   initializationDone = true;
 
-  SUPLA_LOG_DEBUG("Supla - starting initialization (platform %d)",
+  SUPLA_LOG_INFO(" *** Supla - starting initialization (platform %d)",
                   Supla::getPlatformId());
 
-  if (protoVersion >= 21) {
-    addFlags(SUPLA_DEVICE_FLAG_DEVICE_CONFIG_SUPPORTED);
+  if (getClock() == nullptr) {
+    SUPLA_LOG_DEBUG("Clock not configured, using default clock");
+    new Supla::Clock();
   }
+
   if (protoVersion < 23) {
     SUPLA_LOG_ERROR(
         "Minimum supported protocol version is 23! Setting to 23 anyway");
     protoVersion = 23;
   }
+  if (protoVersion >= 21) {
+    SUPLA_LOG_DEBUG("SD: add flag DEVICE_CONFIG_SUPPORTED");
+    addFlags(SUPLA_DEVICE_FLAG_DEVICE_CONFIG_SUPPORTED);
+  }
   if (isDeviceSoftwareResetSupported()) {
+    SUPLA_LOG_DEBUG("SD: add flag CALCFG_RESTART_DEVICE");
     addFlags(SUPLA_DEVICE_FLAG_CALCFG_RESTART_DEVICE);
   }
 
@@ -173,63 +183,78 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
 
   storageInitResult = Supla::Storage::Init();
 
-  atLeastOneProtoIsEnabled = false;
-  bool configComplete = true;
   if (Supla::Storage::IsConfigStorageAvailable()) {
+    SUPLA_LOG_INFO(" *** Supla - Config initalization");
+
     if (!lastStateLogger) {
       lastStateLogger = new Supla::Device::LastStateLogger();
     }
-    auto cfg = Supla::Storage::ConfigInstance();
-    if (cfg->isConfigModeSupported()) {
+
+    if (Supla::Storage::ConfigInstance()->isConfigModeSupported()) {
+      SUPLA_LOG_DEBUG("SD: add flag CALCFG_ENTER_CFG_MODE");
       addFlags(SUPLA_DEVICE_FLAG_CALCFG_ENTER_CFG_MODE);
+      SUPLA_LOG_DEBUG("SD: add flag CALCFG_FACTORY_RESET_SUPPORTED");
+      addFlags(SUPLA_DEVICE_FLAG_CALCFG_FACTORY_RESET_SUPPORTED);
     }
 
     // Load device and network related configuration
     if (!loadDeviceConfig()) {
-      configComplete = false;
+      configurationState.configNotComplete = 1;
     }
 
     // Load protocol layer configuration
     for (auto proto = Supla::Protocol::ProtocolLayer::first(); proto != nullptr;
          proto = proto->next()) {
       if (!proto->onLoadConfig()) {
-        configComplete = false;
+        if (deviceMode != Supla::DEVICE_MODE_TEST) {
+          configurationState.configNotComplete = 1;
+        }
       }
       if (!proto->isConfigEmpty()) {
-        configEmpty = false;
+        configurationState.protocolNotEmpty = 1;
       }
       if (proto->isEnabled()) {
-        atLeastOneProtoIsEnabled = true;
+        configurationState.atLeastOneProtoIsEnabled = 1;
       }
       delay(0);
     }
 
-    if (!atLeastOneProtoIsEnabled) {
+    if (!configurationState.atLeastOneProtoIsEnabled) {
       status(STATUS_ALL_PROTOCOLS_DISABLED,
              F("All communication protocols are disabled"));
-      configComplete = false;
+      if (deviceMode != Supla::DEVICE_MODE_TEST) {
+        configurationState.configNotComplete = 1;
+      }
     }
 
+    SUPLA_LOG_INFO(" *** Supla - Config load for elements");
     // Load elements configuration
     for (auto element = Supla::Element::begin(); element != nullptr;
          element = element->next()) {
       element->onLoadConfig(this);
       delay(0);
     }
+    SUPLA_LOG_INFO(" *** Supla - Config load for elements done");
   }
 
-  // Pefrorm dry run of write state to validate stored state section with
-  // current device configuration
-  if (Supla::Storage::IsStateStorageValid()) {
-    Supla::Storage::LoadStateStorage();
+  if (Supla::Storage::Instance()) {
+    SUPLA_LOG_INFO(" *** Supla - Load state storage");
+    // Pefrorm dry run of write state to validate stored state section with
+    // current device configuration
+    if (Supla::Storage::IsStateStorageValid()) {
+      Supla::Storage::LoadStateStorage();
+    }
+    SUPLA_LOG_INFO(" *** Supla - Load state storage done");
   }
 
+  SUPLA_LOG_INFO(" *** Supla - Init elements");
   // Initialize elements
   for (auto element = Supla::Element::begin(); element != nullptr;
        element = element->next()) {
     element->onInit();
     delay(0);
   }
+  SUPLA_LOG_INFO(" *** Supla - Init elements done");
 
   // Enable timers
   Supla::initTimers();
@@ -245,8 +270,14 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
     net->setSuplaDeviceClass(this);
   }
 
-  if (Supla::WebServer::Instance()) {
-    Supla::WebServer::Instance()->setSuplaDeviceClass(this);
+  if (auto webServer = Supla::WebServer::Instance()) {
+    webServer->setSuplaDeviceClass(this);
+    if (webServer->verifyCertificatesFormat()) {
+      // web password is used only when https is used
+      SUPLA_LOG_DEBUG(
+          "SD: add flag CALCFG_SET_CFG_MODE_PASSWORD_SUPPORTED");
+      addFlags(SUPLA_DEVICE_FLAG_CALCFG_SET_CFG_MODE_PASSWORD_SUPPORTED);
+    }
   }
 
   if (Supla::RegisterDevice::isGUIDEmpty()) {
@@ -259,7 +290,7 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
     return false;
   }
 
-  if (!configComplete) {
+  if (configurationState.configNotComplete) {
     SUPLA_LOG_INFO("Config incomplete: deviceMode = CONFIG");
     deviceMode = Supla::DEVICE_MODE_CONFIG;
   }
@@ -303,7 +334,7 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
   SUPLA_LOG_INFO("Device software version: %s",
       Supla::RegisterDevice::getSoftVer());
 
-  SUPLA_LOG_DEBUG("Initializing network layer");
+  SUPLA_LOG_INFO(" *** Supla - Initializing network layer");
   char hostname[32] = {};
   generateHostname(hostname, macLengthInHostname);
   Supla::Network::SetHostname(hostname, macLengthInHostname);
@@ -318,31 +349,95 @@ bool SuplaDeviceClass::begin(unsigned char protoVersion) {
 
   setupDeviceMode();
 
+  SUPLA_LOG_INFO(" *** Supla - Initialization done");
+  if (deviceMode != Supla::DEVICE_MODE_TEST) {
+    SUPLA_LOG_INFO(" *** Self-test ***");
+    auto tester = new Supla::Device::FactoryTest(this, 0);
+    tester->onInit();
+    delete tester;
+    SUPLA_LOG_INFO(" *** Self-test done ***");
+  }
   return true;
 }
 
 void SuplaDeviceClass::setupDeviceMode() {
-  if ((allowOfflineMode == 1 && deviceMode == Supla::DEVICE_MODE_CONFIG &&
-       configEmpty) ||
-      (allowOfflineMode == 2 && deviceMode == Supla::DEVICE_MODE_CONFIG &&
-       (!atLeastOneProtoIsEnabled || goToOfflineModeTimeout == 1))) {
+  // Setup device mode is called at the end of begin() method and
+  // when device leaves config mode without restart.
+
+  if (configurationState.configNotComplete) {
+    SUPLA_LOG_INFO("Config incomplete: deviceMode = CONFIG");
+    deviceMode = Supla::DEVICE_MODE_CONFIG;
+  } else if (deviceMode == Supla::DEVICE_MODE_CONFIG) {
     deviceMode = Supla::DEVICE_MODE_NORMAL;
-    SUPLA_LOG_INFO("Disabling network setup, device work in offline mode");
-    skipNetwork = true;
-    status(STATUS_OFFLINE_MODE, F("Offline mode"));
-    goToOfflineModeTimeout = 2;
   }
 
-  if (deviceMode == Supla::DEVICE_MODE_CONFIG) {
-    if (configEmpty) {
-      // For empty configuration we don't want to show all missing fields,
-      // so we clear logger
-      lastStateLogger->clear();
+  switch (initialMode) {
+    case Supla::InitialMode::StartOffline: {
+      cfgModeState = Supla::CfgModeState::Done;
+      if (deviceMode == Supla::DEVICE_MODE_CONFIG &&
+          configurationState.isEmpty()) {
+        deviceMode = Supla::DEVICE_MODE_OFFLINE;
+      }
+      break;
     }
-    enterConfigMode();
-  } else {
-    goToOfflineModeTimeout = 2;
-    enterNormalMode();
+
+    case Supla::InitialMode::StartInNotConfiguredMode: {
+      cfgModeState = Supla::CfgModeState::Done;
+      if (deviceMode == Supla::DEVICE_MODE_CONFIG) {
+        deviceMode = Supla::DEVICE_MODE_NOT_CONFIGURED;
+      }
+      break;
+    }
+
+    case Supla::InitialMode::StartInCfgMode: {
+      cfgModeState = Supla::CfgModeState::Done;
+      break;
+    }
+
+    case Supla::InitialMode::StartWithCfgModeThenOffline: {
+      if (deviceMode == Supla::DEVICE_MODE_CONFIG &&
+          (!configurationState.atLeastOneProtoIsEnabled ||
+           cfgModeState == Supla::CfgModeState::Done)) {
+        deviceMode = Supla::DEVICE_MODE_OFFLINE;
+      }
+      if (cfgModeState == Supla::CfgModeState::NotSet) {
+        cfgModeState = Supla::CfgModeState::CfgModeStartedFor1hPending;
+      }
+      break;
+    }
+  }
+
+  switch (deviceMode) {
+    case Supla::DEVICE_MODE_OFFLINE: {
+      SUPLA_LOG_INFO("Disabling network setup, device work in offline mode");
+      skipNetwork = true;
+      status(STATUS_OFFLINE_MODE, F("Offline mode"));
+      Supla::Network::SetOfflineMode();
+      return;
+    }
+    case Supla::DEVICE_MODE_NOT_CONFIGURED: {
+      SUPLA_LOG_INFO(
+          "Disabling network setup, device work in not configured mode");
+      skipNetwork = true;
+      status(STATUS_NOT_CONFIGURED_MODE, F("Not configured mode"));
+      Supla::Network::SetOfflineMode();
+      return;
+    }
+    case Supla::DEVICE_MODE_CONFIG: {
+      if (configurationState.isEmpty()) {
+        // For empty configuration we don't want to show all missing fields,
+        // so we clear logger
+        lastStateLogger->clear();
+      }
+      addSecurityLog(Supla::SecurityLogSource::LOCAL_DEVICE,
+                     "Device in config mode");
+      enterConfigMode();
+      break;
+    }
+    default: {
+      enterNormalMode();
+      break;
+    }
   }
 }
 
@@ -373,20 +468,12 @@ void SuplaDeviceClass::iterate(void) {
 
   uint32_t _millis = millis();
 
-  // in allowOfflineMode(2) device starts in "offline" mode with cfg mode
-  // enabled for 1h. After that time, it will switch to full offline mode.
-  if (goToOfflineModeTimeout == 0 && _millis > 60ULL*60*1000) {
-    SUPLA_LOG_INFO("Offline mode timeout triggered");
-    goToOfflineModeTimeout = 1;
-    leaveConfigModeWithoutRestart();
-  }
-
   auto cfg = Supla::Storage::ConfigInstance();
   if (cfg) {
     cfg->saveIfNeeded();
   }
 
-  checkIfRestartIsNeeded(_millis);
+  checkIfLeaveCfgModeOrRestartIsNeeded();
   handleLocalActionTriggers();
   iterateAlwaysElements(_millis);
 
@@ -418,6 +505,7 @@ void SuplaDeviceClass::iterate(void) {
   switch (deviceMode) {
     // Normal and Test mode
     case Supla::DEVICE_MODE_TEST:
+    case Supla::DEVICE_MODE_NORMAL:
     default: {
       // When network is ready iterate over protocol layers
       bool iterateConnected = false;
@@ -452,6 +540,18 @@ void SuplaDeviceClass::iterate(void) {
           }
           delay(0);
         }
+        // check SW update availability
+        if (swUpdate == nullptr && isAutomaticFirmwareUpdateEnabled()) {
+          if (millis() - lastSwUpdateCheckTimestamp >
+              SUPLA_AUTOMATIC_OTA_CHECK_INTERVAL) {
+            initSwUpdateInstance(false, -1);
+            lastSwUpdateCheckTimestamp = millis();
+            if (swUpdate) {
+              triggerSwUpdateIfAvailable = true;
+            }
+          }
+        }
+        iterateSwUpdate();
       }
 
       if (deviceMode == Supla::DEVICE_MODE_TEST) {
@@ -467,42 +567,10 @@ void SuplaDeviceClass::iterate(void) {
 
     // SW update mode
     case Supla::DEVICE_MODE_SW_UPDATE: {
-      auto cfg = Supla::Storage::ConfigInstance();
       if (swUpdate == nullptr) {
-        char url[SUPLA_MAX_URL_LENGTH] = {};
-        if (cfg) {
-          cfg->getSwUpdateServer(url);
-        }
-        if (strlen(url) == 0) {
-          swUpdate = Supla::Device::SwUpdate::Create(
-              this, "https://updates.supla.org/check-updates");
-        } else {
-          swUpdate = Supla::Device::SwUpdate::Create(this, url);
-        }
-        if (cfg && swUpdate && cfg->isSwUpdateBeta()) {
-          swUpdate->useBeta();
-        }
+        initSwUpdateInstance(true, 0);
       }
-      if (swUpdate == nullptr) {
-        SUPLA_LOG_WARNING("Failed to create SW update instance");
-      } else if (!swUpdate->isStarted()) {
-        status(STATUS_SW_DOWNLOAD, F("SW update in progress..."));
-        SUPLA_LOG_INFO("Starting SW update");
-        Supla::Network::DisconnectProtocols();
-        swUpdate->start();
-      } else {
-        swUpdate->iterate();
-        if (swUpdate->isAborted()) {
-          SUPLA_LOG_INFO("SW update aborted");
-          delete swUpdate;
-          swUpdate = nullptr;
-        } else if (swUpdate->isFinished()) {
-          SUPLA_LOG_INFO("Finished SW update, restarting...");
-          delete swUpdate;
-          swUpdate = nullptr;
-          scheduleSoftRestart();
-        }
-      }
+      iterateSwUpdate();
       if (swUpdate == nullptr) {
         deviceMode = Supla::DEVICE_MODE_NORMAL;
         if (cfg) {
@@ -516,6 +584,131 @@ void SuplaDeviceClass::iterate(void) {
   }
 }
 
+bool SuplaDeviceClass::initSwUpdateInstance(bool performUpdate,
+                                            int securityOnly) {
+  if (swUpdate) {
+    // already initialized earlier
+    return true;
+  }
+  if (!isAutomaticFirmwareUpdateEnabled() && securityOnly != 0) {
+    return false;
+  }
+
+  lastSwUpdateCheckTimestamp = millis();
+
+  char url[SUPLA_MAX_URL_LENGTH] = {};
+  auto cfg = Supla::Storage::ConfigInstance();
+  if (cfg) {
+    if (securityOnly == -1) {
+      switch (cfg->getAutoUpdatePolicy()) {
+        default:
+        case Supla::AutoUpdatePolicy::ForcedOff: {
+          SUPLA_LOG_INFO("Firmware update is forced off");
+          return false;
+        }
+        case Supla::AutoUpdatePolicy::Disabled: {
+          SUPLA_LOG_INFO("Firmware update is disabled");
+          return false;
+        }
+        case Supla::AutoUpdatePolicy::SecurityOnly: {
+          SUPLA_LOG_INFO("Firmware update is security only");
+          securityOnly = 1;
+          break;
+        }
+        case Supla::AutoUpdatePolicy::AllUpdates: {
+          SUPLA_LOG_INFO("Firmware update is enabled for all updates");
+          securityOnly = 0;
+          break;
+        }
+      }
+    }
+    cfg->getSwUpdateServer(url);
+  }
+
+  if (strlen(url) == 0) {
+    swUpdate = Supla::Device::SwUpdate::Create(
+        this, "https://iot.updates.supla.org/check-updates");
+  } else {
+    swUpdate = Supla::Device::SwUpdate::Create(this, url);
+  }
+  if (swUpdate == nullptr) {
+    SUPLA_LOG_WARNING("Failed to create SW update instance");
+    return false;
+  }
+
+  if (cfg) {
+    if (cfg->isSwUpdateBeta()) {
+      swUpdate->useBeta();
+    }
+    if (cfg->isSwUpdateSkipCert()) {
+      swUpdate->setSkipCert();
+    }
+  }
+  if (securityOnly == 1) {
+    swUpdate->setSecurityOnly();
+  }
+  if (!performUpdate) {
+    SUPLA_LOG_INFO("Checking SW update");
+    swUpdate->setCheckUpdateAndAbort();
+  } else {
+    deviceMode = Supla::DEVICE_MODE_SW_UPDATE;
+  }
+  return swUpdate != nullptr;
+}
+
+void SuplaDeviceClass::iterateSwUpdate() {
+  if (swUpdate == nullptr) {
+    return;
+  }
+
+  if (!swUpdate->isStarted()) {
+    if (!swUpdate->isCheckUpdateAndAbort()) {
+      SUPLA_LOG_INFO("Starting SW update");
+      status(STATUS_SW_DOWNLOAD, F("SW update in progress..."));
+      Supla::Network::DisconnectProtocols();
+    }
+    swUpdate->start();
+  } else {
+    swUpdate->iterate();
+    if (swUpdate->isAborted()) {
+      SUPLA_LOG_INFO("SW update aborted");
+      int securityOnly = swUpdate->isSecurityOnly() ? 1 : 0;
+      TCalCfg_FirmwareCheckResult result = {};
+      result.Result = SUPLA_FIRMWARE_CHECK_RESULT_ERROR;
+      if (swUpdate->getNewVersion()) {
+        SUPLA_LOG_INFO("New version available: %s", swUpdate->getNewVersion());
+        strncpy(result.SoftVer,
+                swUpdate->getNewVersion(),
+                SUPLA_SOFTVER_MAXSIZE - 1);
+        result.Result = SUPLA_FIRMWARE_CHECK_RESULT_UPDATE_AVAILABLE;
+        if (swUpdate->getChangelogUrl()) {
+          strncpy(
+              result.ChangelogUrl, swUpdate->getChangelogUrl(),
+              SUPLA_URL_PATH_MAXSIZE - 1);
+        }
+      } else {
+        result.Result = SUPLA_FIRMWARE_CHECK_RESULT_UPDATE_NOT_AVAILABLE;
+        triggerSwUpdateIfAvailable = false;
+      }
+      srpcLayer->sendPendingCalCfgResult(-1, SUPLA_CALCFG_RESULT_TRUE, -1,
+          sizeof(result), &result);
+      srpcLayer->clearPendingCalCfgResult(
+          -1, SUPLA_CALCFG_CMD_CHECK_FIRMWARE_UPDATE);
+      delete swUpdate;
+      swUpdate = nullptr;
+      if (triggerSwUpdateIfAvailable) {
+        initSwUpdateInstance(true, securityOnly);
+      }
+
+    } else if (swUpdate->isFinished()) {
+      SUPLA_LOG_INFO("Finished SW update, restarting...");
+      delete swUpdate;
+      swUpdate = nullptr;
+      scheduleSoftRestart();
+    }
+  }
+}
+
 void SuplaDeviceClass::setServerPort(int value) {
   createSrpcLayerIfNeeded();
   srpcLayer->setServerPort(value);
@@ -525,11 +718,11 @@ void SuplaDeviceClass::setSwVersion(const char *swVersion) {
   Supla::RegisterDevice::setSoftVer(swVersion);
 }
 
-int SuplaDeviceClass::getCurrentStatus() {
+int8_t SuplaDeviceClass::getCurrentStatus() const {
   return currentStatus;
 }
 
-void SuplaDeviceClass::fillStateData(TDSC_ChannelState *channelState) {
+void SuplaDeviceClass::fillStateData(TDSC_ChannelState *channelState) const {
   if (showUptimeInChannelState) {
     channelState->Fields |= SUPLA_CHANNELSTATE_FIELD_UPTIME;
     channelState->Uptime = uptime.getUptime();
@@ -565,7 +758,7 @@ void SuplaDeviceClass::addClock(Supla::Clock *) {
   SUPLA_LOG_DEBUG("addClock: DEPRECATED");
 }
 
-Supla::Clock *SuplaDeviceClass::getClock() {
+Supla::Clock *SuplaDeviceClass::getClock() const {
   return Supla::Clock::GetInstance();
 }
 
@@ -615,11 +808,25 @@ bool SuplaDeviceClass::loadDeviceConfig() {
     }
   }
 
+  if (!isAutomaticFirmwareUpdateEnabled()) {
+    SUPLA_LOG_WARNING("Automatic firmware update is disabled");
+  } else {
+    auto otaPolicy = cfg->getAutoUpdatePolicy();
+    (void)(otaPolicy);
+    SUPLA_LOG_INFO(
+        "Automatic firmware update is supported. OTA policy: %s",
+        otaPolicy == Supla::AutoUpdatePolicy::ForcedOff      ? "forced off"
+        : otaPolicy == Supla::AutoUpdatePolicy::Disabled     ? "disabled"
+        : otaPolicy == Supla::AutoUpdatePolicy::SecurityOnly ? "security only"
+                                                             : "all enabled");
+  }
 
   deviceMode = cfg->getDeviceMode();
+  SUPLA_LOG_INFO("Device mode: %d", deviceMode);
   if (deviceMode == Supla::DEVICE_MODE_NOT_SET) {
     deviceMode = Supla::DEVICE_MODE_NORMAL;
   } else if (deviceMode == Supla::DEVICE_MODE_TEST) {
+    Supla::Network::SetTestMode();
     char wifiApName[100] = {};
     const char test[] = "TEST-";
     snprintf(wifiApName, sizeof(wifiApName), "%s", test);
@@ -643,9 +850,10 @@ bool SuplaDeviceClass::loadDeviceConfig() {
   if (net != nullptr && !net->isIntfDisabledInConfig() &&
       net->isWifiConfigRequired()) {
     memset(buf, 0, sizeof(buf));
+    configurationState.wifiEnabled = 1;
     if (cfg->getWiFiSSID(buf) && strlen(buf) > 0) {
       net->setSsid(buf);
-      configEmpty = false;
+      configurationState.wifiSsidFilled = 1;
     } else {
       SUPLA_LOG_INFO("Config incomplete: missing Wi-Fi SSID");
       addLastStateLog("Missing Wi-Fi SSID");
@@ -655,6 +863,7 @@ bool SuplaDeviceClass::loadDeviceConfig() {
     memset(buf, 0, sizeof(buf));
     if (cfg->getWiFiPassword(buf) && strlen(buf) > 0) {
       net->setPassword(buf);
+      configurationState.wifiPassFilled = 1;
     } else {
       SUPLA_LOG_INFO("Config incomplete: missing Wi-Fi password");
       addLastStateLog("Missing Wi-Fi password");
@@ -737,18 +946,13 @@ void SuplaDeviceClass::enterConfigMode() {
 
   disableLocalActionsIfNeeded();
 
-  if (deviceMode == Supla::DEVICE_MODE_CONFIG) {
-    // if we enter cfg mode with deviceMode already set to cfgmode, then
-    // configuration is incomplete, so there is no timeout to leave config
-    // mode
-    deviceRestartTimeoutTimestamp = 0;
-  } else {
-    deviceRestartTimeoutTimestamp = millis();
-  }
-
   deviceMode = Supla::DEVICE_MODE_CONFIG;
   Supla::Network::DisconnectProtocols();
   Supla::Network::SetConfigMode();
+
+  if (isLeaveCfgModeAfterInactivityEnabled()) {
+    cfgModeState = Supla::CfgModeState::CfgModeStartedPending;
+  }
 
   if (Supla::Network::PopSetupNeeded()) {
     Supla::Network::Setup();
@@ -761,9 +965,11 @@ void SuplaDeviceClass::enterConfigMode() {
 }
 
 void SuplaDeviceClass::leaveConfigModeWithoutRestart() {
+  cfgModeState = Supla::CfgModeState::Done;
   if (deviceMode != Supla::DEVICE_MODE_CONFIG) {
     return;
   }
+  addSecurityLog(Supla::SecurityLogSource::LOCAL_DEVICE, "Leaving config mode");
   enterConfigModeTimestamp = 0;
 
   if (Supla::WebServer::Instance()) {
@@ -779,8 +985,17 @@ void SuplaDeviceClass::leaveConfigModeWithoutRestart() {
 
 void SuplaDeviceClass::softRestart() {
   status(STATUS_SOFTWARE_RESET, F("Software reset"));
+  if (statusLed) {
+    statusLed->setAlwaysOffSequence();
+  }
 
-  if (!triggerResetToFacotrySettings) {
+  for (auto element = Supla::Element::begin(); element != nullptr;
+       element = element->next()) {
+    element->onSoftReset();
+    delay(0);
+  }
+
+  if (!triggerResetToFactorySettings) {
     // skip writing to storage if reset is because of factory reset
     saveStateToStorage();
     auto cfg = Supla::Storage::ConfigInstance();
@@ -791,12 +1006,6 @@ void SuplaDeviceClass::softRestart() {
   deviceMode = Supla::DEVICE_MODE_NORMAL;
 
   // TODO(klew): stop supla timers
-
-  for (auto element = Supla::Element::begin(); element != nullptr;
-       element = element->next()) {
-    element->onSoftReset();
-    delay(0);
-  }
 
   if (Supla::WebServer::Instance()) {
     Supla::WebServer::Instance()->stop();
@@ -839,7 +1048,10 @@ int SuplaDeviceClass::handleCalcfgFromServer(TSD_DeviceCalCfgRequest *request,
     switch (request->Command) {
       case SUPLA_CALCFG_CMD_ENTER_CFG_MODE: {
         SUPLA_LOG_INFO("CALCFG ENTER CFGMODE received");
-        requestCfgMode(Supla::Device::WithTimeout);
+        addSecurityLog(Supla::SecurityLogSource::REMOTE,
+                       "Enter config mode from remote request");
+        requestCfgMode();
+        cfgModeState = Supla::CfgModeState::CfgModeStartedPending;
         return SUPLA_CALCFG_RESULT_DONE;
       }
       case SUPLA_CALCFG_CMD_RESTART_DEVICE: {
@@ -849,8 +1061,8 @@ int SuplaDeviceClass::handleCalcfgFromServer(TSD_DeviceCalCfgRequest *request,
       }
       case SUPLA_CALCFG_CMD_SET_TIME: {
         SUPLA_LOG_INFO("CALCFG SET TIME received");
-        if (request->DataType != 0 &&
-            request->DataSize != sizeof(TSDC_UserLocalTimeResult)) {
+        if (request->DataType != 0 ||
+            request->DataSize > sizeof(TSDC_UserLocalTimeResult)) {
           SUPLA_LOG_WARNING("SET TIME invalid size %d", request->DataSize);
           return SUPLA_CALCFG_RESULT_FALSE;
         }
@@ -887,9 +1099,158 @@ int SuplaDeviceClass::handleCalcfgFromServer(TSD_DeviceCalCfgRequest *request,
       }
       case SUPLA_CALCFG_CMD_IDENTIFY_DEVICE: {
         SUPLA_LOG_INFO("CALCFG IDENTIFY DEVICE received");
-        if (statusLed) {
-          statusLed->identify();
+        identifyStatusLed();
+        return SUPLA_CALCFG_RESULT_DONE;
+      }
+      case SUPLA_CALCFG_CMD_CHECK_FIRMWARE_UPDATE: {
+        SUPLA_LOG_INFO("CALCFG CHECK FIRMWARE UPDATE received");
+        if (!isAutomaticFirmwareUpdateEnabled()) {
+          SUPLA_LOG_WARNING("Automatic firmware update not supported");
+          return SUPLA_CALCFG_RESULT_NOT_SUPPORTED;
         }
+        if (swUpdate) {
+          // update ongoing
+          SUPLA_LOG_INFO("Firmware update in progress");
+          return SUPLA_CALCFG_RESULT_FALSE;
+        }
+        auto cfg = Supla::Storage::ConfigInstance();
+        auto otaMode = Supla::AutoUpdatePolicy::ForcedOff;
+        if (cfg) {
+          otaMode = cfg->getAutoUpdatePolicy();
+        }
+        switch (otaMode) {
+          case Supla::AutoUpdatePolicy::ForcedOff: {
+            SUPLA_LOG_INFO("Firmware update is forced off");
+            return SUPLA_CALCFG_RESULT_FALSE;
+          }
+          case Supla::AutoUpdatePolicy::Disabled:
+          case Supla::AutoUpdatePolicy::SecurityOnly:
+          case Supla::AutoUpdatePolicy::AllUpdates: {
+            break;
+          }
+        }
+        // only check firmware for all updates
+        initSwUpdateInstance(false, 0);
+        if (swUpdate) {
+          SUPLA_LOG_INFO("Firmware update check started");
+          return SUPLA_CALCFG_RESULT_TRUE;
+        }
+        SUPLA_LOG_WARNING("Failed to create firmware update instance");
+        return SUPLA_CALCFG_RESULT_FALSE;
+      }
+      case SUPLA_CALCFG_CMD_START_FIRMWARE_UPDATE: {
+        SUPLA_LOG_INFO("CALCFG START FIRMWARE UPDATE received");
+        if (!isAutomaticFirmwareUpdateEnabled()) {
+          SUPLA_LOG_WARNING("Automatic firmware update not supported");
+          return SUPLA_CALCFG_RESULT_NOT_SUPPORTED;
+        }
+        if (swUpdate) {
+          // update ongoing
+          SUPLA_LOG_INFO("Firmware update in progress");
+          return SUPLA_CALCFG_RESULT_FALSE;
+        }
+        auto cfg = Supla::Storage::ConfigInstance();
+        auto otaPolicy = Supla::AutoUpdatePolicy::ForcedOff;
+        if (cfg) {
+          otaPolicy = cfg->getAutoUpdatePolicy();
+        }
+        switch (otaPolicy) {
+          case Supla::AutoUpdatePolicy::ForcedOff: {
+            SUPLA_LOG_INFO("Firmware update is forced off");
+            return SUPLA_CALCFG_RESULT_FALSE;
+          }
+          case Supla::AutoUpdatePolicy::Disabled:
+          case Supla::AutoUpdatePolicy::SecurityOnly:
+          case Supla::AutoUpdatePolicy::AllUpdates: {
+            break;
+          }
+        }
+        // only check firmware for all updates
+        initSwUpdateInstance(false, 0);
+        triggerSwUpdateIfAvailable = true;
+        if (swUpdate) {
+          SUPLA_LOG_INFO("Firmware update started");
+          return SUPLA_CALCFG_RESULT_TRUE;
+        }
+        SUPLA_LOG_WARNING("Failed to create firmware update instance");
+        return SUPLA_CALCFG_RESULT_FALSE;
+      }
+      case SUPLA_CALCFG_CMD_START_SECURITY_UPDATE: {
+        SUPLA_LOG_INFO("CALCFG START SECURITY UPDATE received");
+        if (!isAutomaticFirmwareUpdateEnabled()) {
+          SUPLA_LOG_WARNING("Automatic firmware update not supported");
+          return SUPLA_CALCFG_RESULT_NOT_SUPPORTED;
+        }
+        if (swUpdate) {
+          // update ongoing
+          SUPLA_LOG_INFO("Firmware update in progress");
+          return SUPLA_CALCFG_RESULT_FALSE;
+        }
+        auto cfg = Supla::Storage::ConfigInstance();
+        auto otaMode = Supla::AutoUpdatePolicy::ForcedOff;
+        if (cfg) {
+          otaMode = cfg->getAutoUpdatePolicy();
+        }
+        switch (otaMode) {
+          case Supla::AutoUpdatePolicy::ForcedOff: {
+            SUPLA_LOG_INFO("Firmware update is forced off");
+            return SUPLA_CALCFG_RESULT_FALSE;
+          }
+          case Supla::AutoUpdatePolicy::Disabled:
+          case Supla::AutoUpdatePolicy::SecurityOnly:
+          case Supla::AutoUpdatePolicy::AllUpdates: {
+            break;
+          }
+        }
+        // only check firmware for all updates
+        initSwUpdateInstance(false, 1);
+        triggerSwUpdateIfAvailable = true;
+        if (swUpdate) {
+          SUPLA_LOG_INFO("Firmware update started");
+          return SUPLA_CALCFG_RESULT_TRUE;
+        }
+        SUPLA_LOG_WARNING("Failed to create firmware update instance");
+        return SUPLA_CALCFG_RESULT_FALSE;
+      }
+
+      case SUPLA_CALCFG_CMD_RESET_TO_FACTORY_SETTINGS: {
+        SUPLA_LOG_INFO("CALCFG RESET TO FACTORY SETTINGS received");
+        triggerResetToFactorySettings = true;
+        return SUPLA_CALCFG_RESULT_DONE;
+      }
+
+      case SUPLA_CALCFG_CMD_SET_CFG_MODE_PASSWORD: {
+        SUPLA_LOG_INFO("CALCFG SET CFGMODE PASSWORD received");
+        if (request->DataType != 0 ||
+            request->DataSize > sizeof(TCalCfg_SetCfgModePassword)) {
+          SUPLA_LOG_WARNING("CALCFG SET CFGMODE PASSWORD invalid size %d",
+                            request->DataSize);
+          return SUPLA_CALCFG_RESULT_FALSE;
+        }
+
+        auto cfg = Supla::Storage::ConfigInstance();
+        if (!cfg || !Supla::RegisterDevice::isSetCfgModePasswordEnabled()) {
+          return SUPLA_CALCFG_RESULT_NOT_SUPPORTED;
+        }
+
+        TCalCfg_SetCfgModePassword *password =
+            reinterpret_cast<TCalCfg_SetCfgModePassword *>(request->Data);
+
+        Supla::SaltPassword saltPassword;
+        if (!saltPassword.isPasswordStrong(password->NewPassword)) {
+          SUPLA_LOG_WARNING("CALCFG SET CFGMODE PASSWORD: password too weak");
+          addSecurityLog(
+              Supla::SecurityLogSource::REMOTE,
+              "Password change failed: password is not strong enough");
+          return SUPLA_CALCFG_RESULT_FALSE;
+        }
+        Supla::Config::generateSaltPassword(password->NewPassword,
+                                            &saltPassword);
+        cfg->setCfgModeSaltPassword(saltPassword);
+        addSecurityLog(Supla::SecurityLogSource::REMOTE,
+                       "Password successfully changed");
+        cfg->saveWithDelay(2000);
+        SUPLA_LOG_INFO("CALCFG SET CFGMODE PASSWORD: new password set");
         return SUPLA_CALCFG_RESULT_DONE;
       }
 
@@ -901,7 +1262,7 @@ int SuplaDeviceClass::handleCalcfgFromServer(TSD_DeviceCalCfgRequest *request,
 }
 
 void SuplaDeviceClass::saveStateToStorage() {
-  if (triggerResetToFacotrySettings) {
+  if (triggerResetToFactorySettings) {
     return;
   }
   Supla::Storage::WriteStateStorage();
@@ -965,6 +1326,8 @@ int SuplaDeviceClass::generateHostname(char *buf, int macSize) {
       name[destIdx++] = '-';
     } else if (srcName[i] < 123) {
       name[destIdx++] = srcName[i] - 32;  // capitalize small chars
+    } else {
+      continue;
     }
     if (destIdx == 1) {
       if (name[0] == '-') {
@@ -988,10 +1351,17 @@ int SuplaDeviceClass::generateHostname(char *buf, int macSize) {
   return destIdx;
 }
 
-void SuplaDeviceClass::disableCfgModeTimeout() {
-  if (!forceRestartTimeMs) {
-    deviceRestartTimeoutTimestamp = 0;
-    goToOfflineModeTimeout = 2;
+void SuplaDeviceClass::restartCfgModeTimeout(bool requireRestart) {
+  if (deviceMode != Supla::DEVICE_MODE_CONFIG) {
+    return;
+  }
+
+  if (forceRestartTimeMs == 0) {
+    if (requireRestart || deviceRestartTimeoutTimestamp) {
+      cfgModeState = Supla::CfgModeState::Done;
+      deviceRestartTimeoutTimestamp = millis();
+    }
+    enterConfigModeTimestamp = millis();
     runAction(Supla::ON_DEVICE_STATUS_CHANGE);
   }
 }
@@ -1004,11 +1374,12 @@ void SuplaDeviceClass::scheduleSoftRestart(int timeout) {
   } else {
     forceRestartTimeMs = timeout;
   }
+  cfgModeState = Supla::CfgModeState::Done;
   deviceRestartTimeoutTimestamp = millis();
 }
 
 void SuplaDeviceClass::scheduleProtocolsRestart(int timeout) {
-  SUPLA_LOG_INFO("Scheduling protocols restart in %d ms", timeout);;
+  SUPLA_LOG_INFO("Scheduling protocols restart in %d ms", timeout);
   if (timeout <= 0) {
     protocolRestartTimeMs = 1;
   } else {
@@ -1032,20 +1403,24 @@ void SuplaDeviceClass::handleAction(int event, int action) {
     }
     case Supla::ENTER_CONFIG_MODE: {
       if (deviceMode != Supla::DEVICE_MODE_CONFIG) {
-        requestCfgMode(Supla::Device::WithoutTimeout);
+        addSecurityLog(Supla::SecurityLogSource::LOCAL_DEVICE,
+                       "Enter config mode from local action (button)");
+        requestCfgMode();
       }
       break;
     }
     case Supla::TOGGLE_CONFIG_MODE: {
       if (deviceMode != Supla::DEVICE_MODE_CONFIG) {
-        requestCfgMode(Supla::Device::WithoutTimeout);
+        addSecurityLog(Supla::SecurityLogSource::LOCAL_DEVICE,
+                       "Enter config mode from local action (button)");
+        requestCfgMode();
       } else {
         scheduleSoftRestart(0);
       }
       break;
     }
     case Supla::RESET_TO_FACTORY_SETTINGS: {
-      triggerResetToFacotrySettings = true;
+      triggerResetToFactorySettings = true;
       break;
     }
     case Supla::START_LOCAL_WEB_SERVER: {
@@ -1064,16 +1439,21 @@ void SuplaDeviceClass::handleAction(int event, int action) {
     }
     case Supla::ENTER_CONFIG_MODE_OR_RESET_TO_FACTORY: {
       if (deviceMode != Supla::DEVICE_MODE_CONFIG) {
-        requestCfgMode(Supla::Device::WithoutTimeout);
+        addSecurityLog(Supla::SecurityLogSource::LOCAL_DEVICE,
+                       "Enter config mode from local action (button)");
+        requestCfgMode();
       } else if (millis() - enterConfigModeTimestamp > 2000) {
-        triggerResetToFacotrySettings = true;
+        triggerResetToFactorySettings = true;
       }
       break;
     }
     case Supla::LEAVE_CONFIG_MODE_AND_RESET: {
       if (deviceMode == Supla::DEVICE_MODE_CONFIG) {
         auto cfg = Supla::Storage::ConfigInstance();
-        if (allowOfflineMode || (cfg && cfg->isMinimalConfigReady())) {
+        if (initialMode != Supla::InitialMode::StartInCfgMode ||
+            (cfg && cfg->isMinimalConfigReady())) {
+          addSecurityLog(Supla::SecurityLogSource::LOCAL_DEVICE,
+                         "Leaving config mode, device is restarting...");
           scheduleSoftRestart(0);
         }
       }
@@ -1102,18 +1482,20 @@ void SuplaDeviceClass::resetToFactorySettings() {
     SUPLA_LOG_DEBUG("Clearing state storage...");
     storage->deleteAll();
   }
+
+  if (securityLogger) {
+    SUPLA_LOG_DEBUG("Clearing security log...");
+    securityLogger->deleteAll();
+  }
 }
 
 void SuplaDeviceClass::handleLocalActionTriggers() {
-  if (goToConfigModeAsap != Supla::Device::None) {
+  if (goToConfigModeAsap) {
+    goToConfigModeAsap = false;
     enterConfigMode();
-    if (goToConfigModeAsap == Supla::Device::WithoutTimeout) {
-      disableCfgModeTimeout();
-    }
-    goToConfigModeAsap = Supla::Device::None;
   }
 
-  if (triggerResetToFacotrySettings) {
+  if (triggerResetToFactorySettings) {
     resetToFactorySettings();
     softRestart();
   }
@@ -1140,17 +1522,47 @@ void SuplaDeviceClass::handleLocalActionTriggers() {
   }
 }
 
-void SuplaDeviceClass::checkIfRestartIsNeeded(uint32_t _millis) {
-  if (deviceRestartTimeoutTimestamp != 0 &&
-      _millis - deviceRestartTimeoutTimestamp > 5ul * 60 * 1000) {
-    SUPLA_LOG_INFO("Config mode 5 min timeout. Reset device");
+void SuplaDeviceClass::checkIfLeaveCfgModeOrRestartIsNeeded() {
+  uint32_t enterConfigModeTimestampCopy = enterConfigModeTimestamp;
+  uint32_t deviceRestartTimeoutTimestampCopy = deviceRestartTimeoutTimestamp;
+  uint32_t _millis = millis();
+  uint32_t restartTimeoutValue = 5 * 60ull * 1000;
+  if (isLeaveCfgModeAfterInactivityEnabled()) {
+    restartTimeoutValue = leaveCfgModeAfterInactivityMin * 60ull * 1000;
+  }
+
+  // In StartWithCfgModeThenOffline device starts in "offline" mode with cfg
+  // mode enabled for 1h. After that time, it will switch to full offline mode.
+  // After any user interaction with www inteface, it switches to Done state.
+  if (cfgModeState == Supla::CfgModeState::CfgModeStartedFor1hPending &&
+      _millis > 60ULL * 60 * 1000) {
+    SUPLA_LOG_INFO("Offline mode timeout triggered");
+    leaveConfigModeWithoutRestart();
+  }
+
+  // CfgModeStartedPending is set when device enters cfg mode from remote
+  // request (from Cloud).
+  // After any interaction with www inteface, it switches to Done state.
+  if ((cfgModeState == Supla::CfgModeState::CfgModeStartedPending &&
+        enterConfigModeTimestampCopy != 0 &&
+       _millis - enterConfigModeTimestampCopy > restartTimeoutValue)) {
+    SUPLA_LOG_INFO("Config mode timeout. Leave without restart");
+    leaveConfigModeWithoutRestart();
+  }
+
+  if (isLeaveCfgModeAfterInactivityEnabled() &&
+      deviceRestartTimeoutTimestampCopy != 0 &&
+      _millis - deviceRestartTimeoutTimestampCopy > restartTimeoutValue) {
+    SUPLA_LOG_INFO("Config mode timeout. Reset device");
     softRestart();
   }
+
   if (forceRestartTimeMs &&
-      _millis - deviceRestartTimeoutTimestamp > forceRestartTimeMs) {
-    SUPLA_LOG_DEBUG("Reset requested. Reset device");
+      _millis - deviceRestartTimeoutTimestampCopy > forceRestartTimeMs) {
+    SUPLA_LOG_INFO("Reset requested. Reset device");
     softRestart();
   }
+
   if (resetOnConnectionFailTimeoutSec) {
     uint32_t longestConnectionFailTime = networkIsNotReadyCounter / 10;
     for (auto proto = Supla::Protocol::ProtocolLayer::first(); proto != nullptr;
@@ -1175,7 +1587,7 @@ void SuplaDeviceClass::checkIfRestartIsNeeded(uint32_t _millis) {
   }
 }
 
-const uint8_t *SuplaDeviceClass::getRsaPublicKey() {
+const uint8_t *SuplaDeviceClass::getRsaPublicKey() const {
   return rsaPublicKey;
 }
 
@@ -1203,6 +1615,13 @@ void SuplaDeviceClass::setSuplaCACert(const char *cert) {
   srpcLayer->setSuplaCACert(cert);
 }
 
+const char* SuplaDeviceClass::getSuplaCACert() const {
+  if (srpcLayer) {
+    return srpcLayer->getSuplaCACert();
+  }
+  return nullptr;
+}
+
 void SuplaDeviceClass::setSupla3rdPartyCACert(const char *cert) {
   createSrpcLayerIfNeeded();
   srpcLayer->setSupla3rdPartyCACert(cert);
@@ -1223,17 +1642,17 @@ Supla::Protocol::SuplaSrpc *SuplaDeviceClass::getSrpcLayer() {
 }
 
 void SuplaDeviceClass::setCustomHostnamePrefix(const char *prefix) {
+  if (customHostnamePrefix != nullptr) {
+    delete[] customHostnamePrefix;
+    customHostnamePrefix = nullptr;
+  }
   if (prefix == nullptr) {
-    if (customHostnamePrefix != nullptr) {
-      delete[] customHostnamePrefix;
-      customHostnamePrefix = nullptr;
-    }
     return;
   }
 
-  int len = strlen(prefix);
-  customHostnamePrefix = new char[len + 1];
-  strncpy(customHostnamePrefix, prefix, len + 1);
+  int len = strlen(prefix) + 1;
+  customHostnamePrefix = new char[len];
+  snprintf(customHostnamePrefix, len, "%s", prefix);
 }
 
 void SuplaDeviceClass::disableLocalActionsIfNeeded() {
@@ -1254,21 +1673,22 @@ void SuplaDeviceClass::disableLocalActionsIfNeeded() {
 }
 
 void SuplaDeviceClass::disableNetwork() {
+  SUPLA_LOG_DEBUG("SD: disableNetwork");
   skipNetwork = true;
   Supla::Network::Disable();
 }
 
 void SuplaDeviceClass::enableNetwork() {
+  SUPLA_LOG_DEBUG("SD: enableNetwork");
   skipNetwork = false;
   Supla::Network::SetSetupNeeded();
 }
 
-void SuplaDeviceClass::requestCfgMode(
-    Supla::Device::RequestConfigModeType type) {
-  goToConfigModeAsap = type;
+void SuplaDeviceClass::requestCfgMode() {
+  goToConfigModeAsap = true;
 }
 
-bool SuplaDeviceClass::isSleepingDeviceEnabled() {
+bool SuplaDeviceClass::isSleepingDeviceEnabled() const {
   return Supla::RegisterDevice::isSleepingDeviceEnabled();
 }
 
@@ -1290,7 +1710,22 @@ bool SuplaDeviceClass::isSleepingAllowed() {
 }
 
 void SuplaDeviceClass::allowWorkInOfflineMode(int mode) {
-  allowOfflineMode = mode;
+  SUPLA_LOG_WARNING("SD: allowWorkInOfflineMode is DEPRECATED");
+  switch (mode) {
+    default:
+    case 0: {
+      setInitialMode(Supla::InitialMode::StartInCfgMode);
+      break;
+    }
+    case 1: {
+      setInitialMode(Supla::InitialMode::StartOffline);
+      break;
+    }
+    case 2: {
+      setInitialMode(Supla::InitialMode::StartWithCfgModeThenOffline);
+      break;
+    }
+  }
 }
 
 bool SuplaDeviceClass::isRemoteDeviceConfigEnabled() const {
@@ -1314,11 +1749,6 @@ void SuplaDeviceClass::setProtoVerboseLog(bool value) {
   if (srpcLayer) {
     srpcLayer->setVerboseLog(value);
   }
-}
-
-bool SuplaDeviceClass::isOfflineModeDuringConfig() const {
-  return goToOfflineModeTimeout == 0 &&
-         getDeviceMode() == Supla::DEVICE_MODE_CONFIG;
 }
 
 Supla::Mutex *SuplaDeviceClass::getTimerAccessMutex() {
@@ -1348,7 +1778,122 @@ void SuplaDeviceClass::setMacLengthInHostname(int value) {
 
 void SuplaDeviceClass::setStatusLed(Supla::Device::StatusLed *led) {
   statusLed = led;
+  SUPLA_LOG_DEBUG("SD: add flag CALCFG_IDENTIFY_DEVICE");
   addFlags(SUPLA_DEVICE_FLAG_CALCFG_IDENTIFY_DEVICE);
+}
+
+void SuplaDeviceClass::setLeaveCfgModeAfterInactivityMin(int valueMin) {
+  SUPLA_LOG_INFO("SD: leave cfg mode after inactivity: %d min%s",
+                 valueMin, valueMin == 0 ? " (disabled)" : "");
+  leaveCfgModeAfterInactivityMin = valueMin;
+}
+
+bool SuplaDeviceClass::isAutomaticFirmwareUpdateEnabled() const {
+  return Supla::RegisterDevice::isAutomaticFirmwareUpdateEnabled();
+}
+
+void SuplaDeviceClass::setAutomaticFirmwareUpdateSupported(bool value) {
+  if (value) {
+    SUPLA_LOG_DEBUG("SD: add flag AUTOMATIC_FIRMWARE_UPDATE_SUPPORTED");
+    addFlags(SUPLA_DEVICE_FLAG_AUTOMATIC_FIRMWARE_UPDATE_SUPPORTED);
+    // register DeviceConfig field bit:
+    Supla::Device::RemoteDeviceConfig::RegisterConfigField(
+        SUPLA_DEVICE_CONFIG_FIELD_FIRMWARE_UPDATE);
+  } else {
+    removeFlags(SUPLA_DEVICE_FLAG_AUTOMATIC_FIRMWARE_UPDATE_SUPPORTED);
+  }
+}
+
+void SuplaDeviceClass::identifyStatusLed() {
+  runAction(Supla::ON_IDENTIFY);
+  if (statusLed) {
+    statusLed->identify();
+  }
+}
+
+void SuplaDeviceClass::testStepStatusLed(int times) {
+  if (statusLed) {
+    statusLed->setCustomSequence(20, 50, 10, times, 1);
+  }
+}
+
+void SuplaDeviceClass::setSecurityLogger(
+    Supla::Device::SecurityLogger *logger) {
+  securityLogger = logger;
+  if (securityLogger) {
+    securityLogger->init();
+  }
+}
+
+void SuplaDeviceClass::addSecurityLog(uint32_t source, const char *log) const {
+  if (securityLogger) {
+    securityLogger->log(source, log);
+  }
+}
+
+void SuplaDeviceClass::addSecurityLog(Supla::SecurityLogSource source,
+                                      const char *log) const {
+  if (securityLogger) {
+    securityLogger->log(static_cast<uint32_t>(source), log);
+  }
+}
+
+bool SuplaDeviceClass::isSecurityLogEnabled() const {
+  return securityLogger && securityLogger->isEnabled();
+}
+
+void SuplaDeviceClass::setInitialMode(Supla::InitialMode mode) {
+  SUPLA_LOG_INFO("SD: initial mode: %s", getInitialModeName(mode));
+  initialMode = mode;
+  if ((initialMode == Supla::InitialMode::StartInNotConfiguredMode ||
+       initialMode == Supla::InitialMode::StartOffline ||
+       initialMode == Supla::InitialMode::StartWithCfgModeThenOffline) &&
+      leaveCfgModeAfterInactivityMin == 0) {
+    // set default value
+    setLeaveCfgModeAfterInactivityMin(5);
+  }
+}
+
+const char *Supla::getInitialModeName(const Supla::InitialMode mode) {
+  switch (mode) {
+    case InitialMode::StartInCfgMode: {
+      return "Start in cfg mode (legacy, deprected)";
+    }
+    case InitialMode::StartOffline: {
+      return "Start offline";
+    }
+    case InitialMode::StartWithCfgModeThenOffline: {
+      return "Start with cfg mode then offline";
+    }
+    case InitialMode::StartInNotConfiguredMode: {
+      return "Start in not configured mode";
+    }
+  }
+  return "Unknown";
+}
+
+bool Supla::ConfigurationState::isEmpty() const {
+  // "empty" ignores wifiPassFilled because it can't be cleared manually
+  // by user in cfg mode.
+  bool empty = true;
+  if (wifiEnabled && wifiSsidFilled) {
+    empty = false;
+  }
+  if (protocolNotEmpty) {
+    empty = false;
+  }
+  if (protocolFilled) {
+    empty = false;
+  }
+
+  return empty;
+}
+
+bool SuplaDeviceClass::isLeaveCfgModeAfterInactivityEnabled() const {
+  return leaveCfgModeAfterInactivityMin > 0 &&
+         (initialMode == Supla::InitialMode::StartInNotConfiguredMode ||
+          initialMode == Supla::InitialMode::StartOffline ||
+          initialMode == Supla::InitialMode::StartWithCfgModeThenOffline);
 }
 
 SuplaDeviceClass SuplaDevice;

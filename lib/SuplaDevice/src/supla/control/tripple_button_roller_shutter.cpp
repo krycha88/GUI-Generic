@@ -26,7 +26,7 @@ namespace Supla {
 namespace Control {
 
 TrippleButtonRollerShutter::TrippleButtonRollerShutter(
-    Supla::Io *io, int pinUp, int pinDown, int pinStop, bool highIsOn)
+    Supla::Io::Base  *io, int pinUp, int pinDown, int pinStop, bool highIsOn)
     : BistableRollerShutter(io, pinUp, pinDown, highIsOn), pinStop(pinStop) {
 }
 
@@ -50,7 +50,7 @@ void TrippleButtonRollerShutter::onInit() {
 
 void TrippleButtonRollerShutter::stopMovement() {
   relayStopOn();
-  currentDirection = STOP_DIR;
+  currentDirection = Directions::STOP_DIR;
   doNothingTime = millis();
   // Schedule save in 5 s after stop movement of roller shutter
   Supla::Storage::ScheduleSave(5000);
@@ -81,7 +81,7 @@ bool TrippleButtonRollerShutter::inMove() {
     result = true;
     newTargetPositionAvailable = false;
   }
-  return result || currentDirection != STOP_DIR;
+  return result || currentDirection != Directions::STOP_DIR;
 }
 
 };  // namespace Control

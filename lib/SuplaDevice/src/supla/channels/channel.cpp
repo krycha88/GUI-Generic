@@ -14,7 +14,7 @@
  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-#include <string.h>
+#include "channel.h"
 
 #include <supla/log_wrapper.h>
 #include <supla/protocol/protocol_layer.h>
@@ -25,7 +25,12 @@
 #include <math.h>
 #include <supla/device/register_device.h>
 
-#include "channel.h"
+#include <string.h>
+
+#define CHANNEL_SEND_VALUE           (1 << 0)
+#define CHANNEL_SEND_GET_CONFIG      (1 << 1)
+#define CHANNEL_SEND_STATE_INFO      (1 << 2)
+#define CHANNEL_SEND_INITIAL_CAPTION (1 << 3)
 
 using Supla::Channel;
 
@@ -134,14 +139,17 @@ bool Channel::setChannelNumber(int newChannelNumber) {
 }
 
 void Channel::setNewValue(double dbl) {
-  bool skipCorrection = false;
   if (channelType == ChannelType::THERMOMETER) {
-    if (dbl <= -273) {
-      skipCorrection = true;
+    // for thermometer value must be greater than -273
+    if (dbl > -273) {
+      // Apply channel value correction
+      dbl += Correction::get(getChannelNumber());
+      if (dbl < -273) {
+        dbl = -273;
+      }
     }
-  }
-
-  if (!skipCorrection) {
+  } else {
+    // For all other channels
     // Apply channel value correction
     dbl += Correction::get(getChannelNumber());
   }
@@ -165,39 +173,33 @@ void Channel::setNewValue(double dbl) {
 }
 
 void Channel::setNewValue(double temp, double humi) {
-  bool skipTempCorrection = false;
-  bool skipHumiCorrection = false;
+  // 2x Float is used only on humidity and humidity&temperature
   if (channelType == ChannelType::HUMIDITYSENSOR ||
       channelType == ChannelType::HUMIDITYANDTEMPSENSOR) {
-    if (temp <= -273) {
-      skipTempCorrection = true;
-    }
-    if (humi < 0) {
-      skipHumiCorrection = true;
-    }
-  }
-
-  if (!skipTempCorrection) {
-    // Apply channel value corrections
-    temp += Correction::get(getChannelNumber());
-  }
-
-  if (!skipHumiCorrection) {
-    double humiCorr = Correction::get(getChannelNumber(), true);
-    humi += humiCorr;
-    if (humiCorr > 0.01 || humiCorr < -0.01) {
-      if (humi < 0) {
-        humi = 0;
+    if (temp > -273) {
+      // Apply channel value corrections
+      temp += Correction::get(getChannelNumber());
+      if (temp < -273) {
+        temp = -273;
       }
-      if (humi > 100) {
-        humi = 100;
+    }
+    if (humi >= 0) {
+      double humiCorr = Correction::get(getChannelNumber(), true);
+      humi += humiCorr;
+      if (humiCorr > 0.01 || humiCorr < -0.01) {
+        if (humi < 0) {
+          humi = 0;
+        }
+        if (humi > 100) {
+          humi = 100;
+        }
       }
     }
   }
 
-  char newValue[SUPLA_CHANNELVALUE_SIZE];
-  _supla_int_t t = temp * 1000.00;
-  _supla_int_t h = humi * 1000.00;
+  char newValue[SUPLA_CHANNELVALUE_SIZE] = {};
+  int32_t t = temp * 1000.00;
+  int32_t h = humi * 1000.00;
 
   memcpy(newValue, &t, 4);
   memcpy(&(newValue[4]), &h, 4);
@@ -214,9 +216,7 @@ void Channel::setNewValue(double temp, double humi) {
 }
 
 void Channel::setNewValue(uint64_t value) {
-  char newValue[SUPLA_CHANNELVALUE_SIZE];
-
-  memset(newValue, 0, SUPLA_CHANNELVALUE_SIZE);
+  char newValue[SUPLA_CHANNELVALUE_SIZE] = {};
 
   memcpy(newValue, &value, sizeof(value));
   if (setNewValue(newValue)) {
@@ -228,9 +228,7 @@ void Channel::setNewValue(uint64_t value) {
 }
 
 void Channel::setNewValue(int32_t value) {
-  char newValue[SUPLA_CHANNELVALUE_SIZE];
-
-  memset(newValue, 0, SUPLA_CHANNELVALUE_SIZE);
+  char newValue[SUPLA_CHANNELVALUE_SIZE] = {};
 
   memcpy(newValue, &value, sizeof(value));
   if (setNewValue(newValue)) {
@@ -240,12 +238,13 @@ void Channel::setNewValue(int32_t value) {
   }
 }
 
-void Channel::setNewValue(bool value) {
-  char newValue[SUPLA_CHANNELVALUE_SIZE];
+void Channel::setNewValue(bool state) {
+  char newValue[SUPLA_CHANNELVALUE_SIZE] = {};
+  static_assert(sizeof(newValue) == sizeof(value));
 
-  memset(newValue, 0, SUPLA_CHANNELVALUE_SIZE);
+  memcpy(newValue, &value, sizeof(value));
 
-  newValue[0] = value;
+  newValue[0] = state;
   if (setNewValue(newValue)) {
     if (getValueBool()) {
       runAction(Supla::ON_TURN_ON);
@@ -255,12 +254,12 @@ void Channel::setNewValue(bool value) {
     runAction(Supla::ON_CHANGE);
     runAction(ON_SECONDARY_CHANNEL_CHANGE);
 
-    SUPLA_LOG_DEBUG("Channel(%d) value changed to %d", channelNumber, value);
+    SUPLA_LOG_DEBUG("Channel(%d) value changed to %d", channelNumber, state);
   }
 }
 
 void Channel::setNewValue(
-    const TElectricityMeter_ExtendedValue_V2 &emExtValue) {
+    const TElectricityMeter_ExtendedValue_V3 &emExtValue) {
   // Prepare standard channel value
   if (sizeof(TElectricityMeter_Value) <= SUPLA_CHANNELVALUE_SIZE) {
     const TElectricityMeter_Measurement *m = nullptr;
@@ -269,7 +268,7 @@ void Channel::setNewValue(
       TElectricityMeter_Value emValue;
     };
 
-    unsigned _supla_int64_t fae_sum =
+    uint64_t fae_sum =
         emExtValue.total_forward_active_energy[0] +
         emExtValue.total_forward_active_energy[1] +
         emExtValue.total_forward_active_energy[2];
@@ -293,38 +292,43 @@ void Channel::setNewValue(
     }
 
     setNewValue(rawValue);
-    setUpdateReady();
+    setSendValue();
   }
 }
 
 bool Channel::setNewValue(const char *newValue) {
   if (memcmp(value, newValue, SUPLA_CHANNELVALUE_SIZE) != 0) {
     memcpy(value, newValue, SUPLA_CHANNELVALUE_SIZE);
-    setUpdateReady();
+    setSendValue();
     return true;
   }
   return false;
 }
 
-void Channel::setType(_supla_int_t type) {
+void Channel::setType(uint32_t type) {
   channelType = protoTypeToChannelType(type);
 }
 
-void Channel::setDefault(_supla_int_t value) {
+void Channel::setDefault(uint32_t value) {
   if (value > UINT16_MAX) {
     SUPLA_LOG_ERROR("Channel[%d]: Invalid defaultFunction value %d",
                     channelNumber, value);
     value = 0;
   }
 
+  if (value == defaultFunction) {
+    return;
+  }
+
   defaultFunction = value;
+  runAction(ON_CHANNEL_FUNCTION_CHANGE);
 }
 
-void Channel::setDefaultFunction(_supla_int_t function) {
+void Channel::setDefaultFunction(uint32_t function) {
   setDefault(function);
 }
 
-int32_t Channel::getDefaultFunction() const {
+uint32_t Channel::getDefaultFunction() const {
   return defaultFunction;
 }
 
@@ -336,19 +340,19 @@ void Channel::unsetFlag(uint64_t flag) {
   channelFlags &= ~flag;
 }
 
-void Channel::setFuncList(_supla_int_t functions) {
+void Channel::setFuncList(uint32_t functions) {
   functionsBitmap = functions;
 }
 
-_supla_int_t Channel::getFuncList() const {
+uint32_t Channel::getFuncList() const {
   return functionsBitmap;
 }
 
-void Channel::addToFuncList(_supla_int_t function) {
+void Channel::addToFuncList(uint32_t function) {
   functionsBitmap |= function;
 }
 
-void Channel::removeFromFuncList(_supla_int_t function) {
+void Channel::removeFromFuncList(uint32_t function) {
   functionsBitmap &= ~function;
 }
 
@@ -356,11 +360,11 @@ uint64_t Channel::getFlags() const {
   return channelFlags;
 }
 
-void Channel::setActionTriggerCaps(_supla_int_t caps) {
+void Channel::setActionTriggerCaps(uint32_t caps) {
   setFuncList(caps);
 }
 
-_supla_int_t Channel::getActionTriggerCaps() {
+uint32_t Channel::getActionTriggerCaps() {
   return getFuncList();
 }
 
@@ -368,18 +372,63 @@ int Channel::getChannelNumber() const {
   return channelNumber;
 }
 
-void Channel::clearUpdateReady() {
-  valueChanged = false;
+void Channel::setSendValue() {
+  // set changedFiled
+  changedFields |= CHANNEL_SEND_VALUE;
+}
+
+void Channel::clearSendValue() {
+  changedFields &= ~CHANNEL_SEND_VALUE;
+}
+
+void Channel::setSendGetConfig() {
+  changedFields |= CHANNEL_SEND_GET_CONFIG;
+}
+
+void Channel::clearSendGetConfig() {
+  changedFields &= ~CHANNEL_SEND_GET_CONFIG;
+}
+
+bool Channel::isGetConfigRequested() const {
+  return changedFields & CHANNEL_SEND_GET_CONFIG;
+}
+
+bool Channel::isValueUpdateReady() const {
+  return changedFields & CHANNEL_SEND_VALUE;
+}
+
+void Channel::setSendInitialCaption() {
+  changedFields |= CHANNEL_SEND_INITIAL_CAPTION;
+}
+
+void Channel::clearSendInitialCaption() {
+  changedFields &= ~CHANNEL_SEND_INITIAL_CAPTION;
+}
+
+bool Channel::isInitialCaptionUpdateReady() const {
+  return changedFields & CHANNEL_SEND_INITIAL_CAPTION;
+}
+
+void Channel::setSendStateInfo() {
+  changedFields |= CHANNEL_SEND_STATE_INFO;
+}
+
+void Channel::clearSendStateInfo() {
+  changedFields &= ~CHANNEL_SEND_STATE_INFO;
+}
+
+bool Channel::isStateInfoUpdateReady() const {
+  return changedFields & CHANNEL_SEND_STATE_INFO;
 }
 
 void Channel::sendUpdate() {
-  if (valueChanged) {
-    clearUpdateReady();
+  if (isValueUpdateReady()) {
+    clearSendValue();
     for (auto proto = Supla::Protocol::ProtocolLayer::first();
         proto != nullptr; proto = proto->next()) {
       proto->sendChannelValueChanged(channelNumber,
           value,
-          offline,
+          state,
           validityTimeSec);
     }
 
@@ -393,12 +442,33 @@ void Channel::sendUpdate() {
     }
   }
 
+  if (isInitialCaptionUpdateReady()) {
+    clearSendInitialCaption();
+    for (auto proto = Supla::Protocol::ProtocolLayer::first();
+        proto != nullptr; proto = proto->next()) {
+      if (isInitialCaptionSet()) {
+        proto->setInitialCaption(static_cast<uint8_t>(channelNumber),
+                                 getInitialCaption());
+      }
+    }
+  }
+
   // send channel config request if needed
-  if (channelConfig) {
-    channelConfig = false;
+  if (isGetConfigRequested()) {
+    clearSendGetConfig();
     for (auto proto = Supla::Protocol::ProtocolLayer::first();
         proto != nullptr; proto = proto->next()) {
       proto->getChannelConfig(channelNumber);
+    }
+  }
+
+  if (isStateInfoUpdateReady()) {
+    clearSendStateInfo();
+    SUPLA_LOG_DEBUG("Channel[%d] sending channel state update",
+                    getChannelNumber());
+    for (auto proto = Supla::Protocol::ProtocolLayer::first(); proto != nullptr;
+         proto = proto->next()) {
+      proto->sendChannelStateResult(0, static_cast<uint8_t>(channelNumber));
     }
   }
 }
@@ -408,16 +478,12 @@ TSuplaChannelExtendedValue *Channel::getExtValue() {
 }
 
 bool Channel::getExtValueAsElectricityMeter(
-      TElectricityMeter_ExtendedValue_V2 *out) {
-  return srpc_evtool_v2_extended2emextended(getExtValue(), out) == 1;
-}
-
-void Channel::setUpdateReady() {
-  valueChanged = true;
+      TElectricityMeter_ExtendedValue_V3 *out) {
+  return srpc_evtool_v3_extended2emextended(getExtValue(), out) == 1;
 }
 
 bool Channel::isUpdateReady() const {
-  return valueChanged || channelConfig;
+  return changedFields != 0;
 }
 
 bool Channel::isExtended() const {
@@ -436,13 +502,24 @@ void Channel::setNewValue(const TDSC_RollerShutterValue &value) {
   }
 }
 
+void Channel::setNewValue(const TDSC_FacadeBlindValue &value) {
+  char newValue[SUPLA_CHANNELVALUE_SIZE] = {};
+  memcpy(newValue, &value, sizeof(TDSC_FacadeBlindValue));
+
+  if (setNewValue(newValue)) {
+    runAction(ON_CHANGE);
+    runAction(ON_SECONDARY_CHANNEL_CHANGE);
+    SUPLA_LOG_DEBUG("Channel(%d) value changed to %d, tilt %d", channelNumber,
+        value.position, value.tilt);
+  }
+}
+
 void Channel::setNewValue(uint8_t red,
                    uint8_t green,
                    uint8_t blue,
                    uint8_t colorBrightness,
                    uint8_t brightness) {
-  char newValue[SUPLA_CHANNELVALUE_SIZE];
-  memset(newValue, 0, SUPLA_CHANNELVALUE_SIZE);
+  char newValue[SUPLA_CHANNELVALUE_SIZE] = {};
   newValue[0] = brightness;
   newValue[1] = colorBrightness;
   newValue[2] = blue;
@@ -551,7 +628,7 @@ void Channel::setNewValue(uint8_t red,
   }
 }
 
-_supla_int_t Channel::getChannelType() const {
+uint32_t Channel::getChannelType() const {
   return channelTypeToProtoType(channelType);
 }
 
@@ -660,28 +737,39 @@ void Channel::setCorrection(double correction, bool forSecondaryValue) {
   Correction::add(getChannelNumber(), correction, forSecondaryValue);
 }
 
-void Channel::requestChannelConfig() {
-  channelConfig = true;
+bool Channel::isBatteryPowered() const {
+  return batteryPowered == 1;
 }
 
-bool Channel::isBatteryPowered() const {
-  return (batteryLevel <= 101);
+bool Channel::isBatteryPoweredFieldEnabled() const {
+  return batteryPowered != 0;
 }
 
 uint8_t Channel::getBatteryLevel() const {
-  if (isBatteryPowered() && batteryLevel <= 100) {
+  if (batteryLevel <= 100) {
     return batteryLevel;
   }
   return 255;
 }
 
-void Channel::setBatteryPowered() {
-  batteryLevel = 101;
+void Channel::setBatteryPowered(bool value) {
+  uint8_t newValue = value ? 1 : 2;
+  if (newValue != batteryPowered) {
+    SUPLA_LOG_DEBUG(
+        "Channel[%d] battery powered changed to %d", channelNumber, newValue);
+    batteryPowered = newValue;
+    setSendStateInfo();
+  }
 }
 
 void Channel::setBatteryLevel(int level) {
   if (level >= 0 && level <= 100) {
-    batteryLevel = level;
+    if (level != batteryLevel) {
+      SUPLA_LOG_DEBUG(
+          "Channel[%d] battery level changed to %d", channelNumber, level);
+      batteryLevel = level;
+      setSendStateInfo();
+    }
   }
 }
 
@@ -697,30 +785,49 @@ bool Channel::isBridgeSignalStrengthAvailable() const {
   return bridgeSignalStrength <= 100;
 }
 
-void Channel::setHvacIsOn(int8_t isOn) {
+void Channel::setHvacIsOn(bool isOn) {
   // channel isOn has range 0..100. However internally negative isOn values
   // are used for cooling indication. Here we convert it to 0..100 range
   auto value = getValueHvac();
-  if (isOn < 0) {
-    isOn = -isOn;
-  }
-  if (value != nullptr && value->IsOn != isOn) {
-    if (value->IsOn == 0 && isOn != 0) {
+  if (value != nullptr && (value->IsOn == 1) != isOn) {
+    if (value->IsOn == 0 && isOn) {
       runAction(Supla::ON_TURN_ON);
-    } else if (value->IsOn != 0 && isOn == 0) {
+    } else if (value->IsOn != 0 && !isOn) {
       runAction(Supla::ON_TURN_OFF);
     }
     runAction(Supla::ON_CHANGE);
 
-    setUpdateReady();
-    value->IsOn = isOn;
+    value->IsOn = isOn ? 1 : 0;
+    setSendValue();
+  }
+}
+
+void Channel::setHvacIsOnPercent(uint8_t percent) {
+  // channel isOn has range 0..100. However internally negative isOn values
+  // are used for cooling indication. Here we convert it to 0..100 range
+  auto value = getValueHvac();
+  if (percent > 100) {
+    percent = 100;
+  }
+  percent += 2;  // proto uses 2..102 for 0..100%
+  if (value != nullptr && value->IsOn != percent) {
+    // IsOn == 2 -> OFF
+    if (value->IsOn == 2 && percent != 2) {
+      runAction(Supla::ON_TURN_ON);
+    } else if (value->IsOn != 2 && percent == 2) {
+      runAction(Supla::ON_TURN_OFF);
+    }
+    runAction(Supla::ON_CHANGE);
+
+    value->IsOn = percent;
+    setSendValue();
   }
 }
 
 void Channel::setHvacMode(uint8_t mode) {
   auto value = getValueHvac();
   if (value != nullptr && value->Mode != mode && mode <= SUPLA_HVAC_MODE_DRY) {
-    setUpdateReady();
+    setSendValue();
     value->Mode = mode;
     if (mode == SUPLA_HVAC_MODE_OFF) {
       runAction(ON_HVAC_MODE_OFF);
@@ -734,6 +841,13 @@ void Channel::setHvacMode(uint8_t mode) {
   }
 }
 
+const THVACValue *Channel::getValueHvac() const {
+  if (channelType == ChannelType::HVAC) {
+     return &hvacValue;
+  }
+  return nullptr;
+}
+
 THVACValue *Channel::getValueHvac() {
   if (channelType == ChannelType::HVAC) {
      return &hvacValue;
@@ -745,7 +859,7 @@ void Channel::setHvacSetpointTemperatureCool(int16_t temperature) {
   auto value = getValueHvac();
   if (value != nullptr && (value->SetpointTemperatureCool != temperature ||
                            !isHvacFlagSetpointTemperatureCoolSet())) {
-    setUpdateReady();
+    setSendValue();
     value->SetpointTemperatureCool = temperature;
     setHvacFlagSetpointTemperatureCoolSet(true);
   }
@@ -755,7 +869,7 @@ void Channel::setHvacSetpointTemperatureHeat(int16_t temperature) {
   auto value = getValueHvac();
   if (value != nullptr && (value->SetpointTemperatureHeat != temperature ||
                            !isHvacFlagSetpointTemperatureHeatSet())) {
-    setUpdateReady();
+    setSendValue();
     value->SetpointTemperatureHeat = temperature;
     setHvacFlagSetpointTemperatureHeatSet(true);
   }
@@ -765,7 +879,7 @@ void Channel::clearHvacSetpointTemperatureCool() {
   auto value = getValueHvac();
   if (value != nullptr && (value->SetpointTemperatureCool != 0 ||
                            isHvacFlagSetpointTemperatureCoolSet())) {
-    setUpdateReady();
+    setSendValue();
     value->SetpointTemperatureCool = 0;
     setHvacFlagSetpointTemperatureCoolSet(false);
   }
@@ -775,7 +889,7 @@ void Channel::clearHvacSetpointTemperatureHeat() {
   auto value = getValueHvac();
   if (value != nullptr && (value->SetpointTemperatureHeat != 0 ||
                            isHvacFlagSetpointTemperatureHeatSet())) {
-    setUpdateReady();
+    setSendValue();
     value->SetpointTemperatureHeat = 0;
     setHvacFlagSetpointTemperatureHeatSet(false);
   }
@@ -804,7 +918,7 @@ void Channel::setHvacSetpointTemperatureCool(THVACValue *hvacValue,
 void Channel::setHvacFlags(uint16_t flags) {
   auto value = getValueHvac();
   if (value != nullptr && value->Flags != flags) {
-    setUpdateReady();
+    setSendValue();
     value->Flags = flags;
   }
 }
@@ -812,7 +926,7 @@ void Channel::setHvacFlags(uint16_t flags) {
 void Channel::setHvacFlagSetpointTemperatureCoolSet(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagSetpointTemperatureCoolSet()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET;
@@ -826,7 +940,7 @@ void Channel::setHvacFlagSetpointTemperatureCoolSet(bool value) {
 void Channel::setHvacFlagSetpointTemperatureHeatSet(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagSetpointTemperatureHeatSet()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET;
@@ -840,7 +954,7 @@ void Channel::setHvacFlagSetpointTemperatureHeatSet(bool value) {
 void Channel::setHvacFlagHeating(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagHeating()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_HEATING;
@@ -854,7 +968,7 @@ void Channel::setHvacFlagHeating(bool value) {
 void Channel::setHvacFlagCooling(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagCooling()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_COOLING;
@@ -868,7 +982,7 @@ void Channel::setHvacFlagCooling(bool value) {
 void Channel::setHvacFlagWeeklySchedule(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagWeeklySchedule()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_WEEKLY_SCHEDULE;
@@ -887,7 +1001,7 @@ void Channel::setHvacFlagWeeklySchedule(bool value) {
 void Channel::setHvacFlagFanEnabled(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagFanEnabled()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_FAN_ENABLED;
@@ -901,7 +1015,7 @@ void Channel::setHvacFlagFanEnabled(bool value) {
 void Channel::setHvacFlagThermometerError(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagThermometerError()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_THERMOMETER_ERROR;
@@ -915,7 +1029,7 @@ void Channel::setHvacFlagThermometerError(bool value) {
 void Channel::setHvacFlagClockError(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagClockError()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_CLOCK_ERROR;
@@ -929,7 +1043,7 @@ void Channel::setHvacFlagClockError(bool value) {
 void Channel::setHvacFlagCountdownTimer(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagCountdownTimer()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_COUNTDOWN_TIMER;
@@ -943,7 +1057,7 @@ void Channel::setHvacFlagCountdownTimer(bool value) {
 void Channel::setHvacFlagForcedOffBySensor(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagForcedOffBySensor()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_FORCED_OFF_BY_SENSOR;
@@ -957,7 +1071,7 @@ void Channel::setHvacFlagForcedOffBySensor(bool value) {
 void Channel::setHvacFlagCoolSubfunction(enum HvacCoolSubfunctionFlag flag) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && flag != getHvacFlagCoolSubfunction()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (flag == HvacCoolSubfunctionFlag::CoolSubfunction) {
       // cool subfunction is stored as 1
@@ -974,7 +1088,7 @@ void Channel::setHvacFlagWeeklyScheduleTemporalOverride(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr &&
       value != isHvacFlagWeeklyScheduleTemporalOverride()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_WEEKLY_SCHEDULE_TEMPORAL_OVERRIDE;
@@ -988,7 +1102,7 @@ void Channel::setHvacFlagWeeklyScheduleTemporalOverride(bool value) {
 void Channel::setHvacFlagBatteryCoverOpen(bool value) {
   auto hvacValue = getValueHvac();
   if (hvacValue != nullptr && value != isHvacFlagBatteryCoverOpen()) {
-    setUpdateReady();
+    setSendValue();
     uint16_t flags = hvacValue->Flags;
     if (value) {
       flags |= SUPLA_HVAC_VALUE_FLAG_BATTERY_COVER_OPEN;
@@ -999,7 +1113,41 @@ void Channel::setHvacFlagBatteryCoverOpen(bool value) {
   }
 }
 
+void Channel::setHvacFlagCalibrationError(bool value) {
+  auto hvacValue = getValueHvac();
+  if (hvacValue != nullptr && value != isHvacFlagCalibrationError()) {
+    SUPLA_LOG_ERROR("HVAC[%d]: Setting calibration error flag %d",
+                    getChannelNumber(),
+                    value);
+    setSendValue();
+    uint16_t flags = hvacValue->Flags;
+    if (value) {
+      flags |= SUPLA_HVAC_VALUE_FLAG_CALIBRATION_ERROR;
+    } else {
+      flags &= ~SUPLA_HVAC_VALUE_FLAG_CALIBRATION_ERROR;
+    }
+    setHvacFlags(flags);
+  }
+}
+
+void Channel::setHvacFlagAntifreezeOverheatActive(bool value) {
+  auto hvacValue = getValueHvac();
+  if (hvacValue != nullptr &&
+      value != isHvacFlagAntifreezeOverheatActive()) {
+    setSendValue();
+    uint16_t flags = hvacValue->Flags;
+    if (value) {
+      flags |= SUPLA_HVAC_VALUE_FLAG_ANTIFREEZE_OVERHEAT_ACTIVE;
+    } else {
+      flags &= ~SUPLA_HVAC_VALUE_FLAG_ANTIFREEZE_OVERHEAT_ACTIVE;
+    }
+    setHvacFlags(flags);
+  }
+}
+
 void Channel::clearHvacState() {
+  SUPLA_LOG_INFO("HVAC[%d]: Clearing HVAC state for channel",
+                 getChannelNumber());
   clearHvacSetpointTemperatureCool();
   clearHvacSetpointTemperatureHeat();
   setHvacMode(SUPLA_HVAC_MODE_OFF);
@@ -1013,122 +1161,131 @@ void Channel::clearHvacState() {
   setHvacFlagCountdownTimer(false);
 }
 
-bool Channel::isHvacFlagSetpointTemperatureCoolSet() {
+bool Channel::isHvacFlagSetpointTemperatureCoolSet() const {
   return isHvacFlagSetpointTemperatureCoolSet(getValueHvac());
 }
 
-bool Channel::isHvacFlagSetpointTemperatureHeatSet() {
+bool Channel::isHvacFlagSetpointTemperatureHeatSet() const {
   return isHvacFlagSetpointTemperatureHeatSet(getValueHvac());
 }
 
-bool Channel::isHvacFlagHeating() {
+bool Channel::isHvacFlagHeating() const {
   return isHvacFlagHeating(getValueHvac());
 }
 
-bool Channel::isHvacFlagCooling() {
+bool Channel::isHvacFlagCooling() const {
   return isHvacFlagCooling(getValueHvac());
 }
 
-bool Channel::isHvacFlagWeeklySchedule() {
+bool Channel::isHvacFlagWeeklySchedule() const {
   return isHvacFlagWeeklySchedule(getValueHvac());
 }
 
-bool Channel::isHvacFlagFanEnabled() {
+bool Channel::isHvacFlagFanEnabled() const {
   return isHvacFlagFanEnabled(getValueHvac());
 }
 
-bool Channel::isHvacFlagThermometerError() {
+bool Channel::isHvacFlagThermometerError() const {
   return isHvacFlagThermometerError(getValueHvac());
 }
 
-bool Channel::isHvacFlagClockError() {
+bool Channel::isHvacFlagClockError() const {
   return isHvacFlagClockError(getValueHvac());
 }
 
-bool Channel::isHvacFlagCountdownTimer() {
+bool Channel::isHvacFlagCountdownTimer() const {
   return isHvacFlagCountdownTimer(getValueHvac());
 }
 
-bool Channel::isHvacFlagForcedOffBySensor() {
+bool Channel::isHvacFlagForcedOffBySensor() const {
   return isHvacFlagForcedOffBySensor(getValueHvac());
 }
 
-enum Supla::HvacCoolSubfunctionFlag Channel::getHvacFlagCoolSubfunction() {
+enum Supla::HvacCoolSubfunctionFlag Channel::getHvacFlagCoolSubfunction()
+    const {
   return getHvacFlagCoolSubfunction(getValueHvac());
 }
 
-bool Channel::isHvacFlagWeeklyScheduleTemporalOverride() {
+bool Channel::isHvacFlagWeeklyScheduleTemporalOverride() const {
   return isHvacFlagWeeklyScheduleTemporalOverride(getValueHvac());
 }
 
-bool Channel::isHvacFlagBatteryCoverOpen() {
+bool Channel::isHvacFlagBatteryCoverOpen() const {
   return isHvacFlagBatteryCoverOpen(getValueHvac());
 }
 
-bool Channel::isHvacFlagSetpointTemperatureHeatSet(THVACValue *value) {
+bool Channel::isHvacFlagCalibrationError() const {
+  return isHvacFlagCalibrationError(getValueHvac());
+}
+
+bool Channel::isHvacFlagAntifreezeOverheatActive() const {
+  return isHvacFlagAntifreezeOverheatActive(getValueHvac());
+}
+
+bool Channel::isHvacFlagSetpointTemperatureHeatSet(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_HEAT_SET;
   }
   return false;
 }
 
-bool Channel::isHvacFlagSetpointTemperatureCoolSet(THVACValue *value) {
+bool Channel::isHvacFlagSetpointTemperatureCoolSet(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_SETPOINT_TEMP_COOL_SET;
   }
   return false;
 }
 
-bool Channel::isHvacFlagHeating(THVACValue *value) {
+bool Channel::isHvacFlagHeating(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_HEATING;
   }
   return false;
 }
 
-bool Channel::isHvacFlagCooling(THVACValue *value) {
+bool Channel::isHvacFlagCooling(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_COOLING;
   }
   return false;
 }
 
-bool Channel::isHvacFlagWeeklySchedule(THVACValue *value) {
+bool Channel::isHvacFlagWeeklySchedule(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_WEEKLY_SCHEDULE;
   }
   return false;
 }
 
-bool Channel::isHvacFlagFanEnabled(THVACValue *value) {
+bool Channel::isHvacFlagFanEnabled(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_FAN_ENABLED;
   }
   return false;
 }
 
-bool Channel::isHvacFlagThermometerError(THVACValue *value) {
+bool Channel::isHvacFlagThermometerError(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_THERMOMETER_ERROR;
   }
   return false;
 }
 
-bool Channel::isHvacFlagClockError(THVACValue *value) {
+bool Channel::isHvacFlagClockError(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_CLOCK_ERROR;
   }
   return false;
 }
 
-bool Channel::isHvacFlagCountdownTimer(THVACValue *value) {
+bool Channel::isHvacFlagCountdownTimer(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_COUNTDOWN_TIMER;
   }
   return false;
 }
 
-bool Channel::isHvacFlagForcedOffBySensor(THVACValue *value) {
+bool Channel::isHvacFlagForcedOffBySensor(const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags & SUPLA_HVAC_VALUE_FLAG_FORCED_OFF_BY_SENSOR;
   }
@@ -1136,7 +1293,7 @@ bool Channel::isHvacFlagForcedOffBySensor(THVACValue *value) {
 }
 
 enum Supla::HvacCoolSubfunctionFlag Channel::getHvacFlagCoolSubfunction(
-    THVACValue *hvacValue) {
+    const THVACValue *hvacValue) {
   if (hvacValue != nullptr) {
     return (hvacValue->Flags & SUPLA_HVAC_VALUE_FLAG_COOL
                 ? HvacCoolSubfunctionFlag::CoolSubfunction
@@ -1145,7 +1302,8 @@ enum Supla::HvacCoolSubfunctionFlag Channel::getHvacFlagCoolSubfunction(
   return HvacCoolSubfunctionFlag::HeatSubfunctionOrNotUsed;
 }
 
-bool Channel::isHvacFlagWeeklyScheduleTemporalOverride(THVACValue *value) {
+bool Channel::isHvacFlagWeeklyScheduleTemporalOverride(
+    const THVACValue *value) {
   if (value != nullptr) {
     return value->Flags &
            SUPLA_HVAC_VALUE_FLAG_WEEKLY_SCHEDULE_TEMPORAL_OVERRIDE;
@@ -1153,17 +1311,47 @@ bool Channel::isHvacFlagWeeklyScheduleTemporalOverride(THVACValue *value) {
   return false;
 }
 
-bool Channel::isHvacFlagBatteryCoverOpen(THVACValue *hvacValue) {
+bool Channel::isHvacFlagBatteryCoverOpen(const THVACValue *hvacValue) {
   if (hvacValue != nullptr) {
     return hvacValue->Flags & SUPLA_HVAC_VALUE_FLAG_BATTERY_COVER_OPEN;
   }
   return false;
 }
 
-uint8_t Channel::getHvacIsOn() {
+bool Channel::isHvacFlagCalibrationError(const THVACValue *hvacValue) {
+  if (hvacValue != nullptr) {
+    return hvacValue->Flags & SUPLA_HVAC_VALUE_FLAG_CALIBRATION_ERROR;
+  }
+  return false;
+}
+
+bool Channel::isHvacFlagAntifreezeOverheatActive(const THVACValue *hvacValue) {
+  if (hvacValue != nullptr) {
+    return hvacValue->Flags & SUPLA_HVAC_VALUE_FLAG_ANTIFREEZE_OVERHEAT_ACTIVE;
+  }
+  return false;
+}
+
+uint8_t Channel::getHvacIsOnRaw() const {
   auto value = getValueHvac();
   if (value != nullptr) {
     return value->IsOn;
+  }
+  return false;
+}
+
+bool Channel::getHvacIsOnBool() const {
+  auto value = getValueHvac();
+  if (value != nullptr) {
+    return value->IsOn == 1 || value->IsOn > 2;
+  }
+  return false;
+}
+
+uint8_t Channel::getHvacIsOnPercent() const {
+  auto value = getValueHvac();
+  if (value != nullptr && value->IsOn > 2 && value->IsOn <= 102) {
+    return value->IsOn - 2;
   }
   return 0;
 }
@@ -1203,7 +1391,7 @@ const char *Channel::getHvacModeCstr(int mode) const {
   }
 }
 
-int16_t Channel::getHvacSetpointTemperatureCool() {
+int16_t Channel::getHvacSetpointTemperatureCool() const {
   auto value = getValueHvac();
   if (value != nullptr) {
     return value->SetpointTemperatureCool;
@@ -1211,7 +1399,7 @@ int16_t Channel::getHvacSetpointTemperatureCool() {
   return INT16_MIN;
 }
 
-int16_t Channel::getHvacSetpointTemperatureHeat() {
+int16_t Channel::getHvacSetpointTemperatureHeat() const {
   auto value = getValueHvac();
   if (value != nullptr) {
     return value->SetpointTemperatureHeat;
@@ -1219,7 +1407,7 @@ int16_t Channel::getHvacSetpointTemperatureHeat() {
   return INT16_MIN;
 }
 
-uint16_t Channel::getHvacFlags() {
+uint16_t Channel::getHvacFlags() const {
   auto value = getValueHvac();
   if (value != nullptr) {
     return value->Flags;
@@ -1227,37 +1415,65 @@ uint16_t Channel::getHvacFlags() {
   return 0;
 }
 
-void Channel::setOffline() {
-  if (offline != 1) {
+void Channel::setStateOffline() {
+  if (state != SUPLA_CHANNEL_OFFLINE_FLAG_OFFLINE) {
     SUPLA_LOG_DEBUG("Channel[%d] go offline", channelNumber);
-    offline = 1;
-    setUpdateReady();
+    state = SUPLA_CHANNEL_OFFLINE_FLAG_OFFLINE;
+    setSendValue();
   }
 }
 
-void Channel::setOnline() {
-  if (offline != 0) {
+void Channel::setStateOnline() {
+  if (state != SUPLA_CHANNEL_OFFLINE_FLAG_ONLINE) {
     SUPLA_LOG_DEBUG("Channel[%d] go online", channelNumber);
-    offline = 0;
-    setUpdateReady();
+    state = SUPLA_CHANNEL_OFFLINE_FLAG_ONLINE;
+    setSendValue();
   }
 }
 
-void Channel::setOnlineAndNotAvailable() {
-  if (offline != 2) {
+void Channel::setStateOnlineAndNotAvailable() {
+  if (state != SUPLA_CHANNEL_OFFLINE_FLAG_ONLINE_BUT_NOT_AVAILABLE) {
     SUPLA_LOG_DEBUG("Channel[%d] is online and NOT available", channelNumber);
-    offline = 2;
-    setUpdateReady();
+    state = SUPLA_CHANNEL_OFFLINE_FLAG_ONLINE_BUT_NOT_AVAILABLE;
+    setSendValue();
   }
 }
 
-
-bool Channel::isOnline() const {
-  return offline != 1;
+void Channel::setStateOfflineRemoteWakeupNotSupported() {
+  if (state != SUPLA_CHANNEL_OFFLINE_FLAG_OFFLINE_REMOTE_WAKEUP_NOT_SUPPORTED) {
+    SUPLA_LOG_DEBUG("Channel[%d] is offline (remote wakeup not supported)",
+                    channelNumber);
+    state = SUPLA_CHANNEL_OFFLINE_FLAG_OFFLINE_REMOTE_WAKEUP_NOT_SUPPORTED;
+    setSendValue();
+  }
 }
 
-bool Channel::isOnlineAndNotAvailable() const {
-  return offline == 2;
+void Channel::setStateFirmwareUpdateOngoing() {
+  if (state != SUPLA_CHANNEL_OFFLINE_FLAG_FIRMWARE_UPDATE_ONGOING) {
+    SUPLA_LOG_DEBUG("Channel[%d] is online (firmware update ongoing)",
+                    channelNumber);
+    state = SUPLA_CHANNEL_OFFLINE_FLAG_FIRMWARE_UPDATE_ONGOING;
+    setSendValue();
+  }
+}
+
+bool Channel::isStateOnline() const {
+  return state == SUPLA_CHANNEL_OFFLINE_FLAG_ONLINE ||
+         state == SUPLA_CHANNEL_OFFLINE_FLAG_ONLINE_BUT_NOT_AVAILABLE ||
+         state == SUPLA_CHANNEL_OFFLINE_FLAG_FIRMWARE_UPDATE_ONGOING;
+}
+
+bool Channel::isStateOnlineAndNotAvailable() const {
+  return state == SUPLA_CHANNEL_OFFLINE_FLAG_ONLINE_BUT_NOT_AVAILABLE;
+}
+
+bool Channel::isStateOfflineRemoteWakeupNotSupported() const {
+  return state ==
+         SUPLA_CHANNEL_OFFLINE_FLAG_OFFLINE_REMOTE_WAKEUP_NOT_SUPPORTED;
+}
+
+bool Channel::isStateFirmwareUpdateOngoing() const {
+  return state == SUPLA_CHANNEL_OFFLINE_FLAG_FIRMWARE_UPDATE_ONGOING;
 }
 
 void Channel::setInitialCaption(const char *caption) {
@@ -1299,7 +1515,7 @@ void Channel::fillDeviceChannelStruct(
   // this method is called during register device message preparation, so
   // we clear update ready flag in order to not send the same values again
   // after registration
-  clearUpdateReady();
+  clearSendValue();
   memset(deviceChannelStruct, 0, sizeof(TDS_SuplaDeviceChannel_D));
 
   deviceChannelStruct->Number = getChannelNumber();
@@ -1307,12 +1523,14 @@ void Channel::fillDeviceChannelStruct(
   deviceChannelStruct->FuncList = getFuncList();  // also sets ActionTriggerCaps
   deviceChannelStruct->Default = getDefaultFunction();
   deviceChannelStruct->Flags = getFlags();
-  deviceChannelStruct->Offline = offline;
+  deviceChannelStruct->Offline = state;
   deviceChannelStruct->ValueValidityTimeSec = validityTimeSec;
   deviceChannelStruct->DefaultIcon = getDefaultIcon();
   memcpy(deviceChannelStruct->value, value, SUPLA_CHANNELVALUE_SIZE);
+  // on some ESP platforms, printf functions for 64 bits is not available
+  // so we have to print it as two separate 32 bit values 0x%X%08X
   SUPLA_LOG_VERBOSE(
-      "CH[%i], type: %d, FuncList: 0x%X, function: %d, flags: 0x%llX, "
+      "CH[%i], type: %d, FuncList: 0x%X, function: %d, flags: 0x%X%08X, "
       "%s, validityTimeSec: %d, icon: %d, "
       "value: "
       "[%02x %02x %02x %02x %02x %02x %02x %02x]",
@@ -1320,10 +1538,10 @@ void Channel::fillDeviceChannelStruct(
       getChannelType(),
       getFuncList(),
       getDefaultFunction(),
-      getFlags(),
-      offline == 0   ? "online"
-      : offline == 1 ? "offline"
-                     : "online (not available)",
+      PRINTF_UINT64_HEX(getFlags()),
+      state == 0   ? "online"
+      : state == 1 ? "offline"
+                   : "online (not available)",
       validityTimeSec,
       getDefaultIcon(),
       static_cast<uint8_t>(value[0]),
@@ -1344,7 +1562,7 @@ void Channel::fillDeviceChannelStruct(
   // this method is called during register device message preparation, so
   // we clear update ready flag in order to not send the same values again
   // after registration
-  clearUpdateReady();
+  clearSendValue();
   memset(deviceChannelStruct, 0, sizeof(TDS_SuplaDeviceChannel_E));
 
   deviceChannelStruct->Number = getChannelNumber();
@@ -1352,24 +1570,31 @@ void Channel::fillDeviceChannelStruct(
   deviceChannelStruct->FuncList = getFuncList();  // also sets ActionTriggerCaps
   deviceChannelStruct->Default = getDefaultFunction();
   deviceChannelStruct->Flags = getFlags();
-  deviceChannelStruct->Offline = offline;
+  deviceChannelStruct->Offline = state;
   deviceChannelStruct->ValueValidityTimeSec = validityTimeSec;
   deviceChannelStruct->DefaultIcon = getDefaultIcon();
   deviceChannelStruct->SubDeviceId = getSubDeviceId();
   memcpy(deviceChannelStruct->value, value, SUPLA_CHANNELVALUE_SIZE);
+  // uint64_t printf is crashing on ESP32-C2 in method vnsnprintf
   SUPLA_LOG_VERBOSE(
       "CH[%i], subDevId: %d, type: %d, FuncList: 0x%X, function: %d, flags: "
-      "0x%llX, %s, validityTimeSec: %d, icon: %d, value: "
+      "0x%X%08X, %s, validityTimeSec: %d, icon: %d, value: "
       "[%02x %02x %02x %02x %02x %02x %02x %02x]",
       getChannelNumber(),
       getSubDeviceId(),
       getChannelType(),
       getFuncList(),
       getDefaultFunction(),
-      getFlags(),
-      offline == 0   ? "online"
-      : offline == 1 ? "offline"
-                     : "online (not available)",
+      PRINTF_UINT64_HEX(getFlags()),
+      state == SUPLA_CHANNEL_OFFLINE_FLAG_ONLINE    ? "online"
+      : state == SUPLA_CHANNEL_OFFLINE_FLAG_OFFLINE ? "offline"
+      : state == SUPLA_CHANNEL_OFFLINE_FLAG_ONLINE_BUT_NOT_AVAILABLE
+          ? "online (not available)"
+      : state == SUPLA_CHANNEL_OFFLINE_FLAG_OFFLINE_REMOTE_WAKEUP_NOT_SUPPORTED
+          ? "offline (remote wakeup not supported)"
+      : state == SUPLA_CHANNEL_OFFLINE_FLAG_FIRMWARE_UPDATE_ONGOING
+          ? "firmware update ongoing"
+          : "UNKNOWN",
       validityTimeSec,
       getDefaultIcon(),
       static_cast<uint8_t>(value[0]),
@@ -1393,7 +1618,12 @@ int8_t *Channel::getValuePtr() {
   return value;
 }
 
-bool Channel::isFunctionValid(int32_t function) const {
+bool Channel::isFunctionValid(uint32_t function) const {
+  if (function == 0) {
+    // function 0 -> 'disabled' - assume it is always valid
+    return true;
+  }
+
   switch (channelType) {
     // TODO(klew): add other functions
     case ChannelType::BINARYSENSOR: {
@@ -1408,7 +1638,89 @@ bool Channel::isFunctionValid(int32_t function) const {
         case SUPLA_CHANNELFNC_OPENINGSENSOR_ROOFWINDOW:
         case SUPLA_CHANNELFNC_OPENINGSENSOR_GARAGEDOOR:
         case SUPLA_CHANNELFNC_OPENINGSENSOR_GATE:
-        case SUPLA_CHANNELFNC_OPENINGSENSOR_GATEWAY: {
+        case SUPLA_CHANNELFNC_OPENINGSENSOR_GATEWAY:
+        case SUPLA_CHANNELFNC_CONTAINER_LEVEL_SENSOR:
+        case SUPLA_CHANNELFNC_FLOOD_SENSOR:
+        case SUPLA_CHANNELFNC_BINARY_SENSOR:
+        case SUPLA_CHANNELFNC_MOTION_SENSOR: {
+          return true;
+        }
+        default: {
+          return false;
+        }
+      }
+    }
+    case ChannelType::RELAY: {
+      switch (function) {
+        case SUPLA_CHANNELFNC_CONTROLLINGTHEGATEWAYLOCK: {
+          return getFuncList() & SUPLA_CHANNELFNC_CONTROLLINGTHEGATEWAYLOCK;
+        }
+        case SUPLA_CHANNELFNC_CONTROLLINGTHEGATE: {
+          return getFuncList() & SUPLA_CHANNELFNC_CONTROLLINGTHEGATE;
+        }
+        case SUPLA_CHANNELFNC_CONTROLLINGTHEGARAGEDOOR: {
+          return getFuncList() & SUPLA_CHANNELFNC_CONTROLLINGTHEGARAGEDOOR;
+        }
+        case SUPLA_CHANNELFNC_CONTROLLINGTHEDOORLOCK: {
+          return getFuncList() & SUPLA_CHANNELFNC_CONTROLLINGTHEDOORLOCK;
+        }
+        case SUPLA_CHANNELFNC_CONTROLLINGTHEROLLERSHUTTER: {
+          return getFuncList() & SUPLA_CHANNELFNC_CONTROLLINGTHEROLLERSHUTTER;
+        }
+        case SUPLA_CHANNELFNC_CONTROLLINGTHEROOFWINDOW: {
+          return getFuncList() & SUPLA_CHANNELFNC_CONTROLLINGTHEROOFWINDOW;
+        }
+        case SUPLA_CHANNELFNC_POWERSWITCH: {
+          return getFuncList() & SUPLA_CHANNELFNC_POWERSWITCH;
+        }
+        case SUPLA_CHANNELFNC_LIGHTSWITCH: {
+          return getFuncList() & SUPLA_CHANNELFNC_LIGHTSWITCH;
+        }
+        case SUPLA_CHANNELFNC_STAIRCASETIMER: {
+          return getFuncList() & SUPLA_CHANNELFNC_STAIRCASETIMER;
+        }
+        case SUPLA_CHANNELFNC_CONTROLLINGTHEFACADEBLIND: {
+          return getFuncList() & SUPLA_CHANNELFNC_CONTROLLINGTHEFACADEBLIND;
+        }
+        case SUPLA_CHANNELFNC_TERRACE_AWNING: {
+          return getFuncList() & SUPLA_CHANNELFNC_TERRACE_AWNING;
+        }
+        case SUPLA_CHANNELFNC_PROJECTOR_SCREEN: {
+          return getFuncList() & SUPLA_CHANNELFNC_PROJECTOR_SCREEN;
+        }
+        case SUPLA_CHANNELFNC_CURTAIN: {
+          return getFuncList() & SUPLA_CHANNELFNC_CURTAIN;
+        }
+        case SUPLA_CHANNELFNC_VERTICAL_BLIND: {
+          return getFuncList() & SUPLA_CHANNELFNC_VERTICAL_BLIND;
+        }
+        case SUPLA_CHANNELFNC_ROLLER_GARAGE_DOOR: {
+          return getFuncList() & SUPLA_CHANNELFNC_ROLLER_GARAGE_DOOR;
+        }
+        case SUPLA_CHANNELFNC_PUMPSWITCH: {
+          return getFuncList() & SUPLA_CHANNELFNC_PUMPSWITCH;
+        }
+        case SUPLA_CHANNELFNC_HEATORCOLDSOURCESWITCH: {
+          return getFuncList() & SUPLA_CHANNELFNC_HEATORCOLDSOURCESWITCH;
+        }
+        default: {
+          return false;
+        }
+      }
+    }
+    case ChannelType::VALVE_OPENCLOSE: {
+      switch (function) {
+        case SUPLA_CHANNELFNC_VALVE_OPENCLOSE: {
+          return true;
+        }
+        default: {
+          return false;
+        }
+      }
+    }
+    case ChannelType::VALVE_PERCENTAGE: {
+      switch (function) {
+        case SUPLA_CHANNELFNC_VALVE_PERCENTAGE: {
           return true;
         }
         default: {
@@ -1430,7 +1742,7 @@ uint8_t Channel::getSubDeviceId() const {
   return subDeviceId;
 }
 
-bool Channel::isHvacValueValid(THVACValue *hvacValue) {
+bool Channel::isHvacValueValid(const THVACValue *hvacValue) {
   if (hvacValue == nullptr) {
     return false;
   }
@@ -1441,7 +1753,7 @@ bool Channel::isHvacValueValid(THVACValue *hvacValue) {
   if (hvacValue->Mode > SUPLA_HVAC_MODE_CMD_SWITCH_TO_MANUAL) {
     return false;
   }
-  if (hvacValue->Flags > (1ULL << 12)) {
+  if (hvacValue->Flags > 0x1FFF) {  // (1ULL << 12)) {
     return false;
   }
   if (hvacValue->Flags & SUPLA_HVAC_VALUE_FLAG_COOLING &&
@@ -1461,3 +1773,272 @@ bool Channel::isRollerShutterRelayType() const {
            SUPLA_BIT_FUNC_VERTICAL_BLIND |
            SUPLA_BIT_FUNC_CONTROLLINGTHEFACADEBLIND)) != 0;
 }
+
+void Channel::setContainerFillValue(int8_t fillLevel) {
+  if (fillLevel > 100) {
+    fillLevel = -1;
+  }
+  if (fillLevel < -1) {
+    fillLevel = -1;
+  }
+  // internally we use 0 for unknown, 1-101 for 0-100%
+  ++fillLevel;
+  auto container = reinterpret_cast<TContainerChannel_Value *>(value);
+  if (container->level == fillLevel) {
+    return;
+  }
+  container->level = fillLevel;
+  runAction(ON_CHANGE);
+  setSendValue();
+  SUPLA_LOG_DEBUG(
+      "Container[%d] value changed to %d", channelNumber, fillLevel);
+}
+
+void Channel::setContainerAlarm(bool active) {
+  auto container = reinterpret_cast<TContainerChannel_Value *>(value);
+  if (isContainerAlarmActive() == active) {
+    return;
+  }
+  if (active) {
+    container->flags |= CONTAINER_FLAG_ALARM_LEVEL;
+  } else {
+    container->flags &= ~CONTAINER_FLAG_ALARM_LEVEL;
+  }
+  setSendValue();
+  runAction(active ? ON_CONTAINER_ALARM_ACTIVE : ON_CONTAINER_ALARM_INACTIVE);
+}
+
+void Channel::setContainerWarning(bool active) {
+  auto container = reinterpret_cast<TContainerChannel_Value *>(value);
+  if (isContainerWarningActive() == active) {
+    return;
+  }
+  if (active) {
+    container->flags |= CONTAINER_FLAG_WARNING_LEVEL;
+  } else {
+    container->flags &= ~CONTAINER_FLAG_WARNING_LEVEL;
+  }
+  setSendValue();
+  runAction(active ? ON_CONTAINER_WARNING_ACTIVE
+                   : ON_CONTAINER_WARNING_INACTIVE);
+}
+
+void Channel::setContainerInvalidSensorState(bool invalid) {
+  auto container = reinterpret_cast<TContainerChannel_Value *>(value);
+  if (isContainerInvalidSensorStateActive() == invalid) {
+    return;
+  }
+  if (invalid) {
+    container->flags |= CONTAINER_FLAG_INVALID_SENSOR_STATE;
+  } else {
+    container->flags &= ~CONTAINER_FLAG_INVALID_SENSOR_STATE;
+  }
+  setSendValue();
+  runAction(invalid ? ON_CONTAINER_INVALID_SENSOR_STATE_ACTIVE
+                    : ON_CONTAINER_INVALID_SENSOR_STATE_INACTIVE);
+}
+
+void Channel::setContainerSoundAlarmOn(bool soundAlarmOn) {
+  auto container = reinterpret_cast<TContainerChannel_Value *>(value);
+  if (isContainerSoundAlarmOn() == soundAlarmOn) {
+    return;
+  }
+  if (soundAlarmOn) {
+    container->flags |= CONTAINER_FLAG_SOUND_ALARM_ON;
+  } else {
+    container->flags &= ~CONTAINER_FLAG_SOUND_ALARM_ON;
+  }
+  setSendValue();
+  runAction(soundAlarmOn ? ON_CONTAINER_SOUND_ALARM_ACTIVE
+                         : ON_CONTAINER_SOUND_ALARM_INACTIVE);
+}
+
+int8_t Channel::getContainerFillValue() const {
+  auto container = reinterpret_cast<const TContainerChannel_Value *>(value);
+  if (container->level > 0 && container->level <= 101) {
+    return container->level - 1;
+  }
+  return -1;
+}
+
+bool Channel::isContainerAlarmActive() const {
+  auto container = reinterpret_cast<const TContainerChannel_Value *>(value);
+  return container->flags & CONTAINER_FLAG_ALARM_LEVEL;
+}
+
+bool Channel::isContainerWarningActive() const {
+  auto container = reinterpret_cast<const TContainerChannel_Value *>(value);
+  return container->flags & CONTAINER_FLAG_WARNING_LEVEL;
+}
+
+bool Channel::isContainerInvalidSensorStateActive() const {
+    auto container = reinterpret_cast<const TContainerChannel_Value *>(value);
+  return container->flags & CONTAINER_FLAG_INVALID_SENSOR_STATE;
+}
+
+
+bool Channel::isContainerSoundAlarmOn() const {
+  auto container = reinterpret_cast<const TContainerChannel_Value *>(value);
+  return container->flags & CONTAINER_FLAG_SOUND_ALARM_ON;
+}
+
+void Channel::setValveOpenState(uint8_t openState) {
+  if (openState > 100) {
+    openState = 100;
+  }
+  uint8_t newClosed = 0;
+  if (getChannelType() == SUPLA_CHANNELTYPE_VALVE_OPENCLOSE) {
+    if (openState > 0) {
+      newClosed = 0;
+    } else {
+      newClosed = 1;
+    }
+  } else if (getChannelType() == SUPLA_CHANNELTYPE_VALVE_PERCENTAGE) {
+    newClosed = 100 - openState;
+  }
+
+  auto valve = reinterpret_cast<TValve_Value *>(value);
+  if (valve->closed == newClosed) {
+    return;
+  }
+
+  bool runOnOpen = false;
+  bool runOnClose = false;
+  if (valve->closed == 0) {
+    runOnOpen = true;
+  } else if (newClosed == 0) {
+    runOnClose = true;
+  }
+
+  valve->closed = newClosed;
+  setSendValue();
+  runAction(ON_CHANGE);
+  if (runOnOpen) {
+    runAction(ON_OPEN);
+  }
+  if (runOnClose) {
+    runAction(ON_CLOSE);
+  }
+}
+
+void Channel::setValveFloodingFlag(bool active) {
+  auto valve = reinterpret_cast<TValve_Value *>(value);
+  if (isValveFloodingFlagActive() == active) {
+    return;
+  }
+  SUPLA_LOG_DEBUG("Valve[%d] Flood: %d", channelNumber, active);
+  if (active) {
+    valve->flags |= SUPLA_VALVE_FLAG_FLOODING;
+  } else {
+    valve->flags &= ~SUPLA_VALVE_FLAG_FLOODING;
+  }
+  setSendValue();
+  runAction(active ? ON_FLOODING_ACTIVE : ON_FLOODING_INACTIVE);
+}
+
+void Channel::setValveManuallyClosedFlag(bool active) {
+  auto valve = reinterpret_cast<TValve_Value *>(value);
+  if (isValveManuallyClosedFlagActive() == active) {
+    return;
+  }
+  SUPLA_LOG_DEBUG("Valve[%d] ManuallyClosedFlag: %d", channelNumber, active);
+  if (active) {
+    valve->flags |= SUPLA_VALVE_FLAG_MANUALLY_CLOSED;
+  } else {
+    valve->flags &= ~SUPLA_VALVE_FLAG_MANUALLY_CLOSED;
+  }
+  setSendValue();
+  runAction(active ? ON_VALVE_MANUALLY_CLOSED_ACTIVE
+                   : ON_VALVE_MANUALLY_CLOSED_INACTIVE);
+}
+
+void Channel::setValveMotorProblemFlag(bool active) {
+  auto valve = reinterpret_cast<TValve_Value *>(value);
+  if (isValveMotorProblemFlagActive() == active) {
+    return;
+  }
+  SUPLA_LOG_DEBUG("Valve[%d] MotorProblemFlag: %d", channelNumber, active);
+  if (active) {
+    valve->flags |= SUPLA_VALVE_FLAG_MOTOR_PROBLEM;
+  } else {
+    valve->flags &= ~SUPLA_VALVE_FLAG_MOTOR_PROBLEM;
+  }
+  setSendValue();
+  runAction(active ? ON_MOTOR_PROBLEM_ACTIVE : ON_MOTOR_PROBLEM_INACTIVE);
+}
+
+uint8_t Channel::getValveOpenState() const {
+  auto valve = reinterpret_cast<const TValve_Value *>(value);
+  if (getChannelType() == SUPLA_CHANNELTYPE_VALVE_OPENCLOSE) {
+    return valve->closed == 0 ? 100 : 0;
+  } else if (getChannelType() == SUPLA_CHANNELTYPE_VALVE_PERCENTAGE) {
+    if (valve->closed <= 100) {
+      return 100 - valve->closed;
+    }
+  }
+  return 0;
+}
+
+bool Channel::isValveOpen() const {
+  return getValveOpenState() > 0;
+}
+
+bool Channel::isValveFloodingFlagActive() const {
+  auto valve = reinterpret_cast<const TValve_Value *>(value);
+  return valve->flags & SUPLA_VALVE_FLAG_FLOODING;
+}
+
+bool Channel::isValveManuallyClosedFlagActive() const {
+  auto valve = reinterpret_cast<const TValve_Value *>(value);
+  return valve->flags & SUPLA_VALVE_FLAG_MANUALLY_CLOSED;
+}
+
+bool Channel::isValveMotorProblemFlagActive() const {
+  auto valve = reinterpret_cast<const TValve_Value *>(value);
+  return valve->flags & SUPLA_VALVE_FLAG_MOTOR_PROBLEM;
+}
+
+void Channel::onRegistered() {
+  auto chNumber = getChannelNumber();
+  if (chNumber < 0 || chNumber > 255) {
+    return;
+  }
+  if (isInitialCaptionSet()) {
+    setSendInitialCaption();
+  }
+  if (isSleepingEnabled()) {
+    setSendValue();
+    if (isChannelStateEnabled()) {
+      setSendStateInfo();
+    }
+  }
+  if (isChannelStateEnabled() && isStateOnline() &&
+      (isBatteryPoweredFieldEnabled() || getBatteryLevel() <= 100)) {
+    setSendStateInfo();
+  }
+}
+
+bool Channel::isChannelStateEnabled() const {
+  return getFlags() & SUPLA_CHANNEL_FLAG_CHANNELSTATE;
+}
+
+void Channel::setRelayOvercurrentCutOff(bool overcurrent) {
+  if (channelType == ChannelType::RELAY) {
+    auto relay = reinterpret_cast<TRelayChannel_Value *>(value);
+    if ((relay->flags & SUPLA_RELAY_FLAG_OVERCURRENT_RELAY_OFF) !=
+        overcurrent) {
+      relay->flags = (relay->flags & ~SUPLA_RELAY_FLAG_OVERCURRENT_RELAY_OFF) |
+                     (overcurrent ? SUPLA_RELAY_FLAG_OVERCURRENT_RELAY_OFF : 0);
+      setSendValue();
+    }
+  }
+}
+
+bool Channel::isRelayOvercurrentCutOff() const {
+  if (channelType == ChannelType::RELAY) {
+    auto relay = reinterpret_cast<const TRelayChannel_Value *>(value);
+    return relay->flags & SUPLA_RELAY_FLAG_OVERCURRENT_RELAY_OFF;
+  }
+  return false;
+}
+

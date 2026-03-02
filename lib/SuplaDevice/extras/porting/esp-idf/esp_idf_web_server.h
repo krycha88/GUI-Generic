@@ -22,6 +22,8 @@
 #include <esp_http_server.h>
 #include <supla/network/web_sender.h>
 #include <supla/network/web_server.h>
+#include <supla/network/html_generator.h>
+#include <supla/storage/config.h>
 
 namespace Supla {
 
@@ -45,10 +47,66 @@ class EspIdfWebServer : public Supla::WebServer {
 
   bool handlePost(httpd_req_t *req, bool beta = false);
 
+  void setServerCertificate(const uint8_t *serverCert,
+                            int serverCertLen,
+                            const uint8_t *prvtKey,
+                            int prvtKeyLen);
+
   bool dataSaved = false;
 
+  /**
+   * @brief Verifies https server certificates format
+   *
+   * @return true if certificates are in PEM format
+   */
+  bool verifyCertificatesFormat() override;
+  bool ensureAuthorized(httpd_req_t *req,
+                        char *sessionCookie,
+                        int sessionCookieLen,
+                        bool loginFailed = false);
+  void renderLoginPage(httpd_req_t *req);
+  esp_err_t redirect(httpd_req_t *req,
+                int code,
+                const char *destination,
+                const char *cookieRedirect = nullptr);
+  const char *loginOrSetupUrl() const;
+
+  bool login(httpd_req_t *req,
+             const char *password,
+             char *sessionCookie,
+             int sessionCookieLen);
+  void handleLogout(httpd_req_t *req);
+  SetupRequestResult handleSetup(httpd_req_t *req,
+                                 char *sessionCookie,
+                                 int sessionCookieLen);
+
+  bool isPasswordConfigured() const;
+  bool isPasswordCorrect(const char *password) const;
+  bool isHttpsEnalbled() const;
+  bool isAuthorizationBlocked();
+  void reloadSaltPassword();
+  void addSecurityLog(httpd_req_t *req, const char *log) const;
+
  protected:
-  httpd_handle_t server = {};
+  static uint32_t getIpFromReq(httpd_req_t *req);
+  void cleanupCerts();
+  bool isSessionCookieValid(const char *sessionCookie);
+  void setSessionCookie(httpd_req_t *req, char *buf, int bufLen);
+  void failedLoginAttempt(httpd_req_t *req);
+
+  httpd_handle_t serverHttps = {};
+  httpd_handle_t serverHttp = {};
+  const uint8_t *serverCert = nullptr;
+  uint8_t *prvtKey = nullptr;
+  uint16_t serverCertLen = 0;
+  uint16_t prvtKeyLen = 0;
+
+  uint32_t lastLoginAttemptTimestamp = 0;
+  SaltPassword saltPassword = {};
+  uint8_t sessionSecret[32] = {};
+
+  uint8_t failedLoginAttempts = 0;
+  bool prvtKeyDecrypted = false;
 };
 
 };  // namespace Supla

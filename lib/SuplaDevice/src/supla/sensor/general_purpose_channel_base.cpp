@@ -24,6 +24,8 @@
 #include <supla/time.h>
 #include <supla/log_wrapper.h>
 #include <supla/storage/config.h>
+#include <supla/storage/storage.h>
+#include <supla/protocol/protocol_layer.h>
 
 #include "measurement_driver.h"
 #include "memory_variable_driver.h"
@@ -34,6 +36,7 @@ GeneralPurposeChannelBase::GeneralPurposeChannelBase(MeasurementDriver *driver,
     bool addMemoryVariableDriver)
     : driver(driver) {
   channel.setFlag(SUPLA_CHANNEL_FLAG_RUNTIME_CHANNEL_CONFIG_UPDATE);
+  usedConfigTypes.set(SUPLA_CONFIG_TYPE_DEFAULT);
 
   if (this->driver == nullptr && addMemoryVariableDriver) {
     this->driver = new MemoryVariableDriver;
@@ -185,7 +188,9 @@ void GeneralPurposeChannelBase::setDefaultValueMultiplier(int32_t multiplier) {
 }
 
 void GeneralPurposeChannelBase::setDefaultValueAdded(int64_t added) {
-  SUPLA_LOG_DEBUG("GPM[%d]: DefaultValueAdded %lld", getChannelNumber(), added);
+  SUPLA_LOG_DEBUG("GPM[%d]: DefaultValueAdded %d",
+                  getChannelNumber(),
+                  static_cast<int>(added));
   defaultValueAdded = added;
 }
 
@@ -230,16 +235,18 @@ uint8_t GeneralPurposeChannelBase::getDefaultValuePrecision() const {
   return defaultValuePrecision;
 }
 
-void GeneralPurposeChannelBase::getDefaultUnitBeforeValue(char *unit) {
+void GeneralPurposeChannelBase::getDefaultUnitBeforeValue(
+    char unit[SUPLA_GENERAL_PURPOSE_UNIT_SIZE]) {
   if (unit) {
-    strncpy(unit, defaultUnitBeforeValue, SUPLA_GENERAL_PURPOSE_UNIT_SIZE - 1);
+    memcpy(unit, defaultUnitBeforeValue, SUPLA_GENERAL_PURPOSE_UNIT_SIZE);
     unit[SUPLA_GENERAL_PURPOSE_UNIT_SIZE - 1] = '\0';
   }
 }
 
-void GeneralPurposeChannelBase::getDefaultUnitAfterValue(char *unit) {
+void GeneralPurposeChannelBase::getDefaultUnitAfterValue(
+    char unit[SUPLA_GENERAL_PURPOSE_UNIT_SIZE]) {
   if (unit) {
-    strncpy(unit, defaultUnitAfterValue, SUPLA_GENERAL_PURPOSE_UNIT_SIZE - 1);
+    memcpy(unit, defaultUnitAfterValue, SUPLA_GENERAL_PURPOSE_UNIT_SIZE);
     unit[SUPLA_GENERAL_PURPOSE_UNIT_SIZE - 1] = '\0';
   }
 }
@@ -260,19 +267,20 @@ uint8_t GeneralPurposeChannelBase::getValuePrecision() const {
   return commonConfig.precision;
 }
 
-void GeneralPurposeChannelBase::getUnitBeforeValue(char *unit) const {
+void GeneralPurposeChannelBase::getUnitBeforeValue(
+    char unit[SUPLA_GENERAL_PURPOSE_UNIT_SIZE]) const {
   if (unit) {
-    strncpy(unit,
+    memcpy(unit,
             commonConfig.unitBeforeValue,
             SUPLA_GENERAL_PURPOSE_UNIT_SIZE - 1);
     unit[SUPLA_GENERAL_PURPOSE_UNIT_SIZE - 1] = '\0';
   }
 }
 
-void GeneralPurposeChannelBase::getUnitAfterValue(char *unit) const {
+void GeneralPurposeChannelBase::getUnitAfterValue(
+    char unit[SUPLA_GENERAL_PURPOSE_UNIT_SIZE]) const {
   if (unit) {
-    strncpy(
-        unit, commonConfig.unitAfterValue, SUPLA_GENERAL_PURPOSE_UNIT_SIZE - 1);
+    memcpy(unit, commonConfig.unitAfterValue, SUPLA_GENERAL_PURPOSE_UNIT_SIZE);
     unit[SUPLA_GENERAL_PURPOSE_UNIT_SIZE - 1] = '\0';
   }
 }
@@ -448,21 +456,14 @@ void GeneralPurposeChannelBase::setChartType(uint8_t chartType, bool local) {
   }
 }
 
-uint8_t GeneralPurposeChannelBase::applyChannelConfig(
+Supla::ApplyConfigResult GeneralPurposeChannelBase::applyChannelConfig(
     TSD_ChannelConfig *result, bool local) {
-  (void)(local);
-  if (result == nullptr) {
-    return SUPLA_CONFIG_RESULT_DATA_ERROR;
-  }
-  if (result->ConfigType != SUPLA_CONFIG_TYPE_DEFAULT) {
-    return SUPLA_CONFIG_RESULT_DATA_ERROR;
-  }
   if (result->ConfigSize == 0) {
-    return SUPLA_CONFIG_RESULT_TRUE;
+    return Supla::ApplyConfigResult::SetChannelConfigNeeded;
   }
 
   if (result->ConfigSize != sizeof(TChannelConfig_GeneralPurposeMeasurement)) {
-    return SUPLA_CONFIG_RESULT_DATA_ERROR;
+    return Supla::ApplyConfigResult::DataError;
   }
 
   auto config = reinterpret_cast<TChannelConfig_GeneralPurposeMeasurement *>(
@@ -497,21 +498,29 @@ uint8_t GeneralPurposeChannelBase::applyChannelConfig(
       strncmp(config->DefaultUnitAfterValue,
               defaultUnitAfterValue,
               SUPLA_GENERAL_PURPOSE_UNIT_SIZE)) {
-    channelConfigState = Supla::ChannelConfigState::LocalChangePending;
-    saveConfigChangeFlag();
+    if (local) {
+      channelConfigState = Supla::ChannelConfigState::LocalChangePending;
+      saveConfigChangeFlag();
+    }
+    return Supla::ApplyConfigResult::SetChannelConfigNeeded;
   }
 
-  return SUPLA_CONFIG_RESULT_TRUE;
+  return Supla::ApplyConfigResult::Success;
 }
 
 void GeneralPurposeChannelBase::fillChannelConfig(void *channelConfig,
-                                                  int *size) {
+                                                  int *size,
+                                                  uint8_t configType) {
   if (size) {
     *size = 0;
   } else {
     return;
   }
   if (channelConfig == nullptr) {
+    return;
+  }
+
+  if (configType != SUPLA_CONFIG_TYPE_DEFAULT) {
     return;
   }
 

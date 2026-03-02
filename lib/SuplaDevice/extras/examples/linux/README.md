@@ -300,6 +300,8 @@ if you need something more.
 Supported channel types:
 * `VirtualRelay` - related class `Supla::Control::VirtualRelay`
 * `CmdRelay` - related class `Supla::Control::CmdRelay`
+* `CmdValve` - related class `Supla::Control::CmdValve`
+* `CmdRollerShutter` - related class `Supla::Control::CmdRollerShutter`
 * `Fronius` - related class `Supla::PV::Fronius`
 * `Afore` - related class `Supla::PV::Afore`
 * `ThermometerParsed` - related class `Supla::Sensor::ThermometerParsed`
@@ -316,6 +318,8 @@ Supported channel types:
 * `GeneralPurposeMeterParsed` - related class `Supla::Sensor::GeneralPurposeMeter`
 * `WeightParsed` - related class `Supla::Sensor::Weight`
 * `DistanceParsed` - related class `Supla::Sensor::Distance`
+* `Hvac`, `CustomHvac` - related class `Supla::Control::HvacBase`
+* `CustomChannel` - supports arbitrary channel type
 
 Example channels configuration (details are exaplained later):
 
@@ -572,6 +576,59 @@ Example channels configuration (details are exaplained later):
       payload:
         type: Json
 
+    - type: Hvac
+      name: thermostat_1
+      cmd_on: "echo 'true' > /run/shm/hvac.floor.Hallway && /home/pi/check_heating"
+      cmd_off: "echo 'false' > /run/shm/hvac.floor.Hallway && /home/pi/check_heating"
+      main_thermometer_channel_no: 10
+
+    - type: CustomHvac
+      name: thermostat_2
+      turn_on_payload: 1
+      turn_off_payload: 0
+      set_state: state
+      output:
+        type: MQTT
+        control_topic: "thermostat/2"
+      payload:
+        type: Simple
+      main_thermometer_channel_no: 1
+
+      # CmdValve example. It will write 'open' or 'close' to command_valve.out
+      # file on each open/close request (i.e. from server).
+      # State is read from valve_state.txt file from the first line (state: 0)
+      - type: CmdValve
+        name: command_valve
+        cmd_open: "echo 'open' > command_valve.out"
+        cmd_close: "echo 'close' > command_valve.out"
+        state: 0
+        source:
+          type: Cmd
+          command: "cat valve_state.txt"
+        parser:
+          type: Simple
+          refresh_time_ms: 200
+
+    - type: CustomChannel
+      initial_caption: "Custom channel"
+      channel_type: 1000
+      default_function_number: 80
+      value: 01 00 00 00 00 00 00 00
+
+  - type: CmdRollerShutter
+    cmd_up_on: "echo 1 >> up.txt"
+    cmd_up_off: "echo 0 >> up.txt"
+    cmd_down_on: "echo 1 >> down.txt"
+    cmd_down_off: "echo 0 >> down.txt"
+    initial_caption: "Cmd RS"
+    battery_level: 0
+    parser:
+      type: Simple
+      refresh_time_ms: 200
+    source:
+      type: File
+      file: rs_battery.txt
+
 There are some new classes (compared to standard non-Linux supla-device) which
 names end with "Parsed" word. In general, those channels use `parser` and
 `source` functions to get some data from your computer and put it to that
@@ -647,6 +704,65 @@ Exact values and configuration is explained in `ActionTriggerParsed` section.
 Parameter `use: at1` indicates which `ActionTriggerParsed` instance should be used
 to send actions. "at1" is a name of `ActionTriggerParsed` instance.
 
+### CmdValve
+
+`CmdValve` is a channel which allows to control a valve using a Linux command.
+
+`CmdValve` requires the following parameters:
+`cmd_open` - command executed when valve should open,
+`cmd_close` - command executed when valve should close,
+`state` - state of the valve based on `source` and `parser` configuration.
+
+### CmdRollerShutter
+
+`CmdRollerShutter` is a channel which allows to control a roller shutter using a Linux command.
+
+`CmdRollerShutter` requires the following parameters:
+`cmd_up_on` - command executed when roller shutter should go up,
+`cmd_up_off` - command executed when roller shutter should stop going up,
+`cmd_down_on` - command executed when roller shutter should go down,
+`cmd_down_off` - command executed when roller shutter should stop going down.
+
+`CmdRollerShutter` is a "Parsed" channel, so it allows to use `parser` and
+`source` configuration with `battery` settings.
+
+### Hvac
+
+`Hvac` is a thermostat channel.
+
+Required parameters:
+
+`main_thermometer_channel_no` - channel number of a main thermometer channel for this HVAC device,
+`cmd_on` - command executed when thermostat starts heating or cooling,
+`cmd_off` - command executed when thermostat stops heating or cooling.
+
+## Output channels which publish payloads
+
+### `output` parameter
+`output` specifies where supla device will publish data for `payload` to change 
+channel state. It must be defined as a channel sub-element.
+
+`output` have one common mandatory parameter `type` which defines type
+of the used output. There is also an optional `name` parameter. If you name your
+source, then it can be reused for multiple parsers.
+
+There are three supported parser types:
+1. `File` - use file as an output. File name is provided by `file` parameter
+2. `Cmd` - use Linux command line as an output. Command is provided by `command`
+   field.
+3. `MQTT` - use published topic to MQTT broker. A published topic name containing
+control information is provided by `control_topic`.
+
+### `payload` parameter
+`payload` converts channel state change values to the values to be published to 
+a predefined `output`. I.e. in CustomRelay turn on/off commands are published
+to the `output` in formar defined by `payload` based on the `set_state`. Then
+`turn_on_payload` and `turn_off_payload` are written to the `output`.
+
+There are two templates defined:
+1. `Simple`
+2. `Json`
+
 ### CustomRelay
 
 `CustomRelay` is pretending to be a relay channel in Supla. It is very similar to `VirtualRelay`,
@@ -657,33 +773,26 @@ Templates are functionally similar to parsers and outputs are functionally simil
 
 `CustomRelay` accepts the same parameters as `VirtualRelay`. Additionally, it supports
 three extra configuration options:\
-`set_state` - `state` equivalent for `payload`,\
+`set_state` - `state` equivalent for `payload` - it will use configured `payload` to publish turn on/off payloads,\
 `turn_on_payload` - value to be published on turn on,\
 `turn_off_payload` - value to be published on turn on.
 
-#### channel `output` parameter
-`output` specifies where supla device will publish data for `payload` to change 
-channel state. It must be defined as a channel sub-element.
+### CustomHvac
 
-`output` have one common mandatory parameter `type` which defines type
-of used output. There is also optional `name` parameter. If you name your
-source, then it can be reused for multiple parsers.
+`CustomHvac` is `Hvac` channel with `output` support.
 
-There are three supported parser types:
-1. `File` - use file as an output. File name is provided by `file` parameter
-2. `Cmd` - use Linux command line as an output. Command is provided by `command`
-   field.
-3. `MQTT` - use published topic to MQTT broker. A published topic name containing
-control information is provided by `control_topic`.
+`CustomHvac` accepts configuration options:\
+`turn_on_payload` - value to be published on turn on,\
+`turn_off_payload` - value to be published on turn on.
 
-#### channel `payload` parameter
-`payload` converts channel state change values to values to be published to 
-a predefined `output`, based on the `set_state`, `turn_on_payload` and `turn_off_payload` 
-specified in the channel.
+### CustomChannel
 
-There are two templates defined:
-1. `Simple`
-2. `Json`
+`CustomChannel` can be used to send any value with any channel type (mainly for testing).
+
+`CustomChannel` accepts configuration options:\
+`channel_type` - int value representing channel type,\
+`default_function_number` - int value representing default function number for this channel type.
+`value` - 8 B hex string representing value to be published, for example "01 00 00 00 00 00 00 00". First value corresponds with value[0] and so on.
 
 ## Parsed channel `source` parameter
 

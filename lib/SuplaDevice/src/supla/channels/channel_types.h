@@ -46,10 +46,11 @@ enum class ChannelType : uint8_t {
   GENERAL_PURPOSE_MEASUREMENT,
   GENERAL_PURPOSE_METER,
   ACTIONTRIGGER,
+  CONTAINER,
 };
 
-int32_t channelTypeToProtoType(ChannelType type);
-ChannelType protoTypeToChannelType(int32_t type);
+uint32_t channelTypeToProtoType(ChannelType type);
+ChannelType protoTypeToChannelType(uint32_t type);
 
 }  // namespace Supla
 

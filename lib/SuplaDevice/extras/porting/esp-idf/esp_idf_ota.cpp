@@ -52,8 +52,19 @@ Supla::EspIdfOta::EspIdfOta(SuplaDeviceClass *sdc, const char *newUrl)
     : Supla::Device::SwUpdate(sdc, newUrl) {
 }
 
-void Supla::EspIdfOta::start() {
-  Supla::Device::SwUpdate::start();
+Supla::EspIdfOta::~EspIdfOta() {
+  if (client) {
+    esp_http_client_cleanup(client);
+    client = 0;
+  }
+  if (otaBuffer) {
+    delete[] otaBuffer;
+    otaBuffer = nullptr;
+  }
+  if (httpAgent) {
+    free(httpAgent);
+    httpAgent = nullptr;
+  }
 }
 
 void Supla::EspIdfOta::iterate() {
@@ -61,6 +72,13 @@ void Supla::EspIdfOta::iterate() {
     return;
   }
 
+  if (httpAgent == nullptr) {
+#define HTTP_AGENT_SIZE 100
+    httpAgent = new char[HTTP_AGENT_SIZE];
+    if (httpAgent) {
+      Supla::RegisterDevice::generateHttpAgent(httpAgent, HTTP_AGENT_SIZE);
+    }
+  }
   finished = true;
 
 #define URL_SIZE 512
@@ -147,7 +165,8 @@ void Supla::EspIdfOta::iterate() {
       if (v == 0) break;
       curPos += v;
       Supla::Sha256 hash;
-      strncpy(buf, Supla::RegisterDevice::getEmail(), BUF_SIZE);
+      strncpy(buf, Supla::RegisterDevice::getEmail(), BUF_SIZE - 1);
+      buf[BUF_SIZE - 1] = '\0';
       auto bufPtr = buf;
       int size = 0;
       while (*bufPtr) {
@@ -172,6 +191,14 @@ void Supla::EspIdfOta::iterate() {
       if (v == 0) break;
       curPos += v;
     }
+
+    if (isSecurityOnly()) {
+      v = stringAppend(
+          queryParams + curPos, "&securityOnly=true", URL_SIZE - curPos - 1);
+      if (v == 0) break;
+      curPos += v;
+    }
+
     break;
   }
 
@@ -188,31 +215,42 @@ void Supla::EspIdfOta::iterate() {
   esp_http_client_config_t configCheckUpdate = {};
   configCheckUpdate.url = url;
   configCheckUpdate.timeout_ms = 5000;
+  configCheckUpdate.user_agent = httpAgent;
+  if (!skipCert && sdc && sdc->getSuplaCACert()) {
+    SUPLA_LOG_INFO("SW update: using Supla CA cert");
+    configCheckUpdate.cert_pem = sdc->getSuplaCACert();
+  }
 
+  if (client) {
+    esp_http_client_cleanup(client);
+    client = nullptr;
+  }
   client = esp_http_client_init(&configCheckUpdate);
+  if (client == nullptr) {
+    fail("SW update: failed initialize connection with update server");
+    return;
+  }
+
   esp_http_client_set_method(client, HTTP_METHOD_POST);
   esp_http_client_set_header(client,
                              "Content-Type",
                              "application/x-www-form-urlencoded");
-  if (client == NULL) {
-    fail("SW update: failed initialize connection with update server");
-    return;
-  }
   esp_err_t err;
   err = esp_http_client_open(client, querySize);
   if (err != ESP_OK) {
     fail("SW update: failed to open connection with update server");
     return;
   }
+
   esp_http_client_write(client, queryParams, querySize);
-
   esp_http_client_fetch_headers(client);
-
-  // Start fetching bin file and perform update
-  const esp_partition_t *updatePartition = NULL;
 
   SUPLA_LOG_DEBUG("Starting OTA");
 
+  if (otaBuffer) {
+    delete[] otaBuffer;
+    otaBuffer = nullptr;
+  }
   otaBuffer = new uint8_t[BUFFER_SIZE + 1];
   if (otaBuffer == nullptr) {
     fail("SW udpate: failed to allocate memory");
@@ -256,6 +294,10 @@ void Supla::EspIdfOta::iterate() {
     SUPLA_LOG_INFO("%s", buf);
     log(buf);
   }
+
+  esp_http_client_cleanup(client);
+  client = nullptr;
+
   if (cJSON_IsObject(latestUpdate)) {
     cJSON *version = cJSON_GetObjectItemCaseSensitive(latestUpdate, "version");
     cJSON *url = cJSON_GetObjectItemCaseSensitive(latestUpdate, "updateUrl");
@@ -268,19 +310,87 @@ void Supla::EspIdfOta::iterate() {
       snprintf(buf, BUF_SIZE, "SW update url: \"%s\"", url->valuestring);
       SUPLA_LOG_INFO("%s", buf);
       log(buf);
-      esp_http_client_set_url(client, url->valuestring);
+
+      // copy to newVersion
+      if (newVersion) {
+        delete[] newVersion;
+      }
+      int versionLen = strlen(version->valuestring) + 1;
+      newVersion = new char[versionLen];
+      if (newVersion) {
+        snprintf(newVersion, versionLen, "%s", version->valuestring);
+      }
+
+      // copy to updateUrl
+      if (updateUrl) {
+        delete[] updateUrl;
+      }
+      int urlLen = strlen(url->valuestring) + 1;
+      updateUrl = new char[urlLen];
+      if (updateUrl == nullptr) {
+        fail("SW update: failed to allocate memory");
+        cJSON_Delete(json);
+        return;
+      }
+      snprintf(updateUrl, urlLen, "%s", url->valuestring);
+
+      // copy changelogUrl parameter (if available)
+      cJSON *changelogUrlJson =
+          cJSON_GetObjectItemCaseSensitive(latestUpdate, "changelogUrl");
+      if (cJSON_IsString(changelogUrlJson) &&
+          (changelogUrlJson->valuestring != NULL)) {
+        if (changelogUrl) {
+          delete[] changelogUrl;
+        }
+
+        int urlLen = strlen(changelogUrlJson->valuestring) + 1;
+        if (urlLen < SUPLA_URL_PATH_MAXSIZE) {
+          changelogUrl = new char[urlLen];
+          if (changelogUrl) {
+            snprintf(changelogUrl, urlLen, "%s", changelogUrlJson->valuestring);
+          }
+        } else {
+          SUPLA_LOG_WARNING("SW update: changelogUrl too long, skipping");
+        }
+      } else {
+        SUPLA_LOG_WARNING("SW update: no changelogUrl received");
+      }
     } else {
       fail("SW update: no url and version received - finishing");
+      cJSON_Delete(json);
       return;
     }
   } else {
     fail("SW update: no new update available");
+    cJSON_Delete(json);
     return;
   }
 
+  cJSON_Delete(json);
+
+  if (checkUpdateAndAbort) {
+    abort = true;
+    return;
+  }
+
+  //////////////////
+  // download update
+  //////////////////
+  esp_http_client_config_t configGet = {};
+  configGet.url = updateUrl;
+  configGet.timeout_ms = 10000;
+  configGet.user_agent = httpAgent;
+  if (!skipCert && sdc && sdc->getSuplaCACert()) {
+    SUPLA_LOG_INFO("SW update: using Supla CA cert");
+    configCheckUpdate.cert_pem = sdc->getSuplaCACert();
+  }
+  client = esp_http_client_init(&configGet);
+  if (client == NULL) {
+    fail("SW update: failed initialize GET connection with update server");
+    return;
+  }
   esp_http_client_set_method(client, HTTP_METHOD_GET);
   err = esp_http_client_open(client, 0);
-  cJSON_Delete(json);
   if (err != ESP_OK) {
     fail("SW update: failed to open HTTP connection");
     return;
@@ -301,6 +411,9 @@ void Supla::EspIdfOta::iterate() {
     return;
   }
 
+  // Start fetching bin file and perform update
+  const esp_partition_t *updatePartition = NULL;
+
   updatePartition = esp_ota_get_next_update_partition(NULL);
   if (updatePartition == NULL) {
     fail("SW update: failed to get next update partition");
@@ -320,6 +433,8 @@ void Supla::EspIdfOta::iterate() {
   }
 
   SUPLA_LOG_DEBUG("Getting file from server...");
+  int bytesRead = 0;
+  int bytesReadPrinted = 0;
   while (true) {
     int dataRead = esp_http_client_read(
         client, reinterpret_cast<char *>(otaBuffer), BUFFER_SIZE);
@@ -327,6 +442,11 @@ void Supla::EspIdfOta::iterate() {
       fail("SW update: data read error");
       return;
     } else if (dataRead > 0) {
+      bytesRead += dataRead;
+      if (bytesRead - bytesReadPrinted > 1024 * 100) {
+        bytesReadPrinted = bytesRead;
+        SUPLA_LOG_DEBUG("SW update: downloaded %d bytes...", bytesRead);
+      }
       err = esp_ota_write(updateHandle, (const void *)otaBuffer, dataRead);
       if (err == ESP_ERR_OTA_VALIDATE_FAILED) {
         fail("SW update: image corrupted - invalid magic byte");
@@ -354,7 +474,7 @@ void Supla::EspIdfOta::iterate() {
   }
 
   esp_http_client_cleanup(client);
-  client = 0;
+  client = nullptr;
 
   err = esp_ota_end(updateHandle);
   updateHandle = 0;
@@ -385,10 +505,6 @@ void Supla::EspIdfOta::iterate() {
   delete[] otaBuffer;
   otaBuffer = nullptr;
   return;
-}
-
-bool Supla::EspIdfOta::isFinished() {
-  return finished;
 }
 
 #define RSA_FOOTER_SIZE 16
@@ -479,10 +595,6 @@ bool Supla::EspIdfOta::verifyRsaSignature(
   return false;
 }
 
-bool Supla::EspIdfOta::isAborted() {
-  return abort;
-}
-
 void Supla::EspIdfOta::fail(const char *reason) {
   if (otaBuffer) {
     delete[] otaBuffer;
@@ -503,7 +615,7 @@ void Supla::EspIdfOta::fail(const char *reason) {
 }
 
 void Supla::EspIdfOta::log(const char *value) {
-  if (sdc) {
+  if (sdc && !checkUpdateAndAbort) {
     sdc->addLastStateLog(value);
   }
 }

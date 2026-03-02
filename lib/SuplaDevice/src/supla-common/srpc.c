@@ -332,14 +332,22 @@ char SRPC_ICACHE_FLASH srpc_iterate(void *_srpc) {
     return lck_unlock_r(srpc->lck, SUPLA_RESULT_FALSE);
   }
 
-  while (1) {
-    if (SUPLA_RESULT_TRUE ==
-        (result = sproto_pop_in_sdp(srpc->proto, &srpc->sdp))) {
+  if (SUPLA_RESULT_TRUE ==
+      (result = sproto_pop_in_sdp(srpc->proto, &srpc->sdp))) {
 #ifndef __EH_DISABLED
-      raise_event = sproto_in_dataexists(srpc->proto) == 1 ? 1 : 0;
+    raise_event = sproto_in_dataexists(srpc->proto) == 1 ? 1 : 0;
 #endif /*__EH_DISABLED*/
 
 #ifdef SRPC_WITHOUT_IN_QUEUE
+    if (srpc->params.on_remote_call_received) {
+      lck_unlock(srpc->lck);
+      srpc->params.on_remote_call_received(
+          srpc, srpc->sdp.rr_id, srpc->sdp.call_id, srpc->params.user_params,
+          srpc->sdp.version);
+      lck_lock(srpc->lck);
+    }
+#else
+    if (SUPLA_RESULT_TRUE == srpc_in_queue_push(srpc, &srpc->sdp)) {
       if (srpc->params.on_remote_call_received) {
         lck_unlock(srpc->lck);
         srpc->params.on_remote_call_received(
@@ -347,42 +355,27 @@ char SRPC_ICACHE_FLASH srpc_iterate(void *_srpc) {
             srpc->sdp.version);
         lck_lock(srpc->lck);
       }
-#else
-      if (SUPLA_RESULT_TRUE == srpc_in_queue_push(srpc, &srpc->sdp)) {
-        if (srpc->params.on_remote_call_received) {
-          lck_unlock(srpc->lck);
-          srpc->params.on_remote_call_received(srpc,
-                                               srpc->sdp.rr_id,
-                                               srpc->sdp.call_id,
-                                               srpc->params.user_params,
-                                               srpc->sdp.version);
-          lck_lock(srpc->lck);
-        }
 
-      } else {
-        supla_log(LOG_DEBUG, "ssrpc_in_queue_push error");
-        return lck_unlock_r(srpc->lck, SUPLA_RESULT_FALSE);
-      }
+    } else {
+      supla_log(LOG_DEBUG, "ssrpc_in_queue_push error");
+      return lck_unlock_r(srpc->lck, SUPLA_RESULT_FALSE);
+    }
 #endif /*SRPC_WITHOUT_IN_QUEUE*/
 
-    } else if (result != SUPLA_RESULT_FALSE) {
-      if (result == (char)SUPLA_RESULT_VERSION_ERROR) {
-        if (srpc->params.on_version_error) {
-          version = srpc->sdp.version;
-          lck_unlock(srpc->lck);
+  } else if (result != SUPLA_RESULT_FALSE) {
+    if (result == (char)SUPLA_RESULT_VERSION_ERROR) {
+      if (srpc->params.on_version_error) {
+        version = srpc->sdp.version;
+        lck_unlock(srpc->lck);
 
-          srpc->params.on_version_error(
-              srpc, version, srpc->params.user_params);
-          return SUPLA_RESULT_FALSE;
-        }
-      } else {
-        supla_log(LOG_DEBUG, "sproto_pop_in_sdp error: %i", result);
+        srpc->params.on_version_error(srpc, version, srpc->params.user_params);
+        return SUPLA_RESULT_FALSE;
       }
-
-      return lck_unlock_r(srpc->lck, SUPLA_RESULT_FALSE);
     } else {
-      break;
+      supla_log(LOG_DEBUG, "sproto_pop_in_sdp error: %i", result);
     }
+
+    return lck_unlock_r(srpc->lck, SUPLA_RESULT_FALSE);
   }
 
   // --------- OUT ---------------
@@ -418,6 +411,64 @@ char SRPC_ICACHE_FLASH srpc_iterate(void *_srpc) {
 #endif /*SRPC_WITHOUT_OUT_QUEUE*/
   return lck_unlock_r(srpc->lck, SUPLA_RESULT_TRUE);
 }
+
+#ifndef SRPC_EXCLUDE_DEVICE
+char SRPC_ICACHE_FLASH srpc_iterate_device(void *_srpc) {
+  Tsrpc *srpc = (Tsrpc *)_srpc;
+  char data_buffer[SRPC_BUFFER_SIZE];
+  char result = SUPLA_RESULT_TRUE;
+
+  lck_lock(srpc->lck);
+  _supla_int_t data_size = 0;
+
+  while ((data_size = srpc->params.data_read(data_buffer, SRPC_BUFFER_SIZE,
+                                             srpc->params.user_params)) > 0) {
+    if (SUPLA_RESULT_TRUE != (result = sproto_in_buffer_append(
+                                  srpc->proto, data_buffer, data_size))) {
+      supla_log(LOG_DEBUG, "sproto_in_buffer_append: %i, datasize: %i", result,
+                data_size);
+      return lck_unlock_r(srpc->lck, SUPLA_RESULT_FALSE);
+    }
+
+    while ((result = sproto_pop_in_sdp(srpc->proto, &srpc->sdp)) ==
+           SUPLA_RESULT_TRUE) {
+      // repeat while there are messages in the input buffer
+      if (srpc->params.on_remote_call_received) {
+        lck_unlock(srpc->lck);
+        srpc->params.on_remote_call_received(
+            srpc, srpc->sdp.rr_id, srpc->sdp.call_id, srpc->params.user_params,
+            srpc->sdp.version);
+        lck_lock(srpc->lck);
+      }
+    }
+
+    if (result != SUPLA_RESULT_FALSE) {
+      if (result == (char)SUPLA_RESULT_VERSION_ERROR) {
+        if (srpc->params.on_version_error) {
+          unsigned char version = srpc->sdp.version;
+          lck_unlock(srpc->lck);
+
+          srpc->params.on_version_error(srpc, version,
+                                        srpc->params.user_params);
+          return SUPLA_RESULT_FALSE;
+        }
+      } else {
+        supla_log(LOG_DEBUG, "sproto_pop_in_sdp error: %i", result);
+      }
+      return lck_unlock_r(srpc->lck, SUPLA_RESULT_FALSE);
+    } else {
+      // no more messages in the input buffer
+      break;
+    }
+  }
+
+  if (data_size == 0) {
+    return lck_unlock_r(srpc->lck, SUPLA_RESULT_FALSE);
+  }
+
+  return lck_unlock_r(srpc->lck, SUPLA_RESULT_TRUE);
+}
+#endif /*!SRPC_EXCLUDE_DEVICE*/
 
 typedef unsigned _supla_int_t (*_func_srpc_pack_get_caption_size)(
     void *pack, _supla_int_t idx);
@@ -1339,6 +1390,14 @@ char SRPC_ICACHE_FLASH srpc_getdata(void *_srpc, TsrpcReceivedData *rd,
         }
         break;
 
+      case SUPLA_SC_CALL_CHANNEL_STATE_PACK_UPDATE:
+        if (VALID_SIZE(TSC_SuplaChannelStatePack, TDSC_ChannelState, count,
+                       SUPLA_CHANNEL_STATE_PACK_MAXCOUNT)) {
+          rd->data.sc_channel_state_pack = (TSC_SuplaChannelStatePack *)calloc(
+              1, sizeof(TSC_SuplaChannelStatePack));
+        }
+        break;
+
       case SUPLA_CS_CALL_CHANNEL_SET_VALUE:
 
         if (srpc->sdp.data_size == sizeof(TCS_SuplaChannelNewValue))
@@ -1795,6 +1854,8 @@ srpc_call_min_version_required(void *_srpc, unsigned _supla_int_t call_id) {
     case SUPLA_SD_CALL_REGISTER_DEVICE_RESULT_B:
     case SUPLA_DS_CALL_SET_SUBDEVICE_DETAILS:
       return 25;
+    case SUPLA_SC_CALL_CHANNEL_STATE_PACK_UPDATE:
+      return 26;
   }
 
   return 255;
@@ -2336,7 +2397,10 @@ _supla_int_t SRPC_ICACHE_FLASH srpc_ds_async_channel_value_changed_c(
     unsigned char offline, unsigned _supla_int_t validity_time_sec) {
   TDS_SuplaDeviceChannelValue_C ncsc;
   ncsc.ChannelNumber = channel_number;
-  ncsc.Offline = !!offline;
+  if (offline > SUPLA_CHANNEL_OFFLINE_FLAG_MAX) {
+    offline = SUPLA_CHANNEL_OFFLINE_FLAG_OFFLINE;
+  }
+  ncsc.Offline = offline;
   ncsc.ValidityTimeSec = validity_time_sec;
   memcpy(ncsc.value, value, SUPLA_CHANNELVALUE_SIZE);
 
@@ -2562,8 +2626,8 @@ srpc_ds_async_send_push_notification(void *_srpc, TDS_PushNotification *push) {
                          (char *)push, size);
 }
 
-_supla_int_t SRPC_ICACHE_FLASH srpc_ds_async_set_subdevice_details(
-    void *_srpc, TDS_SubdeviceDetails *reg) {
+_supla_int_t SRPC_ICACHE_FLASH
+srpc_ds_async_set_subdevice_details(void *_srpc, TDS_SubdeviceDetails *reg) {
   if (!reg) {
     return 0;
   }
@@ -2906,6 +2970,21 @@ _supla_int_t SRPC_ICACHE_FLASH srpc_sc_async_channelextendedvalue_pack_update(
                          sizeof(TSC_SuplaChannelExtendedValuePack) -
                              SUPLA_CHANNELEXTENDEDVALUE_PACK_MAXDATASIZE +
                              extendedvalue_pack->pack_size);
+}
+
+_supla_int_t SRPC_ICACHE_FLASH srpc_sc_async_channel_state_pack_update(
+    void *_srpc, TSC_SuplaChannelStatePack *state_pack) {
+  if (state_pack->count < 1 ||
+      state_pack->count > SUPLA_CHANNEL_STATE_PACK_MAXCOUNT) {
+    return 0;
+  }
+
+  unsigned _supla_int_t size = sizeof(TSC_SuplaChannelStatePack) -
+                               sizeof(state_pack->items) +
+                               (sizeof(TDSC_ChannelState) * state_pack->count);
+
+  return srpc_async_call(_srpc, SUPLA_SC_CALL_CHANNEL_STATE_PACK_UPDATE,
+                         (char *)state_pack, size);
 }
 
 _supla_int_t SRPC_ICACHE_FLASH srpc_cs_async_get_next(void *_srpc) {

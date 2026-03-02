@@ -19,17 +19,23 @@
  * by setting LOW or HIGH output on selected GPIO.
  */
 
+#include "relay.h"
+
 #include <supla/log_wrapper.h>
 #include <supla/time.h>
 #include <supla/tools.h>
 #include <supla/control/button.h>
 #include <supla/protocol/protocol_layer.h>
 #include <supla/control/relay_hvac_aggregator.h>
+#include <supla/storage/config_tags.h>
+#include <supla/storage/config.h>
+#include <supla/storage/storage.h>
+#include <supla/condition.h>
+#include <supla/condition_getter.h>
+#include <supla/events.h>
+#include <supla/actions.h>
+#include <supla/io.h>
 
-#include "../actions.h"
-#include "../io.h"
-#include "../storage/storage.h"
-#include "relay.h"
 
 using Supla::Control::Relay;
 
@@ -39,7 +45,7 @@ void Relay::setRelayStorageSaveDelay(int delayMs) {
   relayStorageSaveDelay = delayMs;
 }
 
-Relay::Relay(Supla::Io *io,
+Relay::Relay(Supla::Io::Base *io,
              int pin,
              bool highIsOn,
              _supla_int_t functions)
@@ -54,6 +60,7 @@ Relay::Relay(int pin, bool highIsOn, _supla_int_t functions)
   channel.setFlag(SUPLA_CHANNEL_FLAG_COUNTDOWN_TIMER_SUPPORTED);
   channel.setFlag(SUPLA_CHANNEL_FLAG_RUNTIME_CHANNEL_CONFIG_UPDATE);
   channel.setFuncList(functions);
+  usedConfigTypes.set(SUPLA_CONFIG_TYPE_DEFAULT);
 }
 
 Relay::~Relay() {
@@ -70,70 +77,151 @@ void Relay::onLoadConfig(SuplaDeviceClass *) {
   auto cfg = Supla::Storage::ConfigInstance();
   if (cfg) {
     loadFunctionFromConfig();
+    loadConfigChangeFlag();
     updateRelayHvacAggregator();
+
+    if (overcurrentMaxAllowed > 0) {
+      uint32_t overcurrentValue = 0;
+      char key[16] = {};
+      generateKey(key, Supla::ConfigTag::RelayOvercurrentThreshold);
+      cfg->getUInt32(key, &overcurrentValue);
+      if (overcurrentValue > overcurrentMaxAllowed) {
+        overcurrentValue = overcurrentMaxAllowed;
+      }
+      overcurrentThreshold = overcurrentValue;
+      SUPLA_LOG_DEBUG("Relay[%d] overcurrent threshold: %d (max: %d)",
+                      getChannelNumber(),
+                      overcurrentThreshold,
+                      overcurrentMaxAllowed);
+    }
+  }
+  if (isStaircaseFunction() || isImpulseFunction()) {
+    if (storedTurnOnDurationMs == 0) {
+      storedTurnOnDurationMs =
+          (isStaircaseFunction() ? defaultStaircaseDurationMs
+                                 : defaultImpulseDurationMs);
+    }
+    if (isStaircaseFunction()) {
+      usedConfigTypes.set(SUPLA_CONFIG_TYPE_EXTENDED);
+    }
   }
 }
 
 void Relay::onRegistered(
     Supla::Protocol::SuplaSrpc *suplaSrpc) {
-  Supla::Element::onRegistered(suplaSrpc);
+  Supla::ElementWithChannelActions::onRegistered(suplaSrpc);
 
   timerUpdateTimestamp = 1;
 }
 
-uint8_t Relay::applyChannelConfig(TSD_ChannelConfig *result, bool) {
+Supla::ApplyConfigResult Relay::applyChannelConfig(TSD_ChannelConfig *result,
+                                                   bool) {
   SUPLA_LOG_DEBUG(
-      "Relay[%d]:applyChannelConfig, func %d, configtype %d, configsize %d",
+      "Relay[%d] applyChannelConfig, func %d, configtype %d, configsize %d",
       getChannelNumber(),
       result->Func,
       result->ConfigType,
       result->ConfigSize);
 
-  setChannelFunction(result->Func);
   updateRelayHvacAggregator();
 
   if (result->ConfigSize == 0) {
-    return SUPLA_CONFIG_RESULT_TRUE;
+    if (isImpulseFunction()) {
+      // In case of impulse function we can ignore empty config - it is not
+      // implemented on server side either.
+      return Supla::ApplyConfigResult::Success;
+    }
+    return Supla::ApplyConfigResult::SetChannelConfigNeeded;
   }
 
-  switch (result->Func) {
-    default:
-    case SUPLA_CHANNELFNC_LIGHTSWITCH:
-    case SUPLA_CHANNELFNC_POWERSWITCH: {
+  bool readonlyViolation = false;
+  if (((result->Func == SUPLA_CHANNELFNC_LIGHTSWITCH ||
+        result->Func == SUPLA_CHANNELFNC_POWERSWITCH) &&
+       result->ConfigType == SUPLA_CONFIG_TYPE_DEFAULT) ||
+      (result->Func == SUPLA_CHANNELFNC_STAIRCASETIMER &&
+       result->ConfigType == SUPLA_CONFIG_TYPE_EXTENDED)) {
+    if (result->ConfigSize == sizeof(TChannelConfig_PowerSwitch)) {
+      auto config =
+          reinterpret_cast<TChannelConfig_PowerSwitch *>(result->Config);
       SUPLA_LOG_DEBUG(
-          "Relay[%d]: Ignoring config for power/light switch",
-          getChannelNumber());
-      // TODO(klew): add handlign of overcurrent threshold settings
-      break;
-    }
+          "Relay[%d] OvercurrentMaxAllowed: %d, OvercurrentThreshold: %d",
+          getChannelNumber(),
+          config->OvercurrentMaxAllowed,
+          config->OvercurrentThreshold);
 
-    case SUPLA_CHANNELFNC_STAIRCASETIMER: {
-      if (result->ConfigType == 0 &&
-          result->ConfigSize == sizeof(TChannelConfig_StaircaseTimer)) {
-        uint32_t newDurationMs =
-            reinterpret_cast<TChannelConfig_StaircaseTimer *>(result->Config)
-                ->TimeMS;
-        if (newDurationMs != storedTurnOnDurationMs) {
-          storedTurnOnDurationMs = newDurationMs;
-          Supla::Storage::ScheduleSave(relayStorageSaveDelay);
+      if (config->OvercurrentMaxAllowed != overcurrentMaxAllowed) {
+        SUPLA_LOG_INFO(
+            "Relay[%d] OvercurrentMaxAllowed on server is not valid (%d), "
+            "setting to %d",
+            getChannelNumber(),
+            config->OvercurrentMaxAllowed,
+            overcurrentMaxAllowed);
+        readonlyViolation = true;
+      }
+      if (defaultRelatedMeterChannelNo >= 0) {
+        if (config->DefaultRelatedMeterIsSet == 0 ||
+            config->DefaultRelatedMeterChannelNo !=
+                defaultRelatedMeterChannelNo) {
+          SUPLA_LOG_INFO(
+              "Relay[%d] DefaultRelatedMeterChannelNo on server is not valid "
+              "(%d), setting to %d",
+              getChannelNumber(),
+              config->DefaultRelatedMeterChannelNo,
+              defaultRelatedMeterChannelNo);
+          readonlyViolation = true;
         }
       }
-      break;
+      if (defaultRelatedMeterChannelNo == -1 &&
+          config->DefaultRelatedMeterIsSet == 1) {
+        SUPLA_LOG_INFO(
+            "Relay[%d] DefaultRelatedMeterIsSet on server is not valid "
+            "(%d), setting to 0",
+            getChannelNumber(),
+            config->DefaultRelatedMeterIsSet);
+        readonlyViolation = true;
+      }
+      if (config->OvercurrentThreshold != overcurrentThreshold) {
+        SUPLA_LOG_DEBUG("Relay[%d] OvercurrentThreshold changed from %d to %d",
+                        getChannelNumber(),
+                        overcurrentThreshold,
+                        config->OvercurrentThreshold);
+        setOvercurrentThreshold(config->OvercurrentThreshold);
+        overcurrentActiveTimestamp = 0;
+      }
     }
-
-    case SUPLA_CHANNELFNC_CONTROLLINGTHEGATE:
-    case SUPLA_CHANNELFNC_CONTROLLINGTHEDOORLOCK:
-    case SUPLA_CHANNELFNC_CONTROLLINGTHEGARAGEDOOR:
-    case SUPLA_CHANNELFNC_CONTROLLINGTHEGATEWAYLOCK: {
-      SUPLA_LOG_DEBUG(
-          "Relay[%d]: Ignoring config for controlling the gate/door",
-          getChannelNumber());
-      // TODO(klew): add here reading of duration from config when it will be
-      // added
-      break;
+  } else if (result->Func == SUPLA_CHANNELFNC_STAIRCASETIMER) {
+    if (result->ConfigType == SUPLA_CONFIG_TYPE_DEFAULT &&
+        result->ConfigSize == sizeof(TChannelConfig_StaircaseTimer)) {
+      uint32_t newDurationMs =
+          reinterpret_cast<TChannelConfig_StaircaseTimer *>(result->Config)
+              ->TimeMS;
+      if (newDurationMs == 0 && storedTurnOnDurationMs != 0) {
+        SUPLA_LOG_DEBUG("Relay[%d] missing StaircaseTimer duration, setting to "
+                        "%d",
+                      getChannelNumber(),
+                      storedTurnOnDurationMs);
+        return Supla::ApplyConfigResult::SetChannelConfigNeeded;
+      }
+      if (newDurationMs != storedTurnOnDurationMs) {
+        SUPLA_LOG_DEBUG("Relay[%d] new StaircaseTimer duration %d",
+                        getChannelNumber(),
+                        newDurationMs);
+        storedTurnOnDurationMs = newDurationMs;
+        Supla::Storage::ScheduleSave(relayStorageSaveDelay);
+      }
     }
+  } else if (result->Func == SUPLA_CHANNELFNC_CONTROLLINGTHEGATE ||
+             result->Func == SUPLA_CHANNELFNC_CONTROLLINGTHEDOORLOCK ||
+             result->Func == SUPLA_CHANNELFNC_CONTROLLINGTHEGARAGEDOOR ||
+             result->Func == SUPLA_CHANNELFNC_CONTROLLINGTHEGATEWAYLOCK) {
+    SUPLA_LOG_DEBUG("Relay[%d] Ignoring config for controlling the gate/door",
+                    getChannelNumber());
+    // TODO(klew): add here reading of duration from config when it will be
+    // added
   }
-  return SUPLA_CONFIG_RESULT_TRUE;
+
+  return (readonlyViolation ? Supla::ApplyConfigResult::SetChannelConfigNeeded
+                            : Supla::ApplyConfigResult::Success);
 }
 
 uint8_t Relay::pinOnValue() {
@@ -163,9 +251,9 @@ void Relay::onInit() {
       } else if (attachedButton->isBistable()) {
         attachedButton->addAction(
             Supla::TOGGLE, this, Supla::CONDITIONAL_ON_CHANGE);
-      } else if (attachedButton->isMotionSensor()) {
-        attachedButton->addAction(
-            Supla::TURN_ON, this, Supla::ON_PRESS);
+      } else if (attachedButton->isMotionSensor() ||
+                 attachedButton->isCentral()) {
+        attachedButton->addAction(Supla::TURN_ON, this, Supla::ON_PRESS);
         attachedButton->addAction(
             Supla::TURN_OFF, this, Supla::ON_RELEASE);
         if (attachedButton->getLastState() == Supla::Control::PRESSED) {
@@ -195,11 +283,60 @@ void Relay::onInit() {
   } else {
     turnOff(duration);
   }
+  SUPLA_LOG_DEBUG("Relay[%d] init done, storedTurnOnDurationMs %d",
+                  channel.getChannelNumber(),
+                  storedTurnOnDurationMs);
+  initDone = true;
 }
 
 void Relay::iterateAlways() {
   if (durationMs && millis() - durationTimestamp > durationMs) {
     toggle();
+  }
+
+  if (overcurrentThreshold > 0 && isOn()) {
+    if (millis() - overcurrentCheckTimestamp > 500) {
+      overcurrentCheckTimestamp = millis();
+      auto current = getCurrentValueFromMeter();
+      if (current > overcurrentThreshold * 1.2) {
+        SUPLA_LOG_WARNING(
+            "Relay[%d] Overcurrent detected (%d) - instant turn off",
+            getChannelNumber(), current);
+        channel.setRelayOvercurrentCutOff(true);
+        turnOff();
+        return;
+      }
+      if (current >= overcurrentThreshold) {
+        if (overcurrentActiveTimestamp != 0 &&
+            millis() - overcurrentActiveTimestamp > 30 * 1000) {  // 30 s
+          SUPLA_LOG_WARNING(
+              "Relay[%d] Overcurrent detected (%d) - turn off",
+              getChannelNumber(),
+              current);
+          channel.setRelayOvercurrentCutOff(true);
+          turnOff();
+          return;
+        }
+        if (overcurrentActiveTimestamp == 0) {
+          SUPLA_LOG_WARNING(
+              "Relay[%d] Overcurrent detected (%d) - filtering 30s",
+              getChannelNumber(),
+              current);
+          overcurrentActiveTimestamp = millis();
+        }
+      } else {
+        if (overcurrentActiveTimestamp != 0) {
+          SUPLA_LOG_DEBUG(
+              "Relay[%d] Overcurrent filtering cancelled (%d)",
+              getChannelNumber(),
+              current);
+        }
+        overcurrentActiveTimestamp = 0;
+      }
+    }
+  } else {
+    overcurrentCheckTimestamp = 0;
+    overcurrentActiveTimestamp = 0;
   }
 }
 
@@ -207,6 +344,7 @@ bool Relay::iterateConnected() {
   if (timerUpdateTimestamp != durationTimestamp) {
     timerUpdateTimestamp = durationTimestamp;
     updateTimerValue();
+    return false;
   }
 
   return ChannelElement::iterateConnected();
@@ -231,7 +369,7 @@ int32_t Relay::handleNewValueFromServer(TSD_SuplaChannelNewValue *newValue) {
                       channel.getChannelNumber());
       newValue->DurationMS = minimumAllowedDurationMs;
     }
-    if (isImpulseFunction()) {
+    if (isImpulseFunction() && newValue->DurationMS > 0) {
       storedTurnOnDurationMs = newValue->DurationMS;
     }
 
@@ -291,6 +429,7 @@ void Relay::turnOn(_supla_int_t duration) {
 
   Supla::Io::digitalWrite(channel.getChannelNumber(), pin, pinOnValue(), io);
 
+  channel.setRelayOvercurrentCutOff(false);
   channel.setNewValue(true);
 
   // Schedule save in 5 s after state change
@@ -339,7 +478,7 @@ void Relay::handleAction(int event, int action) {
     case TURN_ON_WITHOUT_TIMER: {
       uint32_t copyDurationMs = storedTurnOnDurationMs;
       storedTurnOnDurationMs = 0;
-      SUPLA_LOG_DEBUG("Relay[%d]: override stored durationMs",
+      SUPLA_LOG_DEBUG("Relay[%d] override stored durationMs",
                       channel.getChannelNumber());
       turnOn();
       storedTurnOnDurationMs = copyDurationMs;
@@ -354,7 +493,12 @@ void Relay::handleAction(int event, int action) {
       break;
     }
     case TOGGLE: {
-      toggle();
+      if (isRestartTimerOnToggle() &&
+          (isStaircaseFunction() || isImpulseFunction())) {
+        turnOn();
+      } else {
+        toggle();
+      }
       break;
     }
   }
@@ -363,6 +507,9 @@ void Relay::handleAction(int event, int action) {
 void Relay::onSaveState() {
   uint32_t durationForState = storedTurnOnDurationMs;
   uint8_t relayFlags = 0;
+  if (channel.isRelayOvercurrentCutOff()) {
+    relayFlags |= RELAY_FLAGS_OVERCURRENT;
+  }
   if (isStaircaseFunction()) {
     relayFlags |= RELAY_FLAGS_STAIRCASE;
   } else if (isImpulseFunction()) {
@@ -401,7 +548,7 @@ void Relay::onLoadState() {
                             sizeof(relayFlags));
   if (stateOnInit < 0) {
     SUPLA_LOG_INFO(
-              "Relay[%d]: restored relay state: %s",
+              "Relay[%d] restored relay state: %s",
               channel.getChannelNumber(),
               (relayFlags & RELAY_FLAGS_ON) ? "ON" : "OFF");
     if (relayFlags & RELAY_FLAGS_ON) {
@@ -412,28 +559,51 @@ void Relay::onLoadState() {
   }
   if (relayFlags & RELAY_FLAGS_STAIRCASE) {
     SUPLA_LOG_INFO(
-              "Relay[%d]: restored staircase function",
+              "Relay[%d] restored staircase function",
               channel.getChannelNumber());
-    setChannelFunction(SUPLA_CHANNELFNC_STAIRCASETIMER);
+    auto cfg = Supla::Storage::ConfigInstance();
+    if (!cfg) {
+      setAndSaveFunction(SUPLA_CHANNELFNC_STAIRCASETIMER);
+    }
   } else if (relayFlags & RELAY_FLAGS_IMPULSE_FUNCTION) {
     SUPLA_LOG_INFO(
-              "Relay[%d]: restored impulse function",
+              "Relay[%d] restored impulse function",
               channel.getChannelNumber());
     // actual funciton may be different, but we only have 8 bit bitfiled to
     // keep the state and currently it doesn't matter which "impulse function"
     // is actually used, so we set it to "controlling the gate"
-    setChannelFunction(SUPLA_CHANNELFNC_CONTROLLINGTHEGATE);
+    auto cfg = Supla::Storage::ConfigInstance();
+    if (!cfg) {
+      setAndSaveFunction(SUPLA_CHANNELFNC_CONTROLLINGTHEGATE);
+    }
   }
+  if (relayFlags & RELAY_FLAGS_OVERCURRENT) {
+    channel.setRelayOvercurrentCutOff(true);
+  }
+
   if (isStaircaseFunction() || isImpulseFunction()) {
     SUPLA_LOG_INFO(
-              "Relay[%d]: restored durationMs: %d",
+              "Relay[%d] restored durationMs: %d",
               channel.getChannelNumber(),
               storedTurnOnDurationMs);
+    if (storedTurnOnDurationMs == 0) {
+      storedTurnOnDurationMs =
+          (isStaircaseFunction() ? defaultStaircaseDurationMs
+                                 : defaultImpulseDurationMs);
+      SUPLA_LOG_WARNING(
+          "Relay[%d] restored durationMs is zero, using default value %d ms",
+          channel.getChannelNumber(),
+          storedTurnOnDurationMs);
+    }
   } else {
     // restore remaining countdown timer value
     // relay will be on/off in onInit() with configured durationMs
     if (stateOnInit < 0) {
       durationMs = storedTurnOnDurationMs;
+      SUPLA_LOG_DEBUG(
+          "Relay[%d] restored remaining countdown timer durationMs: %d",
+          channel.getChannelNumber(),
+          durationMs);
     }
     storedTurnOnDurationMs = 0;
   }
@@ -465,12 +635,16 @@ unsigned _supla_int_t Relay::getStoredTurnOnDurationMs() {
   return storedTurnOnDurationMs;
 }
 
+void Relay::setStoredTurnOnDurationMs(uint32_t timeMs) {
+  storedTurnOnDurationMs = timeMs;
+}
+
 void Relay::attach(Supla::Control::Button *button) {
   if (button == nullptr) {
     return;
   }
 
-  SUPLA_LOG_DEBUG("Relay[%d]: attaching button %d", channel.getChannelNumber(),
+  SUPLA_LOG_DEBUG("Relay[%d] attaching button %d", channel.getChannelNumber(),
                   button->getButtonNumber());
   auto lastButtonListElement = buttonList;
   while (lastButtonListElement && lastButtonListElement->next) {
@@ -492,21 +666,31 @@ void Relay::attach(Supla::Control::Button *button) {
 }
 
 
-bool Relay::isStaircaseFunction() const {
-  return channelFunction == SUPLA_CHANNELFNC_STAIRCASETIMER;
+bool Relay::isStaircaseFunction(uint32_t functionToCheck) const {
+  if (functionToCheck == 0) {
+    functionToCheck = getChannel()->getDefaultFunction();
+  }
+  return functionToCheck == SUPLA_CHANNELFNC_STAIRCASETIMER;
 }
 
-bool Relay::isImpulseFunction() const {
-  return (channelFunction == SUPLA_CHANNELFNC_CONTROLLINGTHEGATE ||
-          channelFunction == SUPLA_CHANNELFNC_CONTROLLINGTHEDOORLOCK ||
-          channelFunction == SUPLA_CHANNELFNC_CONTROLLINGTHEGATEWAYLOCK ||
-          channelFunction == SUPLA_CHANNELFNC_CONTROLLINGTHEGARAGEDOOR);
+bool Relay::isImpulseFunction(uint32_t functionToCheck) const {
+  if (functionToCheck == 0) {
+    functionToCheck = getChannel()->getDefaultFunction();
+  }
+  return (functionToCheck == SUPLA_CHANNELFNC_CONTROLLINGTHEGATE ||
+          functionToCheck == SUPLA_CHANNELFNC_CONTROLLINGTHEDOORLOCK ||
+          functionToCheck == SUPLA_CHANNELFNC_CONTROLLINGTHEGATEWAYLOCK ||
+          functionToCheck == SUPLA_CHANNELFNC_CONTROLLINGTHEGARAGEDOOR);
 }
 
-void Relay::setChannelFunction(_supla_int_t newFunction) {
+bool Relay::setAndSaveFunction(uint32_t newFunction) {
+  auto previousFunction = getChannel()->getDefaultFunction();
   bool wasImpulseFunction = isImpulseFunction();
   bool wasStaircaseFunction = isStaircaseFunction();
-  channelFunction = newFunction;
+
+  bool functionChanged =
+      Supla::ElementWithChannelActions::setAndSaveFunction(newFunction);
+
   if (wasImpulseFunction != isImpulseFunction()) {
     Supla::Storage::ScheduleSave(relayStorageSaveDelay);
   }
@@ -516,10 +700,29 @@ void Relay::setChannelFunction(_supla_int_t newFunction) {
 
   if (isStaircaseFunction() || isImpulseFunction()) {
     keepTurnOnDurationMs = true;
+    if (initDone) {
+      if (isStaircaseFunction() && !wasStaircaseFunction) {
+        storedTurnOnDurationMs = defaultStaircaseDurationMs;
+      }
+      if (isImpulseFunction() && !wasImpulseFunction) {
+        storedTurnOnDurationMs = defaultImpulseDurationMs;
+      }
+    }
   } else {
     keepTurnOnDurationMs = false;
     storedTurnOnDurationMs = 0;
   }
+  if (isStaircaseFunction()) {
+    usedConfigTypes.set(SUPLA_CONFIG_TYPE_EXTENDED);
+  } else {
+    usedConfigTypes.clear(SUPLA_CONFIG_TYPE_EXTENDED);
+  }
+
+  if (functionChanged && previousFunction != 0) {
+    turnOff();
+  }
+
+  return functionChanged;
 }
 
 void Relay::updateTimerValue() {
@@ -535,7 +738,7 @@ void Relay::updateTimerValue() {
     }
   }
 
-  SUPLA_LOG_DEBUG("Relay[%d]: updating timer value: remainingTime=%d state=%d",
+  SUPLA_LOG_DEBUG("Relay[%d] updating timer value: remainingTime=%d state=%d",
                   channel.getChannelNumber(),
                   remainingTime,
                   state);
@@ -559,87 +762,88 @@ bool Relay::isCountdownTimerFunctionEnabled() const {
   return channel.getFlags() & SUPLA_CHANNEL_FLAG_COUNTDOWN_TIMER_SUPPORTED;
 }
 
-void Relay::setMinimumAllowedDurationMs(uint32_t durationMs) {
-  if (durationMs > UINT16_MAX) {
-    durationMs = UINT16_MAX;
+void Relay::setMinimumAllowedDurationMs(uint32_t timeMs) {
+  if (timeMs > UINT16_MAX) {
+    timeMs = UINT16_MAX;
   }
-  minimumAllowedDurationMs = durationMs;
+  minimumAllowedDurationMs = timeMs;
 }
 
-void Relay::fillChannelConfig(void *channelConfig, int *size) {
+void Relay::fillChannelConfig(void *channelConfig,
+                              int *size,
+                              uint8_t configType) {
   if (size) {
     *size = 0;
   } else {
     return;
   }
+
   if (channelConfig == nullptr) {
     return;
   }
 
-  switch (channel.getDefaultFunction()) {
-    case SUPLA_CHANNELFNC_CONTROLLINGTHEGATE:
-    case SUPLA_CHANNELFNC_CONTROLLINGTHEGATEWAYLOCK:
-    case SUPLA_CHANNELFNC_CONTROLLINGTHEGARAGEDOOR:
-    case SUPLA_CHANNELFNC_CONTROLLINGTHEDOORLOCK: {
-      SUPLA_LOG_DEBUG(
-          "Relay[%d]: fill channel config for impulse functions - missing "
-          "implementation",
-          channel.getChannelNumber());
-      // TODO(klew): add
-      break;
-    }
-    case SUPLA_CHANNELFNC_STAIRCASETIMER: {
-      SUPLA_LOG_DEBUG(
-          "Relay[%d]: fill channel config for staircase function",
-          channel.getChannelNumber());
-      auto config = reinterpret_cast<TChannelConfig_StaircaseTimer *>(
-          channelConfig);
-      *size = sizeof(TChannelConfig_StaircaseTimer);
-      config->TimeMS = storedTurnOnDurationMs;
-      break;
-    }
-    case SUPLA_CHANNELFNC_POWERSWITCH:
-    case SUPLA_CHANNELFNC_LIGHTSWITCH: {
-      SUPLA_LOG_DEBUG(
-          "Relay[%d]: fill channel config for power switch functions",
-          channel.getChannelNumber());
+  if (configType != SUPLA_CONFIG_TYPE_DEFAULT &&
+      configType != SUPLA_CONFIG_TYPE_EXTENDED) {
+    return;
+  }
 
-      auto config = reinterpret_cast<TChannelConfig_PowerSwitch *>(
-          channelConfig);
-      *size = sizeof(TChannelConfig_PowerSwitch);
-      config->OvercurrentMaxAllowed = 0;
-      config->OvercurrentThreshold = 0;
-      config->DefaultRelatedMeterChannelNo = 0;
-      config->DefaultRelatedMeterIsSet = 0;
-      if (defaultRelatedMeterChannelNo >= 0 &&
-          defaultRelatedMeterChannelNo <= 255) {
-        config->DefaultRelatedMeterChannelNo = defaultRelatedMeterChannelNo;
-        config->DefaultRelatedMeterIsSet = 1;
-      }
-      break;
-    }
-    case SUPLA_CHANNELFNC_PUMPSWITCH:
-    case SUPLA_CHANNELFNC_HEATORCOLDSOURCESWITCH: {
+  auto func = channel.getDefaultFunction();
+  if (func == SUPLA_CHANNELFNC_CONTROLLINGTHEGATE ||
+      func == SUPLA_CHANNELFNC_CONTROLLINGTHEGATEWAYLOCK ||
+      func == SUPLA_CHANNELFNC_CONTROLLINGTHEGARAGEDOOR ||
+      func == SUPLA_CHANNELFNC_CONTROLLINGTHEDOORLOCK) {
+    SUPLA_LOG_DEBUG(
+        "Relay[%d] fill channel config for impulse functions - missing "
+        "implementation",
+        channel.getChannelNumber());
+    // TODO(klew): add
+  } else if (func == SUPLA_CHANNELFNC_PUMPSWITCH ||
+             func == SUPLA_CHANNELFNC_HEATORCOLDSOURCESWITCH) {
       SUPLA_LOG_DEBUG(
-          "Relay[%d]: fill channel config for hvac related functions - missing "
+          "Relay[%d] fill channel config for hvac related functions - missing "
           "implementation",
           channel.getChannelNumber());
       // TODO(klew): add
-      break;
-    }
-    default:
-      SUPLA_LOG_WARNING(
-          "Relay[%d]: fill channel config for unknown function %d",
-          channel.getChannelNumber(),
-          channel.getDefaultFunction());
-      return;
+  } else if (func == SUPLA_CHANNELFNC_STAIRCASETIMER &&
+             configType == SUPLA_CONFIG_TYPE_DEFAULT) {
+    SUPLA_LOG_DEBUG("Relay[%d] fill channel config for staircase function",
+                    channel.getChannelNumber());
+    auto config =
+        reinterpret_cast<TChannelConfig_StaircaseTimer *>(channelConfig);
+    *size = sizeof(TChannelConfig_StaircaseTimer);
+    config->TimeMS = storedTurnOnDurationMs;
+  } else if (((func == SUPLA_CHANNELFNC_LIGHTSWITCH ||
+               func == SUPLA_CHANNELFNC_POWERSWITCH) &&
+              configType == SUPLA_CONFIG_TYPE_DEFAULT) ||
+             (func == SUPLA_CHANNELFNC_STAIRCASETIMER &&
+              configType == SUPLA_CONFIG_TYPE_EXTENDED)) {
+    SUPLA_LOG_DEBUG(
+        "Relay[%d] fill channel config for power switch functions (or ext for "
+        "staircase)",
+        channel.getChannelNumber());
+    auto config = reinterpret_cast<TChannelConfig_PowerSwitch *>(channelConfig);
+    *size = sizeof(TChannelConfig_PowerSwitch);
+    config->OvercurrentMaxAllowed = overcurrentMaxAllowed;
+    config->OvercurrentThreshold = overcurrentThreshold;
+    config->DefaultRelatedMeterChannelNo = 0;
+    config->DefaultRelatedMeterIsSet = 0;
+    if (defaultRelatedMeterChannelNo >= 0 &&
+        defaultRelatedMeterChannelNo <= 255) {
+      config->DefaultRelatedMeterChannelNo = defaultRelatedMeterChannelNo;
+      config->DefaultRelatedMeterIsSet = 1;
+      }
+  } else {
+    SUPLA_LOG_WARNING("Relay[%d] fill channel config for unknown function %d",
+                      channel.getChannelNumber(),
+                      channel.getDefaultFunction());
+    return;
   }
 }
 
 void Relay::setDefaultRelatedMeterChannelNo(int channelNo) {
   if (channelNo >= 0 && channelNo <= 255) {
-    SUPLA_LOG_DEBUG("Relay[%d]: DefaultRelatedMeterChannelNo set to %d",
-                    channel.getChannelNumber(), channelNo);
+    SUPLA_LOG_DEBUG("Relay[%d] DefaultRelatedMeterChannelNo set to %d",
+        channel.getChannelNumber(), channelNo);
     defaultRelatedMeterChannelNo = channelNo;
   }
 }
@@ -664,3 +868,98 @@ void Relay::updateRelayHvacAggregator() {
 void Relay::setTurnOffWhenEmptyAggregator(bool turnOff) {
   turnOffWhenEmptyAggregator = turnOff;
 }
+
+bool Relay::isDefaultRelatedMeterChannelSet() const {
+  if (defaultRelatedMeterChannelNo >= 0 &&
+      defaultRelatedMeterChannelNo <= 255) {
+    auto ch = Supla::Channel::GetByChannelNumber(defaultRelatedMeterChannelNo);
+    if (ch && ch->getChannelType() == SUPLA_CHANNELTYPE_ELECTRICITY_METER) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+uint32_t Relay::getCurrentValueFromMeter() const {
+  if (isDefaultRelatedMeterChannelSet()) {
+    auto el =
+      Supla::Element::getElementByChannelNumber(defaultRelatedMeterChannelNo);
+    if (el) {
+      auto getter = EmCurrent(0);
+      if (getter == nullptr) {
+        return 0;
+      }
+      bool isValid = true;
+      auto value = getter->getValue(el, &isValid);
+      delete getter;
+      getter = nullptr;
+      if (!isValid) {
+        return 0;
+      }
+
+      return value * 100;
+    }
+  }
+  return 0;
+}
+
+void Relay::setOvercurrentMaxAllowed(uint32_t value) {
+  overcurrentMaxAllowed = value;
+}
+
+void Relay::setOvercurrentThreshold(uint32_t value) {
+  if (value > overcurrentMaxAllowed) {
+    value = overcurrentMaxAllowed;
+  }
+
+  if (overcurrentThreshold != value) {
+    overcurrentThreshold = value;
+    if (isStaircaseFunction()) {
+      triggerSetChannelConfig(SUPLA_CONFIG_TYPE_EXTENDED);
+    } else {
+      triggerSetChannelConfig(SUPLA_CONFIG_TYPE_DEFAULT);
+    }
+    saveConfig();
+  }
+}
+
+void Relay::saveConfig() const {
+  auto cfg = Supla::Storage::ConfigInstance();
+  if (cfg) {
+    char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
+    generateKey(key, Supla::ConfigTag::RelayOvercurrentThreshold);
+    if (cfg->setUInt32(key, overcurrentThreshold)) {
+      SUPLA_LOG_INFO("Relay[%d]: config saved successfully",
+                     getChannelNumber());
+    } else {
+      SUPLA_LOG_WARNING("Relay[%d]: failed to save config", getChannelNumber());
+    }
+
+    saveConfigChangeFlag();
+    cfg->saveWithDelay(5000);
+  }
+  for (auto proto = Supla::Protocol::ProtocolLayer::first();
+      proto != nullptr; proto = proto->next()) {
+    proto->notifyConfigChange(getChannelNumber());
+  }
+}
+
+void Relay::purgeConfig() {
+  Supla::ChannelElement::purgeConfig();
+  auto cfg = Supla::Storage::ConfigInstance();
+  if (cfg) {
+    char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
+    generateKey(key, Supla::ConfigTag::RelayOvercurrentThreshold);
+    cfg->eraseKey(key);
+  }
+}
+
+void Relay::setRestartTimerOnToggle(bool restart) {
+  restartTimerOnToggle = restart;
+}
+
+bool Relay::isRestartTimerOnToggle() const {
+  return restartTimerOnToggle;
+}
+

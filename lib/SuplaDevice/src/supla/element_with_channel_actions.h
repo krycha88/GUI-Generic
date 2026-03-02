@@ -19,11 +19,10 @@
 #ifndef SRC_SUPLA_ELEMENT_WITH_CHANNEL_ACTIONS_H_
 #define SRC_SUPLA_ELEMENT_WITH_CHANNEL_ACTIONS_H_
 
+#include <stdint.h>
+#include <supla-common/proto.h>
 #include <supla/element.h>
-#include <supla/channels/channel.h>
 #include <supla/local_action.h>
-#include <supla/action_handler.h>
-#include <supla/condition.h>
 
 namespace Supla {
 
@@ -33,11 +32,51 @@ enum class ChannelConfigState : uint8_t {
   SetChannelConfigSend = 2,
   SetChannelConfigFailed = 3,
   WaitForConfigFinished = 4,
-  OcrConfigPending = 5,
-  SetChannelOcrConfigSend = 6,
+  ResendConfig = 5,
+  LocalChangeSent = 6
 };
 
+enum class ApplyConfigResult : uint8_t {
+  NotSupported,
+  Success,
+  DataError,
+  SetChannelConfigNeeded,
+};
+
+#pragma pack(push, 1)
+struct ConfigTypesBitmap {
+ private:
+  union {
+    struct {
+      uint8_t configFinishedReceived: 1;
+      uint8_t defaultConfig: 1;
+      uint8_t weeklySchedule: 1;
+      uint8_t altWeeklySchedule: 1;
+      uint8_t ocrConfig: 1;
+      uint8_t extendedDefaultConfig: 1;
+    };
+    uint8_t all = 0;
+  };
+
+ public:
+  bool isSet(int configType) const;
+  void clear(int configType);
+  void clearAll();
+  void setAll(uint8_t values);
+  uint8_t getAll() const;
+  void setConfigFinishedReceived();
+  void clearConfigFinishedReceived();
+  bool isConfigFinishedReceived() const;
+  void set(int configType, bool value = true);
+  bool operator!=(const ConfigTypesBitmap &other) const;
+};
+#pragma pack(pop)
+
 class Condition;
+class ActionHandler;
+namespace Protocol {
+class SuplaSrpc;
+}  // namespace Protocol
 
 class ElementWithChannelActions : public Element, public LocalAction {
  public:
@@ -67,27 +106,36 @@ class ElementWithChannelActions : public Element, public LocalAction {
 
   void clearChannelConfigChangedFlag();
 
-  void runAction(uint16_t event) override;
+  void runAction(uint16_t event) const override;
 
   // returns true if function was changed (previous one was different)
-  virtual bool setAndSaveFunction(_supla_int_t channelFunction);
+  virtual bool setAndSaveFunction(uint32_t channelFunction);
   virtual bool loadFunctionFromConfig();
-  virtual bool saveConfigChangeFlag();
+  virtual bool saveConfigChangeFlag() const;
   virtual bool loadConfigChangeFlag();
   bool isAnyUpdatePending() override;
 
   // methods to override for channels with runtime config support
-  virtual uint8_t applyChannelConfig(TSD_ChannelConfig *result, bool local);
-  virtual void fillChannelConfig(void *channelConfig, int *size);
-  virtual void fillChannelOcrConfig(void *channelConfig, int *size);
+  virtual ApplyConfigResult applyChannelConfig(TSD_ChannelConfig *result,
+                                               bool local);
+  virtual void fillChannelConfig(void *channelConfig, int *size, uint8_t index);
+
+  void triggerSetChannelConfig(int configType = SUPLA_CONFIG_TYPE_DEFAULT);
 
  protected:
-  virtual bool hasOcrConfig();
-  virtual bool isOcrConfigMissing();
-  virtual void clearOcrConfig();
+  bool iterateConfigExchange();
+  /**
+   * @brief Returns the next config type to be sent
+   *
+   * @return -1 if no more config types to be sent, otherwise the config type
+   */
+  int getNextConfigType() const;
   Supla::ChannelConfigState channelConfigState =
       Supla::ChannelConfigState::None;
-  bool configFinishedReceived = false;
+
+  uint8_t setChannelConfigAttempts = 0;
+  ConfigTypesBitmap usedConfigTypes;
+  ConfigTypesBitmap receivedConfigTypes;
 };
 
 };  // namespace Supla

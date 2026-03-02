@@ -21,6 +21,115 @@
 #include <supla/log_wrapper.h>
 #include <supla/storage/config.h>
 #include <supla/storage/config_tags.h>
+#include <supla/protocol/protocol_layer.h>
+#include <supla/channels/channel.h>
+#include <supla/condition.h>
+#include <supla/element.h>
+#include <supla/storage/storage.h>
+
+namespace Supla {
+class ActionHandler;
+namespace Protocol {
+class SuplaSrpc;
+}  // namespace Protocol
+}  // namespace Supla
+
+using Supla::ConfigTypesBitmap;
+using Supla::ApplyConfigResult;
+
+void ConfigTypesBitmap::clear(int configType) {
+  set(configType, false);
+}
+
+void ConfigTypesBitmap::clearAll() {
+  all = 0;
+}
+
+void ConfigTypesBitmap::setAll(uint8_t values) {
+  SUPLA_LOG_DEBUG("ConfigTypesBitmap: Set all to 0x%X", values);
+  all = values;
+}
+
+uint8_t ConfigTypesBitmap::getAll() const {
+  return all;
+}
+
+void ConfigTypesBitmap::setConfigFinishedReceived() {
+  configFinishedReceived = 1;
+}
+
+void ConfigTypesBitmap::clearConfigFinishedReceived() {
+  configFinishedReceived = 0;
+}
+
+bool ConfigTypesBitmap::isConfigFinishedReceived() const {
+  return configFinishedReceived == 1;
+}
+
+void ConfigTypesBitmap::set(int configType, bool value) {
+//  SUPLA_LOG_DEBUG(
+//      "ConfigTypesBitmap: Set config type %d to %d", configType, value);
+  uint8_t v = value ? 1 : 0;
+  switch (configType) {
+    case SUPLA_CONFIG_TYPE_DEFAULT: {
+      defaultConfig = v;
+      break;
+    }
+    case SUPLA_CONFIG_TYPE_WEEKLY_SCHEDULE: {
+      weeklySchedule = v;
+      break;
+    }
+    case SUPLA_CONFIG_TYPE_ALT_WEEKLY_SCHEDULE: {
+      altWeeklySchedule = v;
+      break;
+    }
+    case SUPLA_CONFIG_TYPE_OCR: {
+      ocrConfig = v;
+      break;
+    }
+    case SUPLA_CONFIG_TYPE_EXTENDED: {
+      extendedDefaultConfig = v;
+      break;
+    }
+    default: {
+      SUPLA_LOG_ERROR("ConfigTypesBitmap: Unknown config type: %d", configType);
+      break;
+    }
+  }
+}
+
+bool ConfigTypesBitmap::isSet(int configType) const {
+  switch (configType) {
+    case SUPLA_CONFIG_TYPE_DEFAULT: {
+      return defaultConfig == 1;
+    }
+    case SUPLA_CONFIG_TYPE_WEEKLY_SCHEDULE: {
+      return weeklySchedule == 1;
+    }
+    case SUPLA_CONFIG_TYPE_ALT_WEEKLY_SCHEDULE: {
+      return altWeeklySchedule == 1;
+    }
+    case SUPLA_CONFIG_TYPE_OCR: {
+      return ocrConfig == 1;
+    }
+    case SUPLA_CONFIG_TYPE_EXTENDED: {
+      return extendedDefaultConfig == 1;
+    }
+    case 1: {
+      // 1 is used in some older devices, so we just ignore it here
+      return false;
+    }
+    default: {
+      SUPLA_LOG_ERROR("ConfigTypesBitmap: Unknown config type: %d", configType);
+      return false;
+    }
+  }
+}
+
+bool ConfigTypesBitmap::operator!=(const ConfigTypesBitmap &other) const {
+  // ignore first bit
+  return (all & (~1)) != (other.all & (~1));
+}
 
 void Supla::ElementWithChannelActions::addAction(uint16_t action,
     Supla::ActionHandler &client,
@@ -39,7 +148,7 @@ void Supla::ElementWithChannelActions::addAction(uint16_t action,
   ElementWithChannelActions::addAction(action, *client, event, alwaysEnabled);
 }
 
-void Supla::ElementWithChannelActions::runAction(uint16_t event) {
+void Supla::ElementWithChannelActions::runAction(uint16_t event) const {
   auto channel = getChannel();
   if (channel) {
     channel->runAction(event);
@@ -79,23 +188,21 @@ bool Supla::ElementWithChannelActions::loadFunctionFromConfig() {
   auto cfg = Supla::Storage::ConfigInstance();
   auto channel = getChannel();
   if (cfg && channel) {
-    char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
-    generateKey(key, Supla::ConfigTag::ChannelFunctionTag);
-    int32_t channelFunc = 0;
-    if (cfg->getInt32(key, &channelFunc)) {
+    int32_t channelFunc = cfg->getChannelFunction(getChannelNumber());
+    if (channelFunc >= 0) {
       if (channel->isFunctionValid(channelFunc)) {
-        SUPLA_LOG_INFO("Channel[%d] function loaded successfully (%d)",
+        SUPLA_LOG_INFO("Channel[%d] loaded function: %d",
                        channel->getChannelNumber(),
                        channelFunc);
-        channel->setDefault(channelFunc);
+        setFunction(channelFunc);
       } else {
-        SUPLA_LOG_INFO("Channel[%d] function invalid (%d)",
+        SUPLA_LOG_INFO("Channel[%d] invalid function: %d",
                        channel->getChannelNumber(),
                        channelFunc);
       }
       return true;
     } else {
-      SUPLA_LOG_INFO("Channel[%d] function missing. Using SW defaults",
+      SUPLA_LOG_DEBUG("Channel[%d] function missing. Using SW defaults",
                      channel->getChannelNumber());
     }
   }
@@ -120,7 +227,7 @@ bool Supla::ElementWithChannelActions::loadConfigChangeFlag() {
   return false;
 }
 
-bool Supla::ElementWithChannelActions::saveConfigChangeFlag() {
+bool Supla::ElementWithChannelActions::saveConfigChangeFlag() const {
   if (getChannelNumber() < 0) {
     return false;
   }
@@ -140,18 +247,15 @@ bool Supla::ElementWithChannelActions::saveConfigChangeFlag() {
 }
 
 bool Supla::ElementWithChannelActions::setAndSaveFunction(
-    _supla_int_t channelFunction) {
+    uint32_t channelFunction) {
   auto channel = getChannel();
   if (!channel) {
     return false;
   }
-  if (channel->getDefaultFunction() != channelFunction) {
-    channel->setDefault(channelFunction);
+  if (setFunction(channelFunction)) {
     auto cfg = Supla::Storage::ConfigInstance();
     if (cfg) {
-      char key[SUPLA_CONFIG_MAX_KEY_SIZE] = {};
-      generateKey(key, Supla::ConfigTag::ChannelFunctionTag);
-      cfg->setInt32(key, channelFunction);
+      cfg->setChannelFunction(getChannelNumber(), channelFunction);
       cfg->saveWithDelay(5000);
     }
     return true;
@@ -167,11 +271,9 @@ bool Supla::ElementWithChannelActions::isAnyUpdatePending() {
 
   if (channelConfigState == Supla::ChannelConfigState::LocalChangePending ||
       channelConfigState == Supla::ChannelConfigState::SetChannelConfigSend ||
-      channelConfigState ==
-          Supla::ChannelConfigState::OcrConfigPending ||
-      channelConfigState ==
-          Supla::ChannelConfigState::SetChannelOcrConfigSend ||
-      channelConfigState == Supla::ChannelConfigState::WaitForConfigFinished) {
+      channelConfigState == Supla::ChannelConfigState::LocalChangeSent ||
+      channelConfigState == Supla::ChannelConfigState::WaitForConfigFinished ||
+      channelConfigState == Supla::ChannelConfigState::ResendConfig) {
     return true;
   }
 
@@ -192,132 +294,67 @@ void Supla::ElementWithChannelActions::clearChannelConfigChangedFlag() {
 
 void Supla::ElementWithChannelActions::onRegistered(
     Supla::Protocol::SuplaSrpc *suplaSrpc) {
-  clearOcrConfig();
-  configFinishedReceived = false;
+  receivedConfigTypes.clearAll();
+  setChannelConfigAttempts = 0;
   Supla::Element::onRegistered(suplaSrpc);
   switch (channelConfigState) {
     case Supla::ChannelConfigState::None:
-    case Supla::ChannelConfigState::OcrConfigPending:
-    case Supla::ChannelConfigState::SetChannelOcrConfigSend:
     case Supla::ChannelConfigState::WaitForConfigFinished: {
       channelConfigState = Supla::ChannelConfigState::WaitForConfigFinished;
       break;
     }
+    case Supla::ChannelConfigState::LocalChangePending: {
+      break;
+    }
     default: {
-      channelConfigState = Supla::ChannelConfigState::LocalChangePending;
+      channelConfigState = Supla::ChannelConfigState::ResendConfig;
       break;
     }
   }
 }
 
 void Supla::ElementWithChannelActions::handleChannelConfigFinished() {
-  configFinishedReceived = true;
+  receivedConfigTypes.setConfigFinishedReceived();
+  setChannelConfigAttempts = 0;
   if (channelConfigState == Supla::ChannelConfigState::WaitForConfigFinished) {
     channelConfigState = Supla::ChannelConfigState::None;
+  }
+  if (receivedConfigTypes != usedConfigTypes) {
+    SUPLA_LOG_INFO(
+        "Channel[%d] some config is missing on server... (rcv: 0x%X != used: "
+        "0x%X)",
+        getChannelNumber(),
+        receivedConfigTypes.getAll(),
+        usedConfigTypes.getAll());
+    channelConfigState = Supla::ChannelConfigState::ResendConfig;
   }
 }
 
 bool Supla::ElementWithChannelActions::iterateConnected() {
-  auto result = Element::iterateConnected();
-
-  if (!result) {
-    return result;
+  if (!Element::iterateConnected()) {
+    return false;
   }
 
-  if (configFinishedReceived) {
-    if (channelConfigState == Supla::ChannelConfigState::LocalChangePending) {
-      for (auto proto = Supla::Protocol::ProtocolLayer::first();
-           proto != nullptr;
-           proto = proto->next()) {
-        uint8_t channelConfig[SUPLA_CHANNEL_CONFIG_MAXSIZE] = {};
-        int channelConfigSize = 0;
-        fillChannelConfig(reinterpret_cast<void *>(channelConfig),
-                          &channelConfigSize);
-        if (channelConfigSize > 0) {
-          int defaultFunction = 0;
-          if (getChannel()) {
-            defaultFunction = getChannel()->getDefaultFunction();
-          }
-          if (proto->setChannelConfig(getChannelNumber(),
-                                      defaultFunction,
-                                      reinterpret_cast<void *>(channelConfig),
-                                      channelConfigSize,
-                                      SUPLA_CONFIG_TYPE_DEFAULT)) {
-            SUPLA_LOG_INFO("Channel[%d]: channel config send",
-                           getChannelNumber());
-            channelConfigState =
-                Supla::ChannelConfigState::SetChannelConfigSend;
-
-            return true;
-          }
-        } else {
-          SUPLA_LOG_WARNING(
-              "Channel[%d]: set channel config implementation missing",
-              getChannelNumber());
-          channelConfigState = Supla::ChannelConfigState::None;
-        }
-      }
-    } else if (channelConfigState ==
-               Supla::ChannelConfigState::OcrConfigPending) {
-      for (auto proto = Supla::Protocol::ProtocolLayer::first();
-           proto != nullptr;
-           proto = proto->next()) {
-        uint8_t channelConfig[SUPLA_CHANNEL_CONFIG_MAXSIZE] = {};
-        int channelConfigSize = 0;
-        fillChannelOcrConfig(reinterpret_cast<void *>(channelConfig),
-                          &channelConfigSize);
-        if (channelConfigSize > 0) {
-          int defaultFunction = 0;
-          if (getChannel()) {
-            defaultFunction = getChannel()->getDefaultFunction();
-          }
-          if (proto->setChannelConfig(getChannelNumber(),
-                                      defaultFunction,
-                                      reinterpret_cast<void *>(channelConfig),
-                                      channelConfigSize,
-                                      SUPLA_CONFIG_TYPE_OCR)) {
-            SUPLA_LOG_INFO("Channel[%d]: channel OCR config send",
-                           getChannelNumber());
-            channelConfigState =
-                Supla::ChannelConfigState::SetChannelOcrConfigSend;
-
-            return true;
-          }
-        } else {
-          SUPLA_LOG_WARNING(
-              "Channel[%d]: set channel OCR config implementation missing",
-              getChannelNumber());
-          channelConfigState = Supla::ChannelConfigState::None;
-        }
-      }
-    }
-    if (channelConfigState == Supla::ChannelConfigState::None &&
-        isOcrConfigMissing()) {
-      channelConfigState = Supla::ChannelConfigState::OcrConfigPending;
-    }
+  if (!iterateConfigExchange()) {
+    return false;
   }
 
-  return result;
+  return true;
 }
 
 uint8_t Supla::ElementWithChannelActions::handleChannelConfig(
     TSD_ChannelConfig *result, bool local) {
   SUPLA_LOG_DEBUG(
-      "Channel[%d]: handleChannelConfig, func %d, configtype %d, configsize %d",
+      "Channel[%d] handleChannelConfig, func %d, configtype %d, configsize %d",
       getChannelNumber(),
       result->Func,
       result->ConfigType,
       result->ConfigSize);
 
-  if (result->Func == 0) {
-    SUPLA_LOG_DEBUG("Channel[%d] disabled on server", getChannelNumber());
-    channelConfigState = Supla::ChannelConfigState::None;
-    return SUPLA_CONFIG_RESULT_TRUE;
-  }
-
-  auto newFunction = result->Func;
-  if (newFunction != getChannel()->getDefaultFunction() && newFunction != 0) {
-    SUPLA_LOG_INFO("Channel[%d]: function changed to %d",
+  // Apply channel function setting
+  auto newFunction = static_cast<uint32_t>(result->Func);
+  if (newFunction != getChannel()->getDefaultFunction()) {
+    SUPLA_LOG_INFO("Channel[%d] function changed to %d",
                    getChannelNumber(),
                    newFunction);
     setAndSaveFunction(newFunction);
@@ -327,54 +364,77 @@ uint8_t Supla::ElementWithChannelActions::handleChannelConfig(
     }
   }
 
-  if (channelConfigState == Supla::ChannelConfigState::LocalChangePending &&
-      !local &&
-      result->ConfigType != SUPLA_CONFIG_TYPE_OCR) {
-    SUPLA_LOG_INFO(
-        "Channel[%d]: Ignoring config (local config changed offline)",
-        getChannelNumber());
+  // Channel disabled on server
+  if (result->Func == 0) {
+    SUPLA_LOG_DEBUG("Channel[%d] disabled on server", getChannelNumber());
+    channelConfigState = Supla::ChannelConfigState::None;
+    receivedConfigTypes = usedConfigTypes;
     return SUPLA_CONFIG_RESULT_TRUE;
   }
 
-  if (result->ConfigType != SUPLA_CONFIG_TYPE_DEFAULT &&
-      hasOcrConfig() && result->ConfigType != SUPLA_CONFIG_TYPE_OCR) {
-    SUPLA_LOG_DEBUG("Channel[%d] invalid configtype", getChannelNumber());
-    return SUPLA_CONFIG_RESULT_FALSE;
+  // Reject unexpected ConfigType
+  if (usedConfigTypes.isSet(result->ConfigType) == false) {
+    SUPLA_LOG_WARNING("Channel[%d] unexpected ConfigType %d",
+                      getChannelNumber(),
+                      result->ConfigType);
+    return SUPLA_CONFIG_RESULT_TYPE_NOT_SUPPORTED;
   }
 
-  if (result->ConfigSize == 0) {
-    // server doesn't have channel configuration, so we'll send it
-    // But don't send it if it failed in previous attempt
-    if (channelConfigState !=
-        Supla::ChannelConfigState::SetChannelConfigFailed) {
-      SUPLA_LOG_DEBUG("Channel[%d] no config on server", getChannelNumber());
-      channelConfigState = Supla::ChannelConfigState::LocalChangePending;
+  // Skip config if local config changed (except for OCR which is always
+  // accepted)
+  if (result->ConfigType != SUPLA_CONFIG_TYPE_OCR) {
+    if (channelConfigState == Supla::ChannelConfigState::LocalChangePending &&
+        !local) {
+      SUPLA_LOG_INFO(
+          "Channel[%d] Ignoring config (local config changed offline)",
+          getChannelNumber());
+      return SUPLA_CONFIG_RESULT_TRUE;
     }
   }
 
-  if (result->ConfigType == SUPLA_CONFIG_TYPE_OCR) {
-    if (channelConfigState ==
-        Supla::ChannelConfigState::SetChannelOcrConfigSend) {
-      channelConfigState = Supla::ChannelConfigState::None;
+  auto applyResult = applyChannelConfig(result, local);
+  switch (applyResult) {
+    case ApplyConfigResult::Success: {
+      SUPLA_LOG_INFO("Channel[%d] ConfigType %d applied",
+                     getChannelNumber(),
+                     result->ConfigType);
+      receivedConfigTypes.set(result->ConfigType);
+      return SUPLA_CONFIG_RESULT_TRUE;
+    }
+    case ApplyConfigResult::NotSupported: {
+      SUPLA_LOG_WARNING("Channel[%d] ConfigType %d not supported",
+                        getChannelNumber(),
+                        result->ConfigType);
+      receivedConfigTypes.set(result->ConfigType);
+      return SUPLA_CONFIG_RESULT_TYPE_NOT_SUPPORTED;
+    }
+    case ApplyConfigResult::SetChannelConfigNeeded: {
+      SUPLA_LOG_INFO("Channel[%d] ConfigType %d SetChannelConfigNeeded",
+                     getChannelNumber(),
+                     result->ConfigType);
+      triggerSetChannelConfig(result->ConfigType);
+      return SUPLA_CONFIG_RESULT_TRUE;
+    }
+    case ApplyConfigResult::DataError: {
+      SUPLA_LOG_WARNING("Channel[%d] ConfigType %d data error",
+                        getChannelNumber(),
+                        result->ConfigType);
+      return SUPLA_CONFIG_RESULT_DATA_ERROR;
     }
   }
-  return applyChannelConfig(result, local);
+  return SUPLA_CONFIG_RESULT_FALSE;
 }
 
-uint8_t Supla::ElementWithChannelActions::applyChannelConfig(
+ApplyConfigResult Supla::ElementWithChannelActions::applyChannelConfig(
     TSD_ChannelConfig *, bool) {
-  SUPLA_LOG_WARNING("Channel[%d]: applyChannelConfig missing",
+  SUPLA_LOG_WARNING("Channel[%d] applyChannelConfig missing",
                     getChannelNumber());
-  return SUPLA_CONFIG_RESULT_TRUE;
+  return ApplyConfigResult::NotSupported;
 }
 
-void Supla::ElementWithChannelActions::fillChannelConfig(void *, int *size) {
-  if (size) {
-    *size = 0;
-  }
-}
-
-void Supla::ElementWithChannelActions::fillChannelOcrConfig(void *, int *size) {
+void Supla::ElementWithChannelActions::fillChannelConfig(void *,
+                                                        int *size,
+                                                        uint8_t) {
   if (size) {
     *size = 0;
   }
@@ -388,28 +448,32 @@ void Supla::ElementWithChannelActions::handleSetChannelConfigResult(
 
   bool success = (result->Result == SUPLA_CONFIG_RESULT_TRUE);
 
-  if (!success) {
-    channelConfigState = Supla::ChannelConfigState::SetChannelConfigFailed;
+  SUPLA_LOG_INFO("Channel[%d] Set channel config %s (%d) for config type %d",
+                 getChannelNumber(),
+                 success ? "succeeded" : "failed",
+                 result->Result,
+                 result->ConfigType);
+
+  receivedConfigTypes.set(result->ConfigType);
+
+  if (channelConfigState == Supla::ChannelConfigState::SetChannelConfigSend ||
+      channelConfigState == Supla::ChannelConfigState::LocalChangeSent) {
+    if (receivedConfigTypes != usedConfigTypes) {
+      setChannelConfigAttempts = 0;
+      if (channelConfigState ==
+          Supla::ChannelConfigState::SetChannelConfigSend) {
+        channelConfigState = Supla::ChannelConfigState::ResendConfig;
+      } else {
+        channelConfigState = Supla::ChannelConfigState::LocalChangePending;
+      }
+    } else {
+      clearChannelConfigChangedFlag();
+    }
   }
 
-  switch (result->ConfigType) {
-    case SUPLA_CONFIG_TYPE_DEFAULT: {
-      SUPLA_LOG_INFO("Channel[%d] Set channel config %s (%d)",
-                     getChannelNumber(),
-                     success ? "succeeded" : "failed",
-                     result->Result);
-      clearChannelConfigChangedFlag();
-      break;
-    }
-    case SUPLA_CONFIG_TYPE_OCR: {
-      SUPLA_LOG_INFO("Channel[%d] Set channel OCR config %s (%d)",
-                     getChannelNumber(),
-                     success ? "succeeded" : "failed",
-                     result->Result);
-      break;
-    }
-    default:
-      break;
+  if (!success) {
+    clearChannelConfigChangedFlag();
+    channelConfigState = Supla::ChannelConfigState::SetChannelConfigFailed;
   }
 }
 
@@ -425,14 +489,108 @@ void Supla::ElementWithChannelActions::purgeConfig() {
   }
 }
 
-bool Supla::ElementWithChannelActions::hasOcrConfig() {
-  return false;
+void Supla::ElementWithChannelActions::triggerSetChannelConfig(int configType) {
+  // don't trigger setChannelConfig if it failed in previous attempt
+  if (channelConfigState != Supla::ChannelConfigState::SetChannelConfigFailed) {
+    channelConfigState = Supla::ChannelConfigState::ResendConfig;
+    receivedConfigTypes.clear(configType);
+  }
 }
 
-bool Supla::ElementWithChannelActions::isOcrConfigMissing() {
-  return false;
+bool Supla::ElementWithChannelActions::iterateConfigExchange() {
+  if (!receivedConfigTypes.isConfigFinishedReceived()) {
+    return true;
+  }
+  if (getChannel()->getDefaultFunction() == 0) {
+    return true;
+  }
+
+  if (channelConfigState == Supla::ChannelConfigState::LocalChangePending ||
+      channelConfigState == Supla::ChannelConfigState::ResendConfig) {
+    int nextConfigType = getNextConfigType();
+    if (nextConfigType == -1) {
+      clearChannelConfigChangedFlag();
+      return true;
+    }
+    if (nextConfigType < 0 || nextConfigType > 255) {
+      SUPLA_LOG_ERROR("Channel[%d] unexepected config type %d",
+                      getChannelNumber(),
+                      nextConfigType);
+      return true;
+    }
+
+    if (setChannelConfigAttempts < 3) {
+      uint8_t channelConfig[SUPLA_CHANNEL_CONFIG_MAXSIZE] = {};
+      int channelConfigSize = 0;
+      setChannelConfigAttempts++;
+      fillChannelConfig(reinterpret_cast<void *>(channelConfig),
+          &channelConfigSize,
+          nextConfigType);
+      if (channelConfigSize > 0) {
+        int defaultFunction = 0;
+        if (getChannel()) {
+          defaultFunction = getChannel()->getDefaultFunction();
+        }
+        bool sendResult = false;
+        for (auto proto = Supla::Protocol::ProtocolLayer::first();
+             proto != nullptr;
+             proto = proto->next()) {
+          if (proto->setChannelConfig(getChannelNumber(),
+                                      defaultFunction,
+                                      reinterpret_cast<void *>(channelConfig),
+                                      channelConfigSize,
+                                      nextConfigType)) {
+            SUPLA_LOG_INFO(
+                "Channel[%d] SetChannelConfig send, func %d, type %d",
+                getChannelNumber(),
+                defaultFunction,
+                nextConfigType);
+            if (channelConfigState ==
+                Supla::ChannelConfigState::LocalChangePending) {
+              channelConfigState = Supla::ChannelConfigState::LocalChangeSent;
+            } else {
+              channelConfigState =
+                  Supla::ChannelConfigState::SetChannelConfigSend;
+            }
+            sendResult = true;
+          }
+        }
+        if (sendResult) {
+          return false;
+        }
+      } else {
+        SUPLA_LOG_WARNING(
+            "Channel[%d] fillChannelConfig returned empty config for "
+            "ConfigType %d",
+            getChannelNumber(),
+            nextConfigType);
+        receivedConfigTypes.set(nextConfigType);
+      }
+    } else {
+      SUPLA_LOG_WARNING(
+          "Channel[%d] SetChannelConfig failed 2 times for ConfigType %d, "
+          "giving up",
+          getChannelNumber(),
+          nextConfigType);
+      receivedConfigTypes.set(nextConfigType);
+      setChannelConfigAttempts = 0;
+    }
+  }
+
+  return true;
 }
 
-void Supla::ElementWithChannelActions::clearOcrConfig() {
-  return;
+int Supla::ElementWithChannelActions::getNextConfigType() const {
+  if (receivedConfigTypes != usedConfigTypes) {
+    ConfigTypesBitmap notRecieved;
+    notRecieved.setAll((~receivedConfigTypes.getAll()) &
+                       usedConfigTypes.getAll());
+    for (uint8_t i = 0; i < 8; i++) {
+      if (notRecieved.isSet(i)) {
+        return i;
+      }
+    }
+  }
+
+  return -1;
 }

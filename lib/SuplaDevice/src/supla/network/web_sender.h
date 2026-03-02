@@ -21,6 +21,8 @@
 
 #include <supla/network/html_generator.h>
 
+#include <stdint.h>
+
 namespace Supla {
 
 class WebSender {
@@ -32,10 +34,14 @@ class WebSender {
   virtual void send(int number, int precision);
   virtual void sendNameAndId(const char *id);
   virtual void sendLabelFor(const char *id, const char *label);
-  virtual void sendSelectItem(int value, const char *label, bool selected);
+  virtual void sendSelectItem(int value,
+                              const char *label,
+                              bool selected,
+                              bool emptyValue = false);
   virtual void sendHidden(bool hidden);
   virtual void sendReadonly(bool readonly);
   virtual void sendDisabled(bool disabled);
+  virtual void sendTimestamp(uint32_t timestamp);
 };
 };  // namespace Supla
 

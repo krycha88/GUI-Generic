@@ -19,12 +19,23 @@
 #include <SuplaDevice.h>
 #include <supla/log_wrapper.h>
 #include <supla/time.h>
-#include <stdio.h>
 #include <string.h>
 #include <supla/actions.h>
 #include <supla/device/register_device.h>
+#include <supla/protocol/supla_srpc.h>
+#include <supla/storage/storage.h>
+#include <supla/storage/config.h>
+#include <supla/network/web_server.h>
+#include <supla/clock/clock.h>
 
 #include "factory_test.h"
+
+#ifdef ESP8266
+#define FLASH_STRLEN(p) strlen_P(p)
+#else
+#define FLASH_STRLEN(p) strlen(p)
+#endif
+
 
 namespace Supla {
 namespace Device {
@@ -42,6 +53,13 @@ int16_t FactoryTest::getManufacturerId() {
 
 void FactoryTest::onInit() {
   initTimestamp = millis();
+  bool selfTestMode =
+      (sdc->getDeviceMode() != Supla::DeviceMode::DEVICE_MODE_TEST);
+
+  if (!selfTestMode) {
+    SUPLA_LOG_INFO("TEST[%d,%d] started", testStage, testStep);
+    sdc->testStepStatusLed(2);
+  }
 
   if (testStage != Supla::TestStage_None || testStep != 0) {
     SUPLA_LOG_ERROR(
@@ -52,25 +70,34 @@ void FactoryTest::onInit() {
 
   testStage = Supla::TestStage_Init;
 
-  if (Supla::RegisterDevice::getManufacturerId() != getManufacturerId()) {
-    SUPLA_LOG_ERROR("TEST failed: invalid ManufacturerID");
-    testFailed = true;
-    failReason = 1;
-    return;
+  if (!selfTestMode) {
+    if (Supla::RegisterDevice::getManufacturerId() != getManufacturerId()) {
+      SUPLA_LOG_ERROR("TEST failed: invalid ManufacturerID");
+      testFailed = true;
+      failReason = 1;
+      return;
+    }
+  } else {
+    SUPLA_LOG_INFO("TEST: ManufacturerID is %d",
+                   Supla::RegisterDevice::getManufacturerId());
   }
 
   if (Supla::RegisterDevice::getProductId() == 0) {
     SUPLA_LOG_ERROR("TEST failed: ProductID is empty");
     testFailed = true;
     failReason = 2;
-    return;
+    if (!selfTestMode) {
+      return;
+    }
   }
 
   if (Supla::RegisterDevice::isNameEmpty()) {
     SUPLA_LOG_ERROR("TEST failed: device name is empty");
     testFailed = true;
     failReason = 3;
-    return;
+    if (!selfTestMode) {
+      return;
+    }
   }
 
   auto cfg = Supla::Storage::ConfigInstance();
@@ -78,21 +105,27 @@ void FactoryTest::onInit() {
     SUPLA_LOG_ERROR("TEST failed: missing Config instance");
     testFailed = true;
     failReason = 4;
-    return;
+    if (!selfTestMode) {
+      return;
+    }
   }
 
   if (!sdc->getStorageInitResult()) {
     SUPLA_LOG_ERROR("TEST failed: storage init result is false");
     testFailed = true;
     failReason = 5;
-    return;
+    if (!selfTestMode) {
+      return;
+    }
   }
 
   if (sdc->getRsaPublicKey() == nullptr) {
     SUPLA_LOG_ERROR("TEST failed: missing public RSA key");
     testFailed = true;
     failReason = 6;
-    return;
+    if (!selfTestMode) {
+      return;
+    }
   } else {
     bool emptyRsa = true;
     auto rsa = sdc->getRsaPublicKey();
@@ -105,7 +138,9 @@ void FactoryTest::onInit() {
       SUPLA_LOG_ERROR("TEST failed: public RSA set, but it is empty");
       testFailed = true;
       failReason = 7;
-      return;
+      if (!selfTestMode) {
+        return;
+      }
     }
   }
 
@@ -114,29 +149,105 @@ void FactoryTest::onInit() {
     SUPLA_LOG_ERROR("TEST failed: missing srpc layer");
     testFailed = true;
     failReason = 8;
-    return;
+    if (!selfTestMode) {
+      return;
+    }
   }
   if (srpc->getSuplaCACert() == nullptr) {
     SUPLA_LOG_ERROR("TEST failed: missing Supla CA cert");
     testFailed = true;
     failReason = 9;
-    return;
-  } else if (strlen(srpc->getSuplaCACert()) <= 0) {
+    if (!selfTestMode) {
+      return;
+    }
+  } else if (FLASH_STRLEN(srpc->getSuplaCACert()) <= 0) {
     SUPLA_LOG_ERROR("TEST failed: Supla CA cert is empty");
     testFailed = true;
     failReason = 10;
-    return;
+    if (!selfTestMode) {
+      return;
+    }
   }
   if (srpc->getSupla3rdPartyCACert() == nullptr) {
     SUPLA_LOG_ERROR("TEST failed: missing Supla 3rd party CA cert");
     testFailed = true;
     failReason = 11;
-    return;
-  } else if (strlen(srpc->getSupla3rdPartyCACert()) <= 0) {
+    if (!selfTestMode) {
+      return;
+    }
+  } else if (FLASH_STRLEN(srpc->getSupla3rdPartyCACert()) <= 0) {
     SUPLA_LOG_ERROR("TEST failed: Supla 3rd party CA cert is empty");
     testFailed = true;
     failReason = 12;
-    return;
+    if (!selfTestMode) {
+      return;
+    }
+  }
+
+  if (checkAutomaticFirmwareUpdate &&
+      !sdc->isAutomaticFirmwareUpdateEnabled()) {
+    SUPLA_LOG_ERROR("TEST failed: automatic firmware update is disabled");
+    testFailed = true;
+    failReason = 15;
+    if (!selfTestMode) {
+      return;
+    }
+  }
+
+  if (cfg && !cfg->isEncryptionEnabled()) {
+    SUPLA_LOG_ERROR("TEST failed: config encryption is disabled");
+#ifndef SUPLA_DEBUG
+    testFailed = true;
+    failReason = 16;
+    if (!selfTestMode) {
+      return;
+    }
+#endif
+  }
+
+  auto webServer = Supla::WebServer::Instance();
+  if (webServer == nullptr) {
+    SUPLA_LOG_ERROR("TEST failed: missing web server");
+    testFailed = true;
+    failReason = 17;
+    if (!selfTestMode) {
+      return;
+    }
+  }
+  if (webServer && !webServer->verifyCertificatesFormat()) {
+    SUPLA_LOG_ERROR("TEST failed: invalid certificates format");
+    testFailed = true;
+    failReason = 18;
+    if (!selfTestMode) {
+      return;
+    }
+  }
+
+  if (Supla::Clock::GetInstance() == nullptr) {
+    SUPLA_LOG_ERROR("TEST failed: missing clock instance");
+    testFailed = true;
+    failReason = 19;
+    if (!selfTestMode) {
+      return;
+    }
+  }
+
+  if (!sdc->isSecurityLogEnabled()) {
+    SUPLA_LOG_ERROR("TEST failed: security log is disabled");
+    testFailed = true;
+    failReason = 20;
+    if (!selfTestMode) {
+      return;
+    }
+  }
+
+  if (sdc->getInitialMode() == Supla::InitialMode::StartInCfgMode) {
+    SUPLA_LOG_ERROR("TEST failed: initial mode is set to config mode");
+    testFailed = true;
+    failReason = 21;
+    if (!selfTestMode) {
+      return;
+    }
   }
 }
 
@@ -209,6 +320,7 @@ void FactoryTest::handleAction(int event, int action) {
             break;
           }
           testStage = Supla::TestStage_RegisteredAndReady;
+          sdc->testStepStatusLed(4);
         }
       }
       break;
@@ -266,6 +378,18 @@ bool FactoryTest::checkTestStep() {
 void FactoryTest::setTestFailed(int reason) {
   testFailed = true;
   failReason = reason;
+}
+
+void FactoryTest::setTestFinished() {
+  testFinished = true;
+}
+
+Supla::TestStage FactoryTest::getTestStage() const {
+  return testStage;
+}
+
+void FactoryTest::dontCheckAutomaticFirmwareUpdate() {
+  checkAutomaticFirmwareUpdate = false;
 }
 
 }  // namespace Device

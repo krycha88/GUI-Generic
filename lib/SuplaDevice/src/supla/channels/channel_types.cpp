@@ -22,7 +22,7 @@
 
 using Supla::ChannelType;
 
-int32_t Supla::channelTypeToProtoType(ChannelType type) {
+uint32_t Supla::channelTypeToProtoType(ChannelType type) {
   switch (type) {
     case ChannelType::BINARYSENSOR:
       return SUPLA_CHANNELTYPE_BINARYSENSOR;
@@ -66,13 +66,15 @@ int32_t Supla::channelTypeToProtoType(ChannelType type) {
       return SUPLA_CHANNELTYPE_GENERAL_PURPOSE_METER;
     case ChannelType::ACTIONTRIGGER:
       return SUPLA_CHANNELTYPE_ACTIONTRIGGER;
+    case ChannelType::CONTAINER:
+      return SUPLA_CHANNELTYPE_CONTAINER;
     case ChannelType::NOT_SET:
     default:
       return 0;
   }
 }
 
-ChannelType Supla::protoTypeToChannelType(int32_t type) {
+ChannelType Supla::protoTypeToChannelType(uint32_t type) {
   switch (type) {
     case SUPLA_CHANNELTYPE_BINARYSENSOR:
       return ChannelType::BINARYSENSOR;
@@ -116,6 +118,8 @@ ChannelType Supla::protoTypeToChannelType(int32_t type) {
       return ChannelType::GENERAL_PURPOSE_METER;
     case SUPLA_CHANNELTYPE_ACTIONTRIGGER:
       return ChannelType::ACTIONTRIGGER;
+    case SUPLA_CHANNELTYPE_CONTAINER:
+      return ChannelType::CONTAINER;
     default:
       return ChannelType::NOT_SET;
   }

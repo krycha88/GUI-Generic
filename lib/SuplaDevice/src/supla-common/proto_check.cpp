@@ -156,6 +156,7 @@ static_assert(sizeof(TThermostatTemperatureCfg) <=
               (unsigned int)SUPLA_CALCFG_DATA_MAXSIZE);
 static_assert((unsigned int)63 == sizeof(TSDC_UserLocalTimeResult));
 static_assert((unsigned int)50 == sizeof(TDSC_ChannelState));
+static_assert((unsigned int)1008 == sizeof(TSC_SuplaChannelStatePack));
 static_assert(sizeof(TDSC_ChannelState) <= SUPLA_CHANNELEXTENDEDVALUE_SIZE);
 static_assert((unsigned int)8 == sizeof(TCSD_ChannelStateRequest));
 static_assert((unsigned int)8 == sizeof(TCS_SetChannelFunction));
@@ -192,6 +193,12 @@ static_assert(sizeof(TCalCfg_ZWave_WakeupSettingsReport) <=
               (unsigned int)SUPLA_CALCFG_DATA_MAXSIZE);
 static_assert((unsigned int)3 == sizeof(TCalCfg_ZWave_WakeUpTime));
 static_assert(sizeof(TCalCfg_ZWave_WakeUpTime) <=
+              (unsigned int)SUPLA_CALCFG_DATA_MAXSIZE);
+static_assert((unsigned int)123 == sizeof(TCalCfg_FirmwareCheckResult));
+static_assert(sizeof(TCalCfg_FirmwareCheckResult) <=
+              (unsigned int)SUPLA_CALCFG_DATA_MAXSIZE);
+static_assert((unsigned int)64 == sizeof(TCalCfg_SetCfgModePassword));
+static_assert(sizeof(TCalCfg_SetCfgModePassword) <=
               (unsigned int)SUPLA_CALCFG_DATA_MAXSIZE);
 static_assert((unsigned int)13 == sizeof(TSD_ChannelIntParams));
 static_assert((unsigned int)1 == sizeof(TDS_GetChannelIntParamsRequest));
@@ -294,6 +301,24 @@ static_assert(sizeof(TChannelConfig_ElectricityMeter) <=
 static_assert(sizeof(TChannelConfig_PowerSwitch) == 42);
 static_assert(sizeof(TChannelConfig_PowerSwitch) <=
               (unsigned int)SUPLA_CHANNEL_CONFIG_MAXSIZE);
+
+static_assert(sizeof(TContainerChannel_Value) == 3);
+static_assert(sizeof(TContainerChannel_Value) <=
+              (unsigned int)SUPLA_CHANNELVALUE_SIZE);
+
+static_assert(sizeof(TContainer_SensorInfo) == 5);
+
+static_assert(sizeof(TChannelConfig_Container) == 87);
+static_assert(sizeof(TChannelConfig_Container) <=
+              (unsigned int)SUPLA_CHANNEL_CONFIG_MAXSIZE);
+
+static_assert(sizeof(TValve_SensorInfo) == 4);
+static_assert(sizeof(TChannelConfig_Valve) == 112);
+static_assert(sizeof(TChannelConfig_Container) <=
+              (unsigned int)SUPLA_CHANNEL_CONFIG_MAXSIZE);
+
+static_assert(sizeof(TValve_Value) <= SUPLA_CHANNELVALUE_SIZE);
+static_assert(sizeof(TCSD_Valve) <= SUPLA_CHANNELVALUE_SIZE);
 
 static_assert(SUPLA_CHANNEL_CAPTION_MAXSIZE == SUPLA_CAPTION_MAXSIZE);
 static_assert(SUPLA_LOCATION_CAPTION_MAXSIZE == SUPLA_CAPTION_MAXSIZE);

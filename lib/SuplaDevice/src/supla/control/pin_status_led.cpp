@@ -18,8 +18,8 @@
 
 #include <supla/io.h>
 
-Supla::Control::PinStatusLed::PinStatusLed(Supla::Io *ioSrc,
-                                           Supla::Io *ioOut,
+Supla::Control::PinStatusLed::PinStatusLed(Supla::Io::Base *ioSrc,
+                                           Supla::Io::Base *ioOut,
                                            uint8_t srcPin,
                                            uint8_t outPin,
                                            bool invert)
@@ -40,7 +40,15 @@ void Supla::Control::PinStatusLed::onInit() {
 }
 
 void Supla::Control::PinStatusLed::iterateAlways() {
-  updatePin();
+  if (!workOnTimer) {
+    updatePin();
+  }
+}
+
+void Supla::Control::PinStatusLed::onTimer() {
+  if (workOnTimer) {
+    updatePin();
+  }
 }
 
 void Supla::Control::PinStatusLed::setInvertedLogic(bool invertedLogic) {
@@ -54,4 +62,8 @@ void Supla::Control::PinStatusLed::updatePin() {
   if (value != Supla::Io::digitalRead(outPin, ioOut)) {
     Supla::Io::digitalWrite(outPin, value, ioOut);
   }
+}
+
+void Supla::Control::PinStatusLed::setWorkOnTimer(bool workOnTimer) {
+  this->workOnTimer = workOnTimer;
 }

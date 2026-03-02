@@ -22,8 +22,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern int esp32PwmChannelCounter;
 #endif
 
-Supla::Control::RGBWLeds::RGBWLeds(
-    Supla::Io *io, int redPin, int greenPin, int bluePin, int brightnessPin)
+Supla::Control::RGBWLeds::RGBWLeds(Supla::Io::Base *io,
+                                   int redPin,
+                                   int greenPin,
+                                   int bluePin,
+                                   int brightnessPin)
     : RGBWLeds(redPin, greenPin, bluePin, brightnessPin) {
   this->io = io;
 }
@@ -78,49 +81,57 @@ void Supla::Control::RGBWLeds::setRGBWValueOnDevice(uint32_t red,
 
 void Supla::Control::RGBWLeds::onInit() {
 #ifdef ARDUINO_ARCH_ESP32
+  if (io) {
+    Supla::Io::pinMode(redPin, OUTPUT, io);
+    Supla::Io::pinMode(greenPin, OUTPUT, io);
+    Supla::Io::pinMode(bluePin, OUTPUT, io);
+    Supla::Io::pinMode(brightnessPin, OUTPUT, io);
+  } else {
+    // TODO(klew): move to IO for ESP32
 #ifdef ESP_ARDUINO_VERSION_MAJOR
 #if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
   // Code for version 3.x
-  ledcAttach(redPin, 1000, 10);
-  ledcAttach(greenPin, 1000, 10);
-  ledcAttach(bluePin, 1000, 10);
-  ledcAttach(brightnessPin, 1000, 10);
+    ledcAttach(redPin, 1000, 10);
+    ledcAttach(greenPin, 1000, 10);
+    ledcAttach(bluePin, 1000, 10);
+    ledcAttach(brightnessPin, 1000, 10);
 #else
-  // Code for version 2.x
-  SUPLA_LOG_DEBUG("RGBW[%d]: attaching pin %d to PWM channel %d",
-                  getChannelNumber(),
-                  redPin,
-                  esp32PwmChannelCounter);
-  ledcSetup(esp32PwmChannelCounter, 1000, 10);
-  ledcAttachPin(redPin, esp32PwmChannelCounter);
-  // on ESP32 we write to PWM channels instead of pins, so we copy channel
-  // number as pin in order to reuse variable
-  redPin = esp32PwmChannelCounter;
-  esp32PwmChannelCounter++;
+    // Code for version 2.x
+    SUPLA_LOG_DEBUG("RGBW[%d]: attaching pin %d to PWM channel %d",
+                    getChannelNumber(),
+                    redPin,
+                    esp32PwmChannelCounter);
+    ledcSetup(esp32PwmChannelCounter, 1000, 10);
+    ledcAttachPin(redPin, esp32PwmChannelCounter);
+    // on ESP32 we write to PWM channels instead of pins, so we copy channel
+    // number as pin in order to reuse variable
+    redPin = esp32PwmChannelCounter;
+    esp32PwmChannelCounter++;
 
-  ledcSetup(esp32PwmChannelCounter, 1000, 10);
-  ledcAttachPin(greenPin, esp32PwmChannelCounter);
-  greenPin = esp32PwmChannelCounter;
-  esp32PwmChannelCounter++;
+    ledcSetup(esp32PwmChannelCounter, 1000, 10);
+    ledcAttachPin(greenPin, esp32PwmChannelCounter);
+    greenPin = esp32PwmChannelCounter;
+    esp32PwmChannelCounter++;
 
-  ledcSetup(esp32PwmChannelCounter, 1000, 10);
-  ledcAttachPin(bluePin, esp32PwmChannelCounter);
-  bluePin = esp32PwmChannelCounter;
-  esp32PwmChannelCounter++;
+    ledcSetup(esp32PwmChannelCounter, 1000, 10);
+    ledcAttachPin(bluePin, esp32PwmChannelCounter);
+    bluePin = esp32PwmChannelCounter;
+    esp32PwmChannelCounter++;
 
-  ledcSetup(esp32PwmChannelCounter, 1000, 10);
-  ledcAttachPin(brightnessPin, esp32PwmChannelCounter);
-  brightnessPin = esp32PwmChannelCounter;
-  esp32PwmChannelCounter++;
+    ledcSetup(esp32PwmChannelCounter, 1000, 10);
+    ledcAttachPin(brightnessPin, esp32PwmChannelCounter);
+    brightnessPin = esp32PwmChannelCounter;
+    esp32PwmChannelCounter++;
 
 #endif
 #endif
+  }
 
 #else
-  Supla::Io::pinMode(redPin, OUTPUT);
-  Supla::Io::pinMode(greenPin, OUTPUT);
-  Supla::Io::pinMode(bluePin, OUTPUT);
-  Supla::Io::pinMode(brightnessPin, OUTPUT);
+  Supla::Io::pinMode(redPin, OUTPUT, io);
+  Supla::Io::pinMode(greenPin, OUTPUT, io);
+  Supla::Io::pinMode(bluePin, OUTPUT, io);
+  Supla::Io::pinMode(brightnessPin, OUTPUT, io);
 
 #ifdef ARDUINO_ARCH_ESP8266
   analogWriteRange(1024);

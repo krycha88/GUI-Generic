@@ -152,9 +152,22 @@ void Supla::WebServer::setSuplaDeviceClass(SuplaDeviceClass *ptr) {
   sdc = ptr;
 }
 
-void Supla::WebServer::notifyClientConnected() {
+void Supla::WebServer::notifyClientConnected(bool isPost) {
   if (sdc) {
-    sdc->disableCfgModeTimeout();
+    sdc->restartCfgModeTimeout(isPost);
+  }
+}
+
+void Supla::WebServer::addSecurityLog(Supla::SecurityLogSource source,
+                                      const char *log) const {
+  if (sdc) {
+    sdc->addSecurityLog(source, log);
+  }
+}
+
+void Supla::WebServer::addSecurityLog(uint32_t source, const char *log) const {
+  if (sdc) {
+    sdc->addSecurityLog(source, log);
   }
 }
 
@@ -204,7 +217,7 @@ void Supla::WebServer::parsePost(const char *postContent,
         SUPLA_LOG_DEBUG("SERVER: key %s, value %s", key, value);
         for (auto htmlElement = Supla::HtmlElement::begin(); htmlElement;
              htmlElement = htmlElement->next()) {
-          if (htmlElement->section != excludeSection) {
+          if (isSectionAllowed(htmlElement->section)) {
             if (htmlElement->handleResponse(key, value)) {
               break;
             }
@@ -231,7 +244,7 @@ void Supla::WebServer::parsePost(const char *postContent,
   if (lastChunk) {
     for (auto htmlElement = Supla::HtmlElement::begin(); htmlElement;
         htmlElement = htmlElement->next()) {
-      if (htmlElement->section != excludeSection) {
+      if (isSectionAllowed(htmlElement->section)) {
         htmlElement->onProcessingEnd();
       }
     }
@@ -250,9 +263,21 @@ void Supla::WebServer::resetParser() {
   memset(key, 0, HTML_KEY_LENGTH);
   delete [] value;
   value = nullptr;
-  excludeSection = Supla::HtmlSection::HTML_SECTION_BETA_FORM;
+  betaProcessing = false;
+}
+
+bool Supla::WebServer::isSectionAllowed(Supla::HtmlSection section) const {
+  if (betaProcessing) {
+    return section == Supla::HtmlSection::HTML_SECTION_BETA_FORM;
+  }
+
+  return section != Supla::HtmlSection::HTML_SECTION_BETA_FORM;
 }
 
 void Supla::WebServer::setBetaProcessing() {
-  excludeSection = Supla::HtmlSection::HTML_SECTION_FORM;
+  betaProcessing = true;
+}
+
+bool Supla::WebServer::verifyCertificatesFormat() {
+  return false;
 }

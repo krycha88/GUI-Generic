@@ -115,7 +115,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                    SUPLA_CHANNELVALUE_SIZE));
   EXPECT_TRUE(channel.isUpdateReady());
 
-  channel.clearUpdateReady();
+  channel.clearSendValue();
   EXPECT_FALSE(channel.isUpdateReady());
 
   channel.setNewValue(array);
@@ -138,16 +138,19 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &temp,
                           SUPLA_CHANNELVALUE_SIZE));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   char arrayBool[SUPLA_CHANNELVALUE_SIZE] = {};
+  channel.setNewValue(arrayBool);
+  channel.clearSendValue();
+
   arrayBool[0] = true;
   channel.setNewValue(true);
   EXPECT_EQ(0, memcmp(Supla::RegisterDevice::getChannelValuePtr(number),
                           arrayBool,
                           SUPLA_CHANNELVALUE_SIZE));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   channel.setNewValue(false);
   arrayBool[0] = false;
@@ -155,7 +158,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           arrayBool,
                           SUPLA_CHANNELVALUE_SIZE));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   int value = 1234;
   ASSERT_EQ(sizeof(int), 4);
@@ -164,7 +167,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &value,
                           sizeof(int)));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   uint64_t value64 = 124346;
   ASSERT_EQ(sizeof(value64), 8);
@@ -173,7 +176,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &value64,
                           sizeof(value64)));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   double humi = 95.2234123;
   temp = 23.443322;
@@ -189,7 +192,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &expectedHumi,
                           sizeof(expectedHumi)));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   // RGBW channel setting
   channel.setNewValue(1, 2, 3, 4, 5);
@@ -198,9 +201,9 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           rgbwArray,
                           SUPLA_CHANNELVALUE_SIZE));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
-  TElectricityMeter_ExtendedValue_V2 emVal = {};
+  TElectricityMeter_ExtendedValue_V3 emVal = {};
   TElectricityMeter_Value expectedValue = {};
 
   emVal.m_count = 1;
@@ -216,7 +219,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   emVal.measured_values |= EM_VAR_VOLTAGE;
   emVal.m[0].voltage[0] = 10;
@@ -231,7 +234,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   emVal.m[0].voltage[0] = 0;
   emVal.m[0].voltage[1] = 20;
@@ -245,7 +248,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   emVal.m[0].voltage[0] = 0;
   emVal.m[0].voltage[1] = 0;
@@ -259,7 +262,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   emVal.m[0].voltage[0] = 10;
   emVal.m[0].voltage[1] = 0;
@@ -273,7 +276,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 
   emVal.m[0].voltage[0] = 10;
   emVal.m[0].voltage[1] = 230;
@@ -288,7 +291,7 @@ TEST_F(ChannelTestsFixture, SetNewValue) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(channel.isUpdateReady());
-  channel.clearUpdateReady();
+  channel.clearSendValue();
 }
 
 TEST_F(ChannelTestsFixture, ChannelValueGetters) {
@@ -347,7 +350,6 @@ TEST_F(ChannelTestsFixture, SendUpdateTest) {
   ::testing::InSequence seq;
   SrpcMock srpc;
 
-  const char emptyArray[SUPLA_CHANNELVALUE_SIZE] = {};
   char array[SUPLA_CHANNELVALUE_SIZE] = {};
   array[0] = 1;
 
@@ -403,8 +405,6 @@ TEST_F(ChannelTestsFixture, Int32ChannelWithLocalActions) {
   SrpcMock srpc;
 
   int action1 = 11;
-  int action2 = 12;
-  int action3 = 13;
 
   EXPECT_CALL(mock1, handleAction(Supla::ON_CHANGE, action1));
   EXPECT_CALL(mock1, handleAction(Supla::ON_CHANGE, action1));
@@ -436,8 +436,6 @@ TEST_F(ChannelTestsFixture, Int64ChannelWithLocalActions) {
   SrpcMock srpc;
 
   int action1 = 11;
-  int action2 = 12;
-  int action3 = 13;
 
   EXPECT_CALL(mock1, handleAction(Supla::ON_CHANGE, action1));
   EXPECT_CALL(mock1, handleAction(Supla::ON_CHANGE, action1));
@@ -633,6 +631,7 @@ TEST_F(ChannelTestsFixture, SetNewValueWithCorrection) {
 
   channel2.setCorrection(2, true);
 
+  channel2.setType(SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR);
   channel2.setNewValue(pi, e);
   EXPECT_NEAR(channel2.getValueDoubleFirst(), pi, 0.001);
   EXPECT_NEAR(
@@ -692,6 +691,7 @@ TEST_F(ChannelTestsFixture, SetNewTemperatureHumidityWithCorrection) {
   // channel 3 - humidity
   channel3.setCorrection(-40, true);
 
+  channel3.setType(SUPLA_CHANNELTYPE_HUMIDITYANDTEMPSENSOR);
   channel3.setNewValue(-275.0, 80.0);
   EXPECT_NEAR(channel3.getValueDoubleFirst(), -275, 0.001);
   EXPECT_NEAR(
@@ -724,7 +724,7 @@ TEST_F(ChannelTestsFixture, HvacMethodsTest) {
 
   // when channel type is set to HVAC, valueHvac should be not nullptr
   EXPECT_NE(ch.getValueHvac(), nullptr);
-  EXPECT_EQ(ch.getHvacIsOn(), 0);
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 0);
   EXPECT_EQ(ch.getHvacMode(), 0);
   EXPECT_FALSE(ch.isHvacFlagSetpointTemperatureHeatSet());
   EXPECT_FALSE(ch.isHvacFlagSetpointTemperatureCoolSet());
@@ -735,45 +735,103 @@ TEST_F(ChannelTestsFixture, HvacMethodsTest) {
   EXPECT_FALSE(ch.isUpdateReady());
 
   // check all hvac setters
-  ch.setHvacIsOn(1);
+  ch.setHvacIsOn(true);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
-  EXPECT_EQ(ch.getHvacIsOn(), 1);
+  ch.clearSendValue();
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 1);
+  EXPECT_TRUE(ch.getHvacIsOnBool());
+
+  ch.setHvacIsOn(false);
+  EXPECT_TRUE(ch.isUpdateReady());
+  ch.clearSendValue();
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 0);
+  EXPECT_FALSE(ch.getHvacIsOnBool());
+
+  ch.setHvacIsOnPercent(0);
+  EXPECT_TRUE(ch.isUpdateReady());
+  ch.clearSendValue();
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 2);
+  EXPECT_FALSE(ch.getHvacIsOnBool());
+  EXPECT_EQ(ch.getHvacIsOnPercent(), 0);
+
+  ch.setHvacIsOnPercent(1);
+  EXPECT_TRUE(ch.isUpdateReady());
+  ch.clearSendValue();
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 3);
+  EXPECT_TRUE(ch.getHvacIsOnBool());
+  EXPECT_EQ(ch.getHvacIsOnPercent(), 1);
+
+  ch.setHvacIsOnPercent(100);
+  EXPECT_TRUE(ch.isUpdateReady());
+  ch.clearSendValue();
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 102);
+  EXPECT_TRUE(ch.getHvacIsOnBool());
+  EXPECT_EQ(ch.getHvacIsOnPercent(), 100);
+
+  // 200 is converted to 100%, so no update ready and no change
+  ch.setHvacIsOnPercent(200);
+  EXPECT_FALSE(ch.isUpdateReady());
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 102);
+  EXPECT_TRUE(ch.getHvacIsOnBool());
+  EXPECT_EQ(ch.getHvacIsOnPercent(), 100);
+
+
+  ch.setHvacIsOnPercent(99);
+  EXPECT_TRUE(ch.isUpdateReady());
+  ch.clearSendValue();
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 101);
+  EXPECT_TRUE(ch.getHvacIsOnBool());
+  EXPECT_EQ(ch.getHvacIsOnPercent(), 99);
+
+  ch.setHvacIsOnPercent(200);
+  EXPECT_TRUE(ch.isUpdateReady());
+  ch.clearSendValue();
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 102);
+  EXPECT_TRUE(ch.getHvacIsOnBool());
+  EXPECT_EQ(ch.getHvacIsOnPercent(), 100);
+
+  ch.setHvacIsOnPercent(0);
+  EXPECT_TRUE(ch.isUpdateReady());
+  ch.clearSendValue();
+  EXPECT_EQ(ch.getHvacIsOnRaw(), 2);
+  EXPECT_FALSE(ch.getHvacIsOnBool());
+  EXPECT_EQ(ch.getHvacIsOnPercent(), 0);
+
   ch.setHvacMode(2);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacMode(), 2);
   ch.setHvacSetpointTemperatureHeat(1);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_TRUE(ch.isHvacFlagSetpointTemperatureHeatSet());
   EXPECT_EQ(ch.getHvacSetpointTemperatureHeat(), 1);
   EXPECT_EQ(ch.getHvacSetpointTemperatureCool(), 0);
 
   ch.setHvacSetpointTemperatureCool(2);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_TRUE(ch.isHvacFlagSetpointTemperatureCoolSet());
   EXPECT_EQ(ch.getHvacSetpointTemperatureHeat(), 1);
   EXPECT_EQ(ch.getHvacSetpointTemperatureCool(), 2);
 
   ch.setHvacSetpointTemperatureHeat(10);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacSetpointTemperatureHeat(), 10);
   ch.setHvacSetpointTemperatureCool(20);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacSetpointTemperatureCool(), 20);
 
   ch.setHvacFlags(0x0F);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacFlags(), 0x0F);
 
   ch.setHvacFlags(0);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacFlags(), 0);
   EXPECT_FALSE(ch.isHvacFlagSetpointTemperatureHeatSet());
   EXPECT_FALSE(ch.isHvacFlagSetpointTemperatureCoolSet());
@@ -781,7 +839,7 @@ TEST_F(ChannelTestsFixture, HvacMethodsTest) {
   ch.setHvacSetpointTemperatureHeat(5);
   ch.setHvacSetpointTemperatureCool(10);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacSetpointTemperatureHeat(), 5);
   EXPECT_EQ(ch.getHvacSetpointTemperatureCool(), 10);
   EXPECT_TRUE(ch.isHvacFlagSetpointTemperatureHeatSet());
@@ -790,7 +848,7 @@ TEST_F(ChannelTestsFixture, HvacMethodsTest) {
   ch.setHvacSetpointTemperatureHeat(0);
   ch.setHvacSetpointTemperatureCool(0);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacSetpointTemperatureHeat(), 0);
   EXPECT_EQ(ch.getHvacSetpointTemperatureCool(), 0);
   EXPECT_TRUE(ch.isHvacFlagSetpointTemperatureHeatSet());
@@ -798,7 +856,7 @@ TEST_F(ChannelTestsFixture, HvacMethodsTest) {
 
   ch.clearHvacSetpointTemperatureHeat();
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacSetpointTemperatureHeat(), 0);
   EXPECT_EQ(ch.getHvacSetpointTemperatureCool(), 0);
   EXPECT_FALSE(ch.isHvacFlagSetpointTemperatureHeatSet());
@@ -806,7 +864,7 @@ TEST_F(ChannelTestsFixture, HvacMethodsTest) {
 
   ch.clearHvacSetpointTemperatureCool();
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacSetpointTemperatureHeat(), 0);
   EXPECT_EQ(ch.getHvacSetpointTemperatureCool(), 0);
   EXPECT_FALSE(ch.isHvacFlagSetpointTemperatureHeatSet());
@@ -815,7 +873,7 @@ TEST_F(ChannelTestsFixture, HvacMethodsTest) {
   ch.setHvacSetpointTemperatureHeat(0);
   ch.setHvacSetpointTemperatureCool(0);
   EXPECT_TRUE(ch.isUpdateReady());
-  ch.clearUpdateReady();
+  ch.clearSendValue();
   EXPECT_EQ(ch.getHvacSetpointTemperatureHeat(), 0);
   EXPECT_EQ(ch.getHvacSetpointTemperatureCool(), 0);
   EXPECT_TRUE(ch.isHvacFlagSetpointTemperatureHeatSet());

@@ -20,7 +20,9 @@
 #define SRC_SUPLA_NETWORK_WEB_SERVER_H_
 
 #include <supla/network/html_generator.h>
-#include "supla/network/html_element.h"
+#include <supla/network/html_element.h>
+#include <supla/device/security_logger.h>
+#include <stdint.h>
 
 class SuplaDeviceClass;
 
@@ -39,16 +41,30 @@ class WebServer {
   virtual void start() = 0;
   virtual void stop() = 0;
   void setSuplaDeviceClass(SuplaDeviceClass *);
-  void notifyClientConnected();
+  void notifyClientConnected(bool isPost = false);
   virtual void parsePost(const char *postContent,
                          int size,
                          bool lastChunk = true);
   virtual void resetParser();
   void setBetaProcessing();
 
+  virtual bool verifyCertificatesFormat();
+
   Supla::HtmlGenerator *htmlGenerator = nullptr;
 
  protected:
+  void addSecurityLog(Supla::SecurityLogSource source, const char *log) const;
+  void addSecurityLog(uint32_t source, const char *log) const;
+  /**
+   * Check if section is allowed in current POST request. It excludes
+   * html elements in /beta page POST, and vice versa
+   *
+   * @param section
+   *
+   * @return true if section is allowed to be processed
+   */
+  bool isSectionAllowed(Supla::HtmlSection section) const;
+
   static WebServer *webServerInstance;
   bool destroyGenerator = false;
   SuplaDeviceClass *sdc = nullptr;
@@ -56,8 +72,7 @@ class WebServer {
   int partialSize = 0;
   char key[HTML_KEY_LENGTH] = {};
   char *value = nullptr;
-  enum Supla::HtmlSection excludeSection =
-      Supla::HtmlSection::HTML_SECTION_BETA_FORM;
+  bool betaProcessing = false;
 };
 
 };  // namespace Supla

@@ -423,7 +423,7 @@ TEST_F(GpMeterTestsFixture, defaultParametersShouldntOverwriteConfig) {
           _,
           sizeof(Supla::Sensor::GeneralPurposeChannelBase::GPMCommonConfig)))
       .Times(1)
-      .WillOnce([](const char *key, char *value, size_t blobSize) {
+      .WillOnce([](const char *, char *value, size_t blobSize) {
         Supla::Sensor::GeneralPurposeChannelBase::GPMCommonConfig config = {};
         EXPECT_EQ(blobSize, sizeof(config));
         config.added = 11;
@@ -444,7 +444,7 @@ TEST_F(GpMeterTestsFixture, defaultParametersShouldntOverwriteConfig) {
           _,
           sizeof(Supla::Sensor::GeneralPurposeMeter::GPMMeterSpecificConfig)))
       .Times(1)
-      .WillOnce([](const char *key, char *value, size_t blobSize) {
+      .WillOnce([](const char *, char *value, size_t blobSize) {
         Supla::Sensor::GeneralPurposeMeter::GPMMeterSpecificConfig config = {};
         EXPECT_EQ(blobSize, sizeof(config));
         config.counterType = 15;
@@ -582,7 +582,7 @@ TEST_F(GpMeterTestsFixture, handleChannelConfigWithInvalidDefaults) {
   Supla::Sensor::GeneralPurposeMeter gp;
   ConfigMock cfg;
 
-  EXPECT_CALL(cfg, saveWithDelay(_)).Times(3);
+  EXPECT_CALL(cfg, saveWithDelay(_)).Times(2);
   EXPECT_CALL(
       cfg,
       setBlob(
@@ -602,8 +602,7 @@ TEST_F(GpMeterTestsFixture, handleChannelConfigWithInvalidDefaults) {
       .WillOnce(Return(
           sizeof(Supla::Sensor::GeneralPurposeMeter::GPMMeterSpecificConfig)));
   EXPECT_CALL(cfg, setUInt8(StrEq("0_cfg_chng"), 1))
-      .Times(1)
-      .WillOnce(Return(1));
+      .Times(0);
 
   gp.onInit();
 

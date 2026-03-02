@@ -1,10 +1,13 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.15)
 
 project(supla-device-linux)
+
+include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_BUILD_TYPE Debug)
 
@@ -28,10 +31,6 @@ if(NOT DEFINED ENV{SUPLA_DEVICE_PATH})
 endif()
 
 add_definitions(-DMQTT_USE_BIO -DSUPLA_DEVICE)
-set(MQTT_C_OpenSSL_SUPPORT ON CACHE BOOL "Build MQTT-C with OpenSSL support?")
-set(MQTT_C_EXAMPLES OFF CACHE BOOL "Build MQTT-C examples?")
-
-include(FetchContent)
 
 FetchContent_Declare(
         mqttc
@@ -39,21 +38,18 @@ FetchContent_Declare(
         GIT_TAG        v1.1.6
 )
 
-FetchContent_GetProperties(mqttc)
-if(NOT mqttc_POPULATED)  # Have we downloaded mqttc yet?
-  set(MQTT_C_OpenSSL_SUPPORT ON CACHE BOOL "Build MQTT-C with OpenSSL support?")
-  set(MQTT_C_EXAMPLES OFF CACHE BOOL "Build MQTT-C examples?")
-  FetchContent_Populate(mqttc)
-  add_subdirectory(${mqttc_SOURCE_DIR} ${mqttc_BINARY_DIR})
-endif()
+set(MQTT_C_OpenSSL_SUPPORT ON CACHE BOOL "Build MQTT-C with OpenSSL support?")
+set(MQTT_C_EXAMPLES OFF CACHE BOOL "Build MQTT-C examples?")
+FetchContent_MakeAvailable(mqttc)
 
 include_directories(
         .
         ${mqttc_SOURCE_DIR}/include
+        $ENV{SUPLA_DEVICE_PATH}/src
 )
 
 add_library(supladevice "")
-add_subdirectory($ENV{SUPLA_DEVICE_PATH} supla-device)
+add_subdirectory($ENV{SUPLA_DEVICE_PATH} supladevice)
 add_subdirectory($ENV{SUPLA_DEVICE_PATH}/extras/porting/linux supla-porting-linux)
 
 

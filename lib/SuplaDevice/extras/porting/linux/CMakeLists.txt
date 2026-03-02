@@ -1,37 +1,23 @@
 include(FetchContent)
 
-find_package(yaml-cpp REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
-if(${CMAKE_VERSION} VERSION_LESS "3.24.0") 
-  FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.10.5/json.tar.xz)
-  FetchContent_Declare(cxxopts URL https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.0.0.tar.gz)
-else()
-  FetchContent_Declare(json
-    URL https://github.com/nlohmann/json/releases/download/v3.10.5/json.tar.xz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    )
-  FetchContent_Declare(cxxopts
-    URL https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.0.0.tar.gz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    )
-endif()
-#FetchContent_MakeAvailable(json cxxopts)
+FetchContent_Declare(
+  json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.3
+  GIT_SHALLOW TRUE
+)
 
-# NOTE: Where possible, prefer to use FetchContent_MakeAvailable()
-#       instead of custom logic like this
+FetchContent_Declare(
+  cxxopts
+  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+  GIT_TAG v3.2.0
+  GIT_SHALLOW TRUE
+)
 
-# Check if population has already been performed
-FetchContent_GetProperties(json)
-if(NOT json_POPULATED)
-  FetchContent_Populate(json)
-  add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR})
-endif()
-FetchContent_GetProperties(cxxopts)
-if(NOT cxxopts_POPULATED)
-  FetchContent_Populate(cxxopts)
-  add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR})
-endif()
+FetchContent_MakeAvailable(json cxxopts)
 
 set(SUPLA_DEVICE_LINUX_SRCS
   linux_network.cpp
@@ -45,6 +31,8 @@ set(SUPLA_DEVICE_LINUX_SRCS
 
   linux_timers.cpp
   linux_clock.cpp
+
+  supla/custom_channel.cpp
 
   supla/source/cmd.cpp
   supla/source/file.cpp
@@ -76,10 +64,14 @@ set(SUPLA_DEVICE_LINUX_SRCS
   supla/sensor/therm_hygro_meter_parsed.cpp
   supla/sensor/general_purpose_measurement_parsed.cpp
   supla/sensor/general_purpose_meter_parsed.cpp
+  supla/sensor/container_parsed.cpp
 
   supla/control/cmd_relay.cpp
+  supla/control/cmd_roller_shutter.cpp
+  supla/control/cmd_valve.cpp
   supla/control/action_trigger_parsed.cpp
   supla/control/hvac_parsed.cpp
+  supla/control/custom_hvac.cpp
   supla/control/custom_relay.cpp
   supla/control/control_payload.cpp
 

@@ -29,6 +29,7 @@
 
 namespace Supla {
   const char ConfigFileName[] = "/supla-dev.cfg";
+  const char BackupConfigFileName[] = "/supla-dev.cfg.bak";
   const char CustomCAFileName[] = "/custom_ca.pem";
 };
 
@@ -46,63 +47,70 @@ bool Supla::LittleFsConfig::init() {
     SUPLA_LOG_WARNING(
         "LittleFsConfig: init called on non empty database. Aborting");
     // init can be done only on empty storage
+    initResult = false;
     return false;
   }
 
   if (!initLittleFs()) {
+    initResult = false;
     return false;
   }
 
-  if (LittleFS.exists(ConfigFileName)) {
-    File cfg = LittleFS.open(ConfigFileName, "r");
-    if (!cfg) {
-      SUPLA_LOG_ERROR("LittleFsConfig: failed to open config file");
-      LittleFS.end();
-      return false;
-    }
+  auto files = {ConfigFileName, BackupConfigFileName};
+  initResult = false;
 
-    int fileSize = cfg.size();
+  for (auto file : files) {
+    if (LittleFS.exists(file)) {
+      File cfg = LittleFS.open(file, "r");
+      if (!cfg) {
+        SUPLA_LOG_ERROR("LittleFsConfig: failed to open \"%s\"", file);
+        continue;
+      }
 
-    SUPLA_LOG_DEBUG("LittleFsConfig: config file size %d", fileSize);
-    if (fileSize > configMaxSize) {
-      SUPLA_LOG_ERROR("LittleFsConfig: config file is too big");
+      int fileSize = cfg.size();
+
+      SUPLA_LOG_DEBUG("LittleFsConfig: file \"%s\" size %d", file, fileSize);
+      if (fileSize > configMaxSize) {
+        SUPLA_LOG_ERROR("LittleFsConfig: config file is too big");
+        cfg.close();
+        continue;
+      }
+
+      uint8_t* buf = new uint8_t[configMaxSize];
+      if (buf == nullptr) {
+        SUPLA_LOG_ERROR("LittleFsConfig: failed to allocate memory");
+        cfg.close();
+        continue;
+      }
+
+      memset(buf, 0, configMaxSize);
+      int bytesRead = cfg.read(buf, fileSize);
       cfg.close();
-      LittleFS.end();
-      return false;
+      if (bytesRead != fileSize) {
+        SUPLA_LOG_DEBUG("LittleFsConfig: read bytes %d, while file is %d bytes",
+                        bytesRead,
+                        fileSize);
+        delete[] buf;
+        continue;
+      }
+
+      SUPLA_LOG_DEBUG("LittleFsConfig: initializing storage from file...");
+      initResult = initFromMemory(buf, fileSize);
+      delete[] buf;
+      SUPLA_LOG_DEBUG("LittleFsConfig: init result %s",
+                      initResult ? "success" : "failure");
+
+      if (!initResult) {
+        continue;
+      } else {
+        break;
+      }
+    } else {
+      SUPLA_LOG_DEBUG("LittleFsConfig:: config file \"%s\" missing", file);
     }
-
-    uint8_t *buf = new uint8_t[configMaxSize];
-    if (buf == nullptr) {
-      SUPLA_LOG_ERROR("LittleFsConfig: failed to allocate memory");
-      cfg.close();
-      LittleFS.end();
-      return false;
-    }
-
-    memset(buf, 0, configMaxSize);
-    int bytesRead = cfg.read(buf, fileSize);
-
-    cfg.close();
-    LittleFS.end();
-    if (bytesRead != fileSize) {
-      SUPLA_LOG_DEBUG(
-          "LittleFsConfig: read bytes %d, while file is %d bytes",
-          bytesRead,
-          fileSize);
-      delete []buf;
-      return false;
-    }
-
-    SUPLA_LOG_DEBUG("LittleFsConfig: initializing storage from file...");
-    auto result =  initFromMemory(buf, fileSize);
-    SUPLA_LOG_DEBUG("LittleFsConfig: init result %d", result);
-    delete []buf;
-    return result;
-  } else {
-    SUPLA_LOG_DEBUG("LittleFsConfig:: config file missing");
   }
   LittleFS.end();
-  return true;
+  return initResult;
 }
 
 void Supla::LittleFsConfig::commit() {
@@ -120,15 +128,22 @@ void Supla::LittleFsConfig::commit() {
     return;
   }
 
-  File cfg = LittleFS.open(ConfigFileName, "w");
-  if (!cfg) {
-    SUPLA_LOG_ERROR("LittleFsConfig: failed to open config file for write");
-    LittleFS.end();
-    return;
-  }
+  auto files = {ConfigFileName, BackupConfigFileName};
+  bool result = false;
 
-  cfg.write(buf, dataSize);
-  cfg.close();
+  for (auto file : files) {
+    SUPLA_LOG_DEBUG("LittleFsConfig: writing to file \"%s\"", file);
+    File cfg = LittleFS.open(file, "w");
+    if (!cfg) {
+      SUPLA_LOG_ERROR(
+          "LittleFsConfig: failed to open config file \"%s\" for write", file);
+      LittleFS.end();
+      return;
+    }
+
+    cfg.write(buf, dataSize);
+    cfg.close();
+  }
   delete []buf;
   LittleFS.end();
 }
@@ -310,8 +325,10 @@ bool Supla::LittleFsConfig::getBlob(const char* key,
   snprintf(filename, sizeof(filename), "/supla/%s", key);
   File file = LittleFS.open(filename, "r");
   if (!file) {
-    SUPLA_LOG_ERROR(
-        "LittleFsConfig: failed to open blob file \"%s\" for read", key);
+    SUPLA_LOG_DEBUG(
+        "LittleFsConfig: failed to open blob file \"%s\" for read, blob not "
+        "found",
+        key);
     LittleFS.end();
     return false;
   }
@@ -332,17 +349,17 @@ bool Supla::LittleFsConfig::getBlob(const char* key,
 
 int Supla::LittleFsConfig::getBlobSize(const char* key) {
   if (!initLittleFs()) {
-    return false;
+    return -1;
   }
 
   char filename[50] = {};
   snprintf(filename, sizeof(filename), "/supla/%s", key);
   File file = LittleFS.open(filename, "r");
   if (!file) {
-    SUPLA_LOG_ERROR(
-        "LittleFsConfig: failed to open blob file \"%s\"", key);
+    SUPLA_LOG_DEBUG(
+        "LittleFsConfig: failed to open blob file \"%s\", blob not found", key);
     LittleFS.end();
-    return false;
+    return -1;
   }
   int fileSize = file.size();
 

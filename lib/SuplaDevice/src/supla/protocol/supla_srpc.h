@@ -43,8 +43,8 @@ class CalCfgResultPending {
  public:
   friend class SuplaSrpc;
   void set(int16_t channelNo, int32_t receiverId, int32_t command);
-  void clear(int16_t channelNo);
-  CalCfgResultPendingItem *get(int16_t channelNo);
+  void clear(int16_t channelNo, int32_t command = -1);
+  CalCfgResultPendingItem *get(int16_t channelNo, int32_t command = -1);
 
  protected:
   CalCfgResultPending();
@@ -113,16 +113,14 @@ class SuplaSrpc : public ProtocolLayer {
   void updateLastResponseTime();
   void updateLastSentTime();
   void onGetUserLocaltimeResult(TSDC_UserLocalTimeResult *result);
-  void sendChannelStateResult(int32_t receiverId,
-                              uint8_t channelNo,
-                              bool sendAsExtended = false);
+  void sendChannelStateResult(int32_t receiverId, uint8_t channelNo) override;
 
   void setServerPort(int value);
   void setVersion(int value);
   void setSuplaCACert(const char *);
   void setSupla3rdPartyCACert(const char *);
-  const char* getSuplaCACert();
-  const char* getSupla3rdPartyCACert();
+  const char* getSuplaCACert() const;
+  const char* getSupla3rdPartyCACert() const;
   bool isUpdatePending() override;
   void handleDeviceConfig(TSDS_SetDeviceConfig *deviceConfig);
   void handleSetDeviceConfigResult(TSDS_SetDeviceConfigResult *result);
@@ -135,7 +133,7 @@ class SuplaSrpc : public ProtocolLayer {
                                int dataSize = 0,
                                void *data = nullptr);
 
-  void clearPendingCalCfgResult(int16_t channelNo);
+  void clearPendingCalCfgResult(int16_t channelNo, int32_t command = -1);
 
   static const char *configResultToCStr(int result);
 
@@ -146,6 +144,7 @@ class SuplaSrpc : public ProtocolLayer {
   bool ping();
   void initializeSrpc();
   void deinitializeSrpc();
+  void addLastStateAdError(char *buf);
 
   uint8_t version = 0;
   uint8_t activityTimeoutS = 30;
@@ -155,6 +154,8 @@ class SuplaSrpc : public ProtocolLayer {
   bool enabled = true;
   bool setDeviceConfigReceivedAfterRegistration = false;
   bool firstConnectionAttempt = true;
+  bool adErrorLogged = false;
+  uint8_t autodiscoverRetryCounter = 0;
   uint16_t connectionFailCounter = 0;
 
   uint32_t lastPingTimeMs = 0;
@@ -162,7 +163,6 @@ class SuplaSrpc : public ProtocolLayer {
   uint32_t lastIterateTime = 0;
   uint32_t lastResponseMs = 0;
   uint32_t lastSentMs = 0;
-  uint32_t lastExtendedValueWithChannelStateMs = 0;
 
   int port = -1;
 

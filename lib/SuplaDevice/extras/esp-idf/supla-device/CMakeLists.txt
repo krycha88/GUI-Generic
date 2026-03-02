@@ -29,6 +29,7 @@ set(SUPLA_DEVICE_SRCS
   ../../../src/supla/mutex.cpp
   ../../../src/supla/auto_lock.cpp
   ../../../src/supla/sha256.cpp
+  ../../../src/supla/crypto.cpp
   ../../../src/supla/rsa_verificator.cpp
   ../../../src/supla/crc8.cpp
   ../../../src/supla/crc16.cpp
@@ -72,6 +73,7 @@ set(SUPLA_DEVICE_SRCS
   ../../../src/supla/network/html/button_type_parameters.cpp
   ../../../src/supla/network/html/button_config_parameters.cpp
   ../../../src/supla/network/html/rgbw_button_parameters.cpp
+  ../../../src/supla/network/html/relay_parameters.cpp
   ../../../src/supla/network/html/time_parameters.cpp
   ../../../src/supla/network/html/volume_parameters.cpp
   ../../../src/supla/network/html/screen_delay_parameters.cpp
@@ -84,6 +86,10 @@ set(SUPLA_DEVICE_SRCS
   ../../../src/supla/network/html/em_phase_led.cpp
   ../../../src/supla/network/html/em_ct_type.cpp
   ../../../src/supla/network/html/roller_shutter_parameters.cpp
+  ../../../src/supla/network/html/button_refresh.cpp
+  ../../../src/supla/network/html/modbus_parameters.cpp
+  ../../../src/supla/network/html/binary_sensor_parameters.cpp
+  ../../../src/supla/network/html/security_log_list.cpp
   ../../../src/supla/network/client.cpp
   ../../../src/supla/network/ip_address.cpp
 
@@ -94,13 +100,20 @@ set(SUPLA_DEVICE_SRCS
 
   ../../../src/supla/clock/clock.cpp
 
+  ../../../src/supla/modbus/modbus_configurator.cpp
+  ../../../src/supla/modbus/modbus_client_handler.cpp
+  ../../../src/supla/modbus/modbus_em_handler.cpp
+  ../../../src/supla/modbus/modbus_device_handler.cpp
+
   ../../../src/supla/control/action_trigger.cpp
   ../../../src/supla/control/bistable_relay.cpp
   ../../../src/supla/control/bistable_roller_shutter.cpp
   ../../../src/supla/control/button.cpp
+  ../../../src/supla/control/button_aggregator.cpp
   ../../../src/supla/control/dimmer_base.cpp
   ../../../src/supla/control/dimmer_leds.cpp
   ../../../src/supla/control/internal_pin_output.cpp
+  ../../../src/supla/control/remote_output_interface.cpp
   ../../../src/supla/control/light_relay.cpp
   ../../../src/supla/control/pin_status_led.cpp
   ../../../src/supla/control/relay.cpp
@@ -110,12 +123,15 @@ set(SUPLA_DEVICE_SRCS
   ../../../src/supla/control/rgbw_base.cpp
   ../../../src/supla/control/rgbw_leds.cpp
   ../../../src/supla/control/roller_shutter.cpp
+  ../../../src/supla/control/roller_shutter_interface.cpp
   ../../../src/supla/control/sequence_button.cpp
   ../../../src/supla/control/simple_button.cpp
   ../../../src/supla/control/virtual_relay.cpp
   ../../../src/supla/control/hvac_base.cpp
   ../../../src/supla/control/group_button_control_rgbw.cpp
   ../../../src/supla/control/blinking_led.cpp
+  ../../../src/supla/control/valve_base.cpp
+  ../../../src/supla/control/virtual_valve.cpp
 
   ../../../src/supla/condition.cpp
   ../../../src/supla/condition_getter.cpp
@@ -135,6 +151,7 @@ set(SUPLA_DEVICE_SRCS
   ../../../src/supla/device/remote_device_config.cpp
   ../../../src/supla/device/enter_cfg_mode_after_power_cycle.cpp
   ../../../src/supla/device/register_device.cpp
+  ../../../src/supla/device/security_logger.cpp
 # not all files from sensor folder are compiled here. Some still require
 # porting from ARDUINO
   ../../../src/supla/sensor/binary.cpp
@@ -156,6 +173,7 @@ set(SUPLA_DEVICE_SRCS
   ../../../src/supla/sensor/HC_SR04.cpp
   ../../../src/supla/sensor/ntc10k.cpp
   ../../../src/supla/sensor/temperature_drop_sensor.cpp
+  ../../../src/supla/sensor/container.cpp
   ../../../src/supla/pv/fronius.cpp
 )
 
@@ -187,6 +205,8 @@ set(SUPLA_DEVICE_PORTING_SRCS
   ../../porting/esp-idf/esp_mqtt.cpp
   ../../porting/esp-idf/esp_idf_network_common.cpp
   ../../porting/esp-idf/esp_idf_sector_wl_storage.cpp
+  ../../porting/esp-idf/esp_idf_watchdog.cpp
+  ../../porting/esp-idf/esp_idf_security_loggger.cpp
 )
 
 
@@ -201,14 +221,15 @@ idf_component_register(SRCS
     nvs_flash
     spiffs
     esp_http_server
+    esp_https_server
     app_update
     esp_http_client
-    json
     esp_wifi
-    driver
+    esp_driver_gpio
     mqtt
     esp_timer
     esp_partition
+    mbedtls
   EMBED_TXTFILES supla_org_cert.pem supla_3rd_cert.pem
 )
 

@@ -44,6 +44,12 @@ namespace Device {
 
 class FactoryTest : public Supla::ActionHandler, public Supla::Element {
  public:
+   /**
+    * @brief Construct a new Factory Test object
+    *
+    * @param sdc SuplaDeviceClass pointer
+    * @param timeoutS test timeout, when set to 0 -> run only self-test
+    */
   FactoryTest(SuplaDeviceClass *sdc, uint32_t timeoutS);
   virtual ~FactoryTest();
 
@@ -56,6 +62,10 @@ class FactoryTest : public Supla::ActionHandler, public Supla::Element {
   virtual bool checkTestStep();
 
   void setTestFailed(int reason);
+  void setTestFinished();
+  Supla::TestStage getTestStage() const;
+
+  void dontCheckAutomaticFirmwareUpdate();
 
  protected:
   bool testFailed = false;
@@ -70,6 +80,7 @@ class FactoryTest : public Supla::ActionHandler, public Supla::Element {
   // fill fail reason for devices that can show it during the test
   // Use values >= 100 for device specific failures
   int failReason = 0;
+  bool checkAutomaticFirmwareUpdate = true;
 };
 
 }  // namespace Device

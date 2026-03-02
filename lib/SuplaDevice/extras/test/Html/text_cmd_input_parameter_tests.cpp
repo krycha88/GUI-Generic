@@ -23,6 +23,7 @@
 #include <string>
 #include <supla/actions.h>
 #include <supla/events.h>
+#include <supla/action_handler.h>
 
 using ::testing::_;
 
@@ -48,7 +49,7 @@ TEST(TextCmdInputTests, EmptyElementTests) {
   EXPECT_EQ(sendHtml, "");
 
   EXPECT_CALL(senderMock, send(_, _)).WillRepeatedly([] (const char *data,
-        int size) {
+        int) {
     sendHtml.append(data);
   });
 

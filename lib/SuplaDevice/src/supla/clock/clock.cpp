@@ -18,6 +18,7 @@
 
 #include <supla/log_wrapper.h>
 #include <supla/storage/config.h>
+#include <supla/storage/storage.h>
 #include <supla/device/remote_device_config.h>
 #include <SuplaDevice.h>
 
@@ -115,6 +116,9 @@ Clock* Clock::GetInstance() {
 }
 
 Clock::Clock() {
+  if (clockInstance) {
+    delete clockInstance;
+  }
   clockInstance = this;
 }
 

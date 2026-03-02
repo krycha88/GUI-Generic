@@ -14,14 +14,20 @@
  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-#include <supla/log_wrapper.h>
-#include <supla/storage/config.h>
-
-#include "supla/network/network.h"
-#include "time.h"
 #include "element.h"
 
+#include <supla-common/proto.h>
+#include <supla/channels/channel.h>
+#include <supla/log_wrapper.h>
+#include <supla/storage/config.h>
+#include <supla/time.h>
+
 namespace Supla {
+
+namespace Protocol {
+class SuplaSrpc;
+}  // namespace Protocol
+
 Element *Element::firstPtr = nullptr;
 bool Element::invalidatePtr = false;
 
@@ -115,25 +121,13 @@ void Element::onRegistered(Supla::Protocol::SuplaSrpc *suplaSrpc) {
   if (suplaSrpc == nullptr) {
     return;
   }
-  auto ch = getChannel();
 
-  while (ch) {
-    if (ch->isInitialCaptionSet()) {
-      suplaSrpc->setInitialCaption(ch->getChannelNumber(),
-                                   ch->getInitialCaption());
-    }
-    if (ch->isSleepingEnabled()) {
-      if (isChannelStateEnabled()) {
-        suplaSrpc->sendChannelStateResult(0, ch->getChannelNumber());
-      }
-      ch->setUpdateReady();
-    }
+  if (getChannel()) {
+    getChannel()->onRegistered();
+  }
 
-    if (ch == getSecondaryChannel()) {
-      ch = nullptr;
-    } else {
-      ch = getSecondaryChannel();
-    }
+  if (getSecondaryChannel()) {
+    getSecondaryChannel()->onRegistered();
   }
 }
 
@@ -141,7 +135,7 @@ bool Element::isChannelStateEnabled() const {
   if (getChannel() == nullptr) {
     return false;
   }
-  return getChannel()->getFlags() & SUPLA_CHANNEL_FLAG_CHANNELSTATE;
+  return getChannel()->isChannelStateEnabled();
 }
 
 void Element::iterateAlways() {}
@@ -155,16 +149,14 @@ bool Element::iterateConnected() {
   bool response = true;
   uint32_t timestamp = millis();
   Channel *secondaryChannel = getSecondaryChannel();
-  if (secondaryChannel && secondaryChannel->isUpdateReady() &&
-      timestamp - secondaryChannel->lastCommunicationTimeMs > 50) {
+  if (secondaryChannel && secondaryChannel->isUpdateReady()) {
     secondaryChannel->lastCommunicationTimeMs = timestamp;
     secondaryChannel->sendUpdate();
     response = false;
   }
 
   Channel *channel = getChannel();
-  if (channel && channel->isUpdateReady() &&
-      timestamp - channel->lastCommunicationTimeMs > 50) {
+  if (channel && channel->isUpdateReady()) {
     channel->lastCommunicationTimeMs = timestamp;
     channel->sendUpdate();
     response = false;
@@ -220,20 +212,24 @@ Channel *Element::getSecondaryChannel() {
 }
 
 void Element::handleGetChannelState(TDSC_ChannelState *channelState) {
+  if (channelState == nullptr) {
+    return;
+  }
   Channel *channel = getChannel();
   while (channel) {
     if (channelState->ChannelNumber == channel->getChannelNumber()) {
-      if (channel->isBatteryPowered()) {
+      if (channel->isBatteryPoweredFieldEnabled()) {
         channelState->Fields |= SUPLA_CHANNELSTATE_FIELD_BATTERYPOWERED;
-        channelState->BatteryPowered = 1;
-
-        channelState->BatteryLevel = channel->getBatteryLevel();
-        if (channelState->BatteryLevel <= 100) {
-          channelState->Fields |= SUPLA_CHANNELSTATE_FIELD_BATTERYLEVEL;
-        } else {
-          channelState->BatteryLevel = 0;
-        }
+        channelState->BatteryPowered = channel->isBatteryPowered() ? 1 : 0;
       }
+
+      channelState->BatteryLevel = channel->getBatteryLevel();
+      if (channelState->BatteryLevel <= 100) {
+        channelState->Fields |= SUPLA_CHANNELSTATE_FIELD_BATTERYLEVEL;
+      } else {
+        channelState->BatteryLevel = 0;
+      }
+
       if (channel->isBridgeSignalStrengthAvailable()) {
         channelState->Fields |=
             SUPLA_CHANNELSTATE_FIELD_BRIDGENODESIGNALSTRENGTH;
@@ -295,7 +291,7 @@ void Element::handleChannelConfigFinished() {
 }
 
 
-void Element::generateKey(char *output, const char *key) {
+void Element::generateKey(char *output, const char *key) const {
   Supla::Config::generateKey(output, getChannelNumber(), key);
 }
 
@@ -340,11 +336,26 @@ void Element::setInitialCaption(const char *caption, bool secondaryChannel) {
   }
 }
 
-void Element::setDefaultFunction(int32_t defaultFunction) {
+bool Element::setDefaultFunction(uint32_t defaultFunction) {
   Supla::Channel *ch = getChannel();
   if (ch) {
+    auto current = ch->getDefaultFunction();
+    if (current == defaultFunction) {
+      return false;
+    }
     ch->setDefaultFunction(defaultFunction);
+    onFunctionChange(current, defaultFunction);
   }
+  return true;
+}
+
+bool Element::setFunction(uint32_t newFunction) {
+  return setDefaultFunction(newFunction);
+}
+
+void Element::onFunctionChange(uint32_t currentFunction, uint32_t newFunction) {
+  (void)(currentFunction);
+  (void)(newFunction);
 }
 
 bool Element::isOwnerOfSubDeviceId(int) const {

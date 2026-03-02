@@ -63,8 +63,73 @@ const char RollerShutterButtonsUpsideDownTag[] = "bud";
 const char RollerShutterTimeMarginTag[] = "rs_margin";
 const char RollerShutterOpeningTimeTag[] = "rs_ot";
 const char RollerShutterClosingTimeTag[] = "rs_ct";
+const char FacadeBlindTiltingTimeTag[] = "fb_tilt";
+const char FacadeBlindTiltControlTypeTag[] = "fb_type";
+const char TiltConfigTag[] = "tilt_cfg";
+
+const char RelayOvercurrentThreshold[] = "oc_thr";
 
 const char HvacCfgTag[] = "hvac_cfg";
+const char HvacWeeklyCfgTag[] = "hvac_weekly";
+const char HvacAltWeeklyCfgTag[] = "hvac_aweekly";
+
+const char BinarySensorServerInvertedLogicTag[] = "srv_invrt";
+const char BinarySensorCfgTag[] = "bs_cfg";
+
+const char ContainerTag[] = "container";
+
+const char ValveCfgTag[] = "valve_cfg";
+
+const char ModbusCfgTag[] = "modbus_cfg";
+
+const char OtaModeTag[] = "ota_mode";
+
+static_assert(sizeof(DeviceConfigChangeCfgTag) < 16);
+static_assert(sizeof(ChannelFunctionTag) < 12);
+static_assert(sizeof(ChannelConfigChangedFlagTag) < 12);
+static_assert(sizeof(ScreenBrightnessCfgTag) < 16);
+static_assert(sizeof(ScreenAdjustmentForAutomaticCfgTag) < 16);
+static_assert(sizeof(HomeScreenContentTag) < 16);
+static_assert(sizeof(ScreenDelayTypeCfgTag) < 16);
+static_assert(sizeof(ScreenDelayCfgTag) < 16);
+static_assert(sizeof(DisableUserInterfaceCfgTag) < 16);
+static_assert(sizeof(MinTempUICfgTag) < 16);
+static_assert(sizeof(MaxTempUICfgTag) < 16);
+static_assert(sizeof(MinBrightTag) < 16);
+static_assert(sizeof(PowerStatusLedCfgTag) < 16);
+static_assert(sizeof(StatusLedCfgTag) < 16);
+static_assert(sizeof(BtnTypeTag) < 16);
+static_assert(sizeof(BtnHoldTag) < 16);
+static_assert(sizeof(BtnMulticlickTag) < 16);
+static_assert(sizeof(BtnConfigTag) < 16);
+static_assert(sizeof(BtnActionTriggerCfgTagPrefix) < 16);
+static_assert(sizeof(VolumeCfgTag) < 16);
+static_assert(sizeof(EmCtTypeTag) < 12);
+static_assert(sizeof(EmPhaseLedTag) < 12);
+static_assert(sizeof(EmPhaseLedVoltageLowTag) < 12);
+static_assert(sizeof(EmPhaseLedVoltageHighTag) < 12);
+static_assert(sizeof(EmPhaseLedPowerLowTag) < 12);
+static_assert(sizeof(EmPhaseLedPowerHighTag) < 12);
+static_assert(sizeof(RgbwButtonTag) < 12);
+static_assert(sizeof(RollerShutterTag) < 12);
+static_assert(sizeof(RollerShutterMotorUpsideDownTag) < 12);
+static_assert(sizeof(RollerShutterButtonsUpsideDownTag) < 12);
+static_assert(sizeof(RollerShutterTimeMarginTag) < 12);
+static_assert(sizeof(RollerShutterOpeningTimeTag) < 12);
+static_assert(sizeof(RollerShutterClosingTimeTag) < 12);
+static_assert(sizeof(TiltConfigTag) < 12);
+static_assert(sizeof(FacadeBlindTiltingTimeTag) < 12);
+static_assert(sizeof(FacadeBlindTiltControlTypeTag) < 12);
+static_assert(sizeof(RelayOvercurrentThreshold) < 12);
+static_assert(sizeof(HvacCfgTag) < 12);
+static_assert(sizeof(HvacWeeklyCfgTag) <= 12);
+static_assert(sizeof(HvacAltWeeklyCfgTag) <= 13);
+static_assert(sizeof(BinarySensorServerInvertedLogicTag) < 12);
+static_assert(sizeof(BinarySensorCfgTag) < 12);
+static_assert(sizeof(ContainerTag) < 12);
+static_assert(sizeof(ValveCfgTag) < 12);
+static_assert(sizeof(ModbusCfgTag) < 16);
+static_assert(sizeof(OtaModeTag) < 16);
 
 }  // namespace ConfigTag
 }  // namespace Supla

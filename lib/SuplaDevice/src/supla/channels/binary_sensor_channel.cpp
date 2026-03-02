@@ -18,6 +18,7 @@
 
 #include "binary_sensor_channel.h"
 #include <supla/log_wrapper.h>
+#include <supla/channels/channel.h>
 
 using Supla::BinarySensorChannel;
 

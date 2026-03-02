@@ -17,6 +17,8 @@
 #ifndef SRC_SUPLA_ACTIONS_H_
 #define SRC_SUPLA_ACTIONS_H_
 
+#include <stdint.h>
+
 // Actions are used in ActionHandler elements. They are grouped by most common
 // usage, but you should not rely on it. Please check exact supported actions
 // in ActionHandler's element documentation
@@ -47,8 +49,13 @@ enum Action {
   MOVE_DOWN,
   MOVE_UP_OR_STOP,
   MOVE_DOWN_OR_STOP,
+  // "Internal button" actions are inverted when "invert button" config is set
   INTERNAL_BUTTON_MOVE_UP_OR_STOP,
   INTERNAL_BUTTON_MOVE_DOWN_OR_STOP,
+  INTERNAL_BUTTON_MOVE_UP,
+  INTERNAL_BUTTON_MOVE_DOWN,
+  INTERNAL_BUTTON_COMFORT_UP,
+  INTERNAL_BUTTON_COMFORT_DOWN,
 
   // Dimmable light, RGB(W) LEDs
   BRIGHTEN_ALL,
@@ -114,6 +121,9 @@ enum Action {
 
   VOLUME_UP,
   VOLUME_DOWN,
+  MUTE_SOUND_ALARM,
+  ENABLE_EXTERNAL_SOUND_ALARM,
+  DISABLE_EXTERNAL_SOUND_ALARM,
 
   // Thermostat
   INCREASE_TEMPERATURE,
@@ -129,7 +139,13 @@ enum Action {
   SWITCH_TO_MANUAL_MODE_HEAT_COOL,
   TOGGLE_MANUAL_WEEKLY_SCHEDULE_MODES,
   TOGGLE_OFF_MANUAL_WEEKLY_SCHEDULE_MODES,
+
+  // Keep it as last item
+  ACTION_ID_MAX
 };
-};  // namespace Supla
+}  // namespace Supla
+
+// Internally, action ids are stored as uint16_t
+static_assert(Supla::ACTION_ID_MAX <= UINT16_MAX);
 
 #endif  // SRC_SUPLA_ACTIONS_H_

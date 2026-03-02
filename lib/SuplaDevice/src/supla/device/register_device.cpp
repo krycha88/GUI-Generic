@@ -319,15 +319,16 @@ void Supla::RegisterDevice::removeChannel(int channelNumber) {
 
 bool Supla::RegisterDevice::isSuplaPublicServerConfigured() {
   if (reg_dev.ServerName[0] != '\0') {
-    const int serverLength = strlen(reg_dev.ServerName);
+    const size_t serverLength = strlen(reg_dev.ServerName);
     const char suplaPublicServerSuffix[] = ".supla.org";
-    const int suplaPublicServerSuffixLength = strlen(suplaPublicServerSuffix);
+    const size_t suplaPublicServerSuffixLength =
+        strlen(suplaPublicServerSuffix);
 
     if (serverLength > suplaPublicServerSuffixLength) {
-      if (strncmpInsensitive(reg_dev.ServerName +
-            serverLength - suplaPublicServerSuffixLength,
-            suplaPublicServerSuffix,
-            suplaPublicServerSuffixLength) == 0) {
+      if (strncmpInsensitive(
+              reg_dev.ServerName + serverLength - suplaPublicServerSuffixLength,
+              suplaPublicServerSuffix,
+              suplaPublicServerSuffixLength) == 0) {
         return true;
       }
     }
@@ -364,6 +365,15 @@ bool Supla::RegisterDevice::isRemoteDeviceConfigEnabled() {
   return reg_dev.Flags & SUPLA_DEVICE_FLAG_DEVICE_CONFIG_SUPPORTED;
 }
 
+bool Supla::RegisterDevice::isAutomaticFirmwareUpdateEnabled() {
+  return reg_dev.Flags & SUPLA_DEVICE_FLAG_AUTOMATIC_FIRMWARE_UPDATE_SUPPORTED;
+}
+
+bool Supla::RegisterDevice::isSetCfgModePasswordEnabled() {
+  return reg_dev.Flags &
+         SUPLA_DEVICE_FLAG_CALCFG_SET_CFG_MODE_PASSWORD_SUPPORTED;
+}
+
 int16_t Supla::RegisterDevice::getManufacturerId() {
   return reg_dev.ManufacturerID;
 }
@@ -375,3 +385,16 @@ int16_t Supla::RegisterDevice::getProductId() {
 int Supla::RegisterDevice::getChannelCount() {
   return reg_dev.channel_count;
 }
+
+void Supla::RegisterDevice::generateHttpAgent(char *buffer, int size) {
+  if (buffer == nullptr || size < 50) {
+    return;
+  }
+  snprintf(buffer,
+           size,
+           "SuplaDevice (%.64s)/%s",
+           Supla::RegisterDevice::getName(),
+           Supla::RegisterDevice::getSoftVer());
+  buffer[size - 1] = '\0';
+}
+

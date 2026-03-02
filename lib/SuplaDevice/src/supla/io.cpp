@@ -24,7 +24,7 @@
 #include <Arduino.h>
 #elif defined(ESP_PLATFORM)
 #include <esp_idf_gpio.h>
-// methods implemented in extras/porting/esp-idf/gpio.cpp
+// methods implemented in extras/porting/esp-idf/esp_idf_gpio.cpp
 #else
 // TODO(klew): implement those methods or extract them to separate interface
 void pinMode(uint8_t pin, uint8_t mode) {
@@ -57,37 +57,55 @@ unsigned int pulseIn(uint8_t pin, uint8_t val, uint64_t timeoutMicro) {
   (void)(timeoutMicro);
   return 0;
 }
+
+void attachInterrupt(uint8_t pin, void (*func)(void), int mode) {
+  (void)(func);
+  SUPLA_LOG_ERROR(
+      " *** NOT IMPLEMENTED *** GPIO %d attach interrupt %d", pin, mode);
+}
+
+void detachInterrupt(uint8_t pin) {
+  SUPLA_LOG_ERROR(" *** NOT IMPLEMENTED *** GPIO %d detach interrupt", pin);
+}
+
+uint8_t digitalPinToInterrupt(uint8_t pin) {
+  return pin;
+}
 #endif
 
 namespace Supla {
-void Io::pinMode(uint8_t pin, uint8_t mode, Supla::Io *io) {
+namespace Io {
+void pinMode(uint8_t pin, uint8_t mode, Supla::Io::Base *io) {
   return pinMode(-1, pin, mode, io);
 }
 
-int Io::digitalRead(uint8_t pin, Supla::Io *io) {
+int digitalRead(uint8_t pin, Supla::Io::Base *io) {
   return digitalRead(-1, pin, io);
 }
 
-void Io::digitalWrite(uint8_t pin, uint8_t val, Supla::Io *io) {
+void digitalWrite(uint8_t pin, uint8_t val, Supla::Io::Base *io) {
   digitalWrite(-1, pin, val, io);
 }
 
-void Io::analogWrite(uint8_t pin, int val, Supla::Io *io) {
+void analogWrite(uint8_t pin, int val, Supla::Io::Base *io) {
   analogWrite(-1, pin, val, io);
 }
 
-int Io::analogRead(uint8_t pin, Supla::Io *io) {
+int analogRead(uint8_t pin, Supla::Io::Base *io) {
   return analogRead(-1, pin, io);
 }
 
-unsigned int Io::pulseIn(uint8_t pin,
+unsigned int pulseIn(uint8_t pin,
                          uint8_t value,
                          uint64_t timeoutMicro,
-                         Supla::Io *io) {
+                         Supla::Io::Base *io) {
   return pulseIn(-1, pin, value, timeoutMicro, io);
 }
 
-void Io::pinMode(int channelNumber, uint8_t pin, uint8_t mode, Supla::Io *io) {
+void pinMode(int channelNumber,
+             uint8_t pin,
+             uint8_t mode,
+             Supla::Io::Base *io) {
   if (io) {
     io->customPinMode(channelNumber, pin, mode);
     return;
@@ -95,17 +113,17 @@ void Io::pinMode(int channelNumber, uint8_t pin, uint8_t mode, Supla::Io *io) {
   ::pinMode(pin, mode);
 }
 
-int Io::digitalRead(int channelNumber, uint8_t pin, Supla::Io *io) {
+int digitalRead(int channelNumber, uint8_t pin, Supla::Io::Base *io) {
   if (io) {
     return io->customDigitalRead(channelNumber, pin);
   }
   return ::digitalRead(pin);
 }
 
-void Io::digitalWrite(int channelNumber,
+void digitalWrite(int channelNumber,
                       uint8_t pin,
                       uint8_t val,
-                      Supla::Io *io) {
+                      Supla::Io::Base *io) {
   if (channelNumber >= 0) {
     SUPLA_LOG_VERBOSE(
         " **** Digital write[%d], gpio: %d; value %d", channelNumber, pin, val);
@@ -118,7 +136,7 @@ void Io::digitalWrite(int channelNumber,
   ::digitalWrite(pin, val);
 }
 
-void Io::analogWrite(int channelNumber, uint8_t pin, int val, Supla::Io *io) {
+void analogWrite(int channelNumber, uint8_t pin, int val, Supla::Io::Base *io) {
   SUPLA_LOG_VERBOSE(
       " **** Analog write[%d], gpio: %d; value %d", channelNumber, pin, val);
   if (io) {
@@ -128,18 +146,18 @@ void Io::analogWrite(int channelNumber, uint8_t pin, int val, Supla::Io *io) {
   ::analogWrite(pin, val);
 }
 
-int Io::analogRead(int channelNumber, uint8_t pin, Supla::Io *io) {
+int analogRead(int channelNumber, uint8_t pin, Supla::Io::Base *io) {
   if (io) {
     return io->customAnalogRead(channelNumber, pin);
   }
   return ::analogRead(pin);
 }
 
-unsigned int Io::pulseIn(int channelNumber,
+unsigned int pulseIn(int channelNumber,
                          uint8_t pin,
                          uint8_t value,
                          uint64_t timeoutMicro,
-                         Supla::Io *io) {
+                         Supla::Io::Base *io) {
   (void)(channelNumber);
   if (io) {
     return io->customPulseIn(channelNumber, pin, value, timeoutMicro);
@@ -147,7 +165,34 @@ unsigned int Io::pulseIn(int channelNumber,
   return ::pulseIn(pin, value, timeoutMicro);
 }
 
-Io::Io(bool useAsSingleton) : useAsSingleton(useAsSingleton) {
+void attachInterrupt(uint8_t pin,
+                         void (*func)(void),
+                         int mode,
+                         Supla::Io::Base *io) {
+  if (io) {
+    io->customAttachInterrupt(pin, func, mode);
+    return;
+  }
+  ::attachInterrupt(pin, func, mode);
+}
+
+void detachInterrupt(uint8_t pin, Io::Base *io) {
+  if (io) {
+    io->customDetachInterrupt(pin);
+    return;
+  }
+  ::detachInterrupt(pin);
+}
+
+
+uint8_t pinToInterrupt(uint8_t pin, Io::Base *io) {
+  if (io) {
+    return io->customPinToInterrupt(pin);
+  }
+  return digitalPinToInterrupt(pin);
+}
+
+Base::Base(bool useAsSingleton) : useAsSingleton(useAsSingleton) {
   if (useAsSingleton) {
     if (ioInstance != nullptr) {
       delete ioInstance;
@@ -156,45 +201,44 @@ Io::Io(bool useAsSingleton) : useAsSingleton(useAsSingleton) {
   }
 }
 
-Io::~Io() {
+Base::~Base() {
   if (useAsSingleton) {
     ioInstance = nullptr;
   }
 }
 
-void Io::customPinMode(int channelNumber, uint8_t pin, uint8_t mode) {
-  (void)(channelNumber);
-  ::pinMode(pin, mode);
+void Base::customPinMode(int , uint8_t, uint8_t) {
 }
 
-int Io::customDigitalRead(int channelNumber, uint8_t pin) {
-  (void)(channelNumber);
-  return ::digitalRead(pin);
+int Base::customDigitalRead(int, uint8_t) {
+  return 0;
 }
 
-void Io::customDigitalWrite(int channelNumber, uint8_t pin, uint8_t val) {
-  (void)(channelNumber);
-  ::digitalWrite(pin, val);
+void Base::customDigitalWrite(int, uint8_t, uint8_t) {
 }
 
-void Io::customAnalogWrite(int channelNumber, uint8_t pin, int val) {
-  (void)(channelNumber);
-  ::analogWrite(pin, val);
+void Base::customAnalogWrite(int, uint8_t, int) {
 }
 
-int Io::customAnalogRead(int channelNumber, uint8_t pin) {
-  (void)(channelNumber);
-  return ::analogRead(pin);
+int Base::customAnalogRead(int, uint8_t) {
+  return 0;
 }
 
-unsigned int Io::customPulseIn(int channelNumber,
-                               uint8_t pin,
-                               uint8_t value,
-                               uint64_t timeoutMicro) {
-  (void)(channelNumber);
-  return ::pulseIn(pin, value, timeoutMicro);
+unsigned int Base::customPulseIn(int, uint8_t, uint8_t, uint64_t) {
+  return 0;
 }
 
-Io *Io::ioInstance = nullptr;
+void Base::customAttachInterrupt(uint8_t, void (*)(void), int) {
+}
 
-};  // namespace Supla
+void Base::customDetachInterrupt(uint8_t) {
+}
+
+uint8_t Base::customPinToInterrupt(uint8_t) {
+  return 0;
+}
+
+Base *Base::ioInstance = nullptr;
+
+}  // namespace Io
+}  // namespace Supla

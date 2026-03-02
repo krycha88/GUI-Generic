@@ -25,6 +25,10 @@
 class SuplaDeviceClass;
 
 namespace Supla {
+namespace Io {
+class Base;
+}  // namespace Io
+
 namespace Control {
 
 class Button : public SimpleButton, public ActionHandler {
@@ -33,7 +37,8 @@ class Button : public SimpleButton, public ActionHandler {
   enum class ButtonType : uint8_t {
     MONOSTABLE,
     BISTABLE,
-    MOTION_SENSOR
+    MOTION_SENSOR,
+    CENTRAL_CONTROL
   };
 
   enum class OnLoadConfigType : uint8_t {
@@ -42,7 +47,7 @@ class Button : public SimpleButton, public ActionHandler {
     DONT_LOAD_CONFIG
   };
 
-  explicit Button(Supla::Io *io,
+  explicit Button(Supla::Io::Base *io,
                   int pin,
                   bool pullUp = false,
                   bool invertLogic = false);
@@ -73,6 +78,7 @@ class Button : public SimpleButton, public ActionHandler {
   bool isBistable() const;
   bool isMonostable() const;
   bool isMotionSensor() const;
+  bool isCentral() const;
 
   virtual void configureAsConfigButton(SuplaDeviceClass *sdc);
   bool disableActionsInConfigMode() override;
@@ -87,8 +93,11 @@ class Button : public SimpleButton, public ActionHandler {
 
   void disableButton();
   void enableButton();
+  void waitForRelease();
 
   uint32_t getLastStateChange() const;
+
+  void setAllowHoldOnPowerOn(bool allow) { allowHoldOnPowerOn = allow; }
 
  protected:
   void evaluateMaxMulticlickValue();
@@ -96,11 +105,12 @@ class Button : public SimpleButton, public ActionHandler {
   // threshold 0 disables always
   void disableRepeatOnHold(uint32_t threshold = 0);
   void enableRepeatOnHold();
-  uint32_t multiclickTimeMs = 0;
+  const char *getButtonTypeName(ButtonType type) const;
   uint32_t lastStateChangeMs = 0;
   uint16_t repeatOnHoldMs = 0;
   uint16_t holdSend = 0;
   uint16_t holdTimeMs = 0;
+  uint16_t multiclickTimeMs = 0;
   ButtonType buttonType = ButtonType::MONOSTABLE;
   enum OnLoadConfigType onLoadConfigType = OnLoadConfigType::LOAD_FULL_CONFIG;
 
@@ -110,6 +120,8 @@ class Button : public SimpleButton, public ActionHandler {
   bool configButton = false;
   int8_t buttonNumber = -1;
   bool disabled = false;
+  bool allowHoldOnPowerOn = false;
+  bool waitingForRelease = false;
 
   static int buttonCounter;
 };

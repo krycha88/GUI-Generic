@@ -90,6 +90,20 @@ bool Supla::Protocol::Mqtt::onLoadConfig() {
     enabled = false;
   }
 
+  SUPLA_LOG_INFO(
+      "MQTT: Protocol %s, broker \"%s\", port %d, TLS %s, retain %s, QoS %d, "
+      "auth %s,"
+      "user \"%s\", password %s",
+      enabled ? "enabled" : "disabled",
+      server,
+      port,
+      useTls ? "enabled" : "disabled",
+      retainCfg ? "enabled" : "disabled",
+      qosCfg,
+      useAuth ? "enabled" : "disabled",
+      user,
+      strlen(password) > 0 ? "****" : "NOT SET");
+
   return configComplete;
 }
 
@@ -597,6 +611,9 @@ void Supla::Protocol::Mqtt::publishChannelState(int channel) {
     }
 
     case SUPLA_CHANNELTYPE_BINARYSENSOR: {
+      if (ch->getDefaultFunction() == 0) {
+        return;
+      }
       // publish binary sensor state
       if (isOpenClosedBinarySensorFunction(ch->getDefaultFunction())) {
         publishOpenClosed((topic).c_str(), ch->getValueBool(), -1, 1);
@@ -634,6 +651,9 @@ bool Mqtt::isOpenClosedBinarySensorFunction(int channelFunction) const {
     case SUPLA_CHANNELFNC_HOTELCARDSENSOR:
     case SUPLA_CHANNELFNC_ALARMARMAMENTSENSOR:
     case SUPLA_CHANNELFNC_MAILSENSOR:
+    case SUPLA_CHANNELFNC_FLOOD_SENSOR:
+    case SUPLA_CHANNELFNC_BINARY_SENSOR:
+    case SUPLA_CHANNELFNC_MOTION_SENSOR:
     default: {
       return false;
     }
@@ -668,7 +688,7 @@ void Supla::Protocol::Mqtt::publishExtendedChannelState(int channel) {
 
   switch (ch->getChannelType()) {
     case SUPLA_CHANNELTYPE_ELECTRICITY_METER: {
-      TElectricityMeter_ExtendedValue_V2 extEMValue = {};
+      TElectricityMeter_ExtendedValue_V3 extEMValue = {};
       if (!ch->getExtValueAsElectricityMeter(&extEMValue)) {
         SUPLA_LOG_DEBUG("Mqtt: failed to obtain ext EM value");
         return;
@@ -698,6 +718,33 @@ void Supla::Protocol::Mqtt::publishExtendedChannelState(int channel) {
             (topic / "total_reverse_balanced_active_energy").c_str(),
             ElectricityMeter::getRvrBalancedActEnergy(extEMValue) / 100000.0,
             -1, -1, 4);
+      }
+
+      if (ElectricityMeter::isVoltagePhaseAngle12Used(extEMValue)) {
+        publishDouble(
+            (topic / "voltage_phase_angle_12").c_str(),
+            ElectricityMeter::getVoltagePhaseAngle12(extEMValue) / 10.0,
+            -1,
+            -1,
+            1);
+      }
+      if (ElectricityMeter::isVoltagePhaseAngle13Used(extEMValue)) {
+        publishDouble(
+            (topic / "voltage_phase_angle_13").c_str(),
+            ElectricityMeter::getVoltagePhaseAngle13(extEMValue) / 10.0,
+            -1,
+            -1,
+            1);
+      }
+      if (ElectricityMeter::isVoltagePhaseSequenceSet(extEMValue)) {
+        publishBool((topic / "voltage_phase_sequence_clockwise").c_str(),
+            ElectricityMeter::isVoltagePhaseSequenceClockwise(extEMValue),
+            -1, -1);
+      }
+      if (ElectricityMeter::isCurrentPhaseSequenceSet(extEMValue)) {
+        publishBool((topic / "current_phase_sequence_clockwise").c_str(),
+            ElectricityMeter::isCurrentPhaseSequenceClockwise(extEMValue),
+            -1, -1);
       }
 
       for (int phase = 0; phase < MAX_PHASES; phase++) {
@@ -843,7 +890,8 @@ void Supla::Protocol::Mqtt::subscribeChannel(int channel) {
       break;
     }
     case SUPLA_CHANNELTYPE_ACTIONTRIGGER:
-    case SUPLA_CHANNELTYPE_ELECTRICITY_METER: {
+    case SUPLA_CHANNELTYPE_ELECTRICITY_METER:
+    case SUPLA_CHANNELTYPE_BINARYSENSOR: {
       // no subscriptions
       break;
     }
@@ -1054,6 +1102,10 @@ void Mqtt::publishHADiscoveryBinarySensor(Supla::Element *element) {
     return;
   }
 
+  if (ch->getDefaultFunction() == 0) {
+    return;
+  }
+
   char objectId[30] = {};
   generateObjectId(objectId, element->getChannelNumber(), 0);
 
@@ -1070,6 +1122,7 @@ void Mqtt::publishHADiscoveryBinarySensor(Supla::Element *element) {
       deviceClass = HADeviceClass_Garage;
       break;
     }
+    case SUPLA_CHANNELFNC_FLOOD_SENSOR:
     case SUPLA_CHANNELFNC_NOLIQUIDSENSOR: {
       deviceClass = HADeviceClass_Moisture;
       break;
@@ -1083,6 +1136,7 @@ void Mqtt::publishHADiscoveryBinarySensor(Supla::Element *element) {
     case SUPLA_CHANNELFNC_HOTELCARDSENSOR:
     case SUPLA_CHANNELFNC_ALARMARMAMENTSENSOR:
     case SUPLA_CHANNELFNC_MAILSENSOR:
+    case SUPLA_CHANNELFNC_CONTAINER_LEVEL_SENSOR:
     default: {
       deviceClass = HADeviceClass_None;
       break;
@@ -1279,6 +1333,8 @@ void Supla::Protocol::Mqtt::publishHADiscoveryRelay(Supla::Element *element) {
       publishHADiscoveryRelayImpulse(element);
       return;
     }
+    case SUPLA_CHANNELFNC_HEATORCOLDSOURCESWITCH:
+    case SUPLA_CHANNELFNC_PUMPSWITCH:
     case SUPLA_CHANNELFNC_POWERSWITCH: {
       topic = getHADiscoveryTopic("switch", objectId);
       break;
@@ -1951,7 +2007,7 @@ void Supla::Protocol::Mqtt::publishHADiscoveryEMParameter(
     }
   }
 
-  publish(topic.c_str(), payload, -1, -1, true);
+  publish(topic.c_str(), payload, -1, 1, true);
 
   delete[] payload;
 }
@@ -1966,7 +2022,7 @@ void Supla::Protocol::Mqtt::publishHADiscoveryEM(Supla::Element *element) {
     return;
   }
 
-  TElectricityMeter_ExtendedValue_V2 extEMValue = {};
+  TElectricityMeter_ExtendedValue_V3 extEMValue = {};
 
   if (!ch->getExtValueAsElectricityMeter(&extEMValue)) {
     SUPLA_LOG_DEBUG("Mqtt: failed to obtain ext EM value");
@@ -2188,7 +2244,7 @@ const char *Supla::Protocol::Mqtt::getDeviceClassStr(
     case HADeviceClass_Door:
       return ",\"dev_cla\":\"door\"";
     case HADeviceClass_Garage:
-      return ",\"dev_cla\":\"garage\"";
+      return ",\"dev_cla\":\"garage_door\"";
     case HADeviceClass_Moisture:
       return ",\"dev_cla\":\"moisture\"";
     case HADeviceClass_Window:
@@ -2766,7 +2822,7 @@ void Mqtt::processHVACRequest(const char *topic,
       element->handleNewValueFromServer(&newValue);
     } else if (strncmpInsensitive(payload, "toggle", 7) == 0) {
       if (element && element->getChannel() &&
-          element->getChannel()->getHvacIsOn() != 0) {
+          element->getChannel()->getHvacIsOnRaw() != 0) {
         hvacValue->Mode = SUPLA_HVAC_MODE_OFF;
       } else {
         hvacValue->Mode = SUPLA_HVAC_MODE_CMD_TURN_ON;

@@ -16,17 +16,23 @@
  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+#include "bistable_relay.h"
+
 #include <supla/log_wrapper.h>
 #include <supla/time.h>
-
-#include "bistable_relay.h"
+#include <supla/io.h>
+#include <supla/storage/storage.h>
+#include <supla/channels/channel.h>
+#include <supla/control/relay.h>
+#include <supla/definitions.h>
+#include <supla-common/proto.h>
 
 namespace Supla {
 namespace Control {
 
 #define STATE_ON_INIT_KEEP 2
 
-BistableRelay::BistableRelay(Supla::Io *io,
+BistableRelay::BistableRelay(Supla::Io::Base *io,
                              int pin,
                              int statusPin,
                              bool statusPullUp,

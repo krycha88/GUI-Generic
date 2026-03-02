@@ -17,6 +17,7 @@
 #include "virtual_relay.h"
 
 #include <supla/log_wrapper.h>
+#include <supla/storage/storage.h>
 
 #include "../time.h"
 
@@ -32,6 +33,7 @@ void Supla::Control::VirtualRelay::onInit() {
   } else {
     turnOff(duration);
   }
+  initDone = true;
 }
 
 void Supla::Control::VirtualRelay::turnOn(_supla_int_t duration) {
@@ -40,9 +42,15 @@ void Supla::Control::VirtualRelay::turnOn(_supla_int_t duration) {
       channel.getChannelNumber(),
       duration);
   durationMs = duration;
-  if (keepTurnOnDurationMs) {
+
+  if (minimumAllowedDurationMs > 0 && storedTurnOnDurationMs == 0) {
+    storedTurnOnDurationMs = durationMs;
+  }
+
+  if (keepTurnOnDurationMs || isStaircaseFunction() || isImpulseFunction()) {
     durationMs = storedTurnOnDurationMs;
   }
+
   if (durationMs != 0) {
     durationTimestamp = millis();
   } else {

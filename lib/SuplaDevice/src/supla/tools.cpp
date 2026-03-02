@@ -19,12 +19,21 @@
 #include "tools.h"
 #include <string.h>
 #include <supla-common/proto.h>
+#include <ctype.h>
 
 #if defined(ARDUINO_ARCH_AVR)
 #include <stdlib.h>
 #else
 #include <cstdlib>
 #endif
+
+#if defined(ESP8266)
+#include <Esp.h>
+#elif defined(ESP32) || defined(SUPLA_DEVICE_ESP32)
+#include <esp_random.h>
+#endif
+
+#include "supla/IEEE754tools.h"
 
 void float2DoublePacked(float number, uint8_t *bar, int byteOrder) {
   (void)(byteOrder);
@@ -248,7 +257,7 @@ int urlEncode(const char *input, char *output, int outputMaxSize) {
 int stringAppend(char *output, const char *input, int maxSize) {
   int inputSize = strlen(input);
   if (inputSize < maxSize) {
-    strncpy(output, input, inputSize);
+    memcpy(output, input, inputSize);
     return inputSize;
   }
   return 0;
@@ -450,14 +459,16 @@ int Supla::getBitNumber(uint64_t value) {
   return position;
 }
 
-int Supla::rssiToSignalStrength(int rssi) {
-  if (rssi > -50) {
+int Supla::rssiToSignalStrength(int rssi, int rssiZero) {
+  const int rssi100Percent = -50;
+  if (rssi > rssi100Percent) {
     return 100;
-  } else if (rssi <= -100) {
+  } else if (rssi <= rssiZero) {
     return 0;
   }
 
-  return 2 * (rssi + 100);
+  // map rssi to 0..100% (rssiZero..-50)
+  return (rssiZero - rssi) * 100 / (rssiZero - rssi100Percent);
 }
 
 const char *Supla::getRelayChannelName(int channelFunction) {
@@ -504,6 +515,12 @@ const char *Supla::getRelayChannelName(int channelFunction) {
     case SUPLA_CHANNELFNC_CONTROLLINGTHEFACADEBLIND: {
       return "Facade blind";
     }
+    case SUPLA_CHANNELFNC_HEATORCOLDSOURCESWITCH: {
+      return "Heater/cooling switch";
+    }
+    case SUPLA_CHANNELFNC_PUMPSWITCH: {
+      return "Pump switch";
+    }
 
     default: {
       return "Relay";
@@ -529,6 +546,14 @@ const char *Supla::getBinarySensorChannelName(int channelFunction) {
       return "Liquid sensor";
       break;
     }
+    case SUPLA_CHANNELFNC_FLOOD_SENSOR: {
+      return "Flood sensor";
+      break;
+    }
+    case SUPLA_CHANNELFNC_CONTAINER_LEVEL_SENSOR: {
+      return "Container level sensor";
+      break;
+    }
     case SUPLA_CHANNELFNC_OPENINGSENSOR_ROLLERSHUTTER: {
       return "Roller shutter sensor";
     }
@@ -548,8 +573,64 @@ const char *Supla::getBinarySensorChannelName(int channelFunction) {
     case SUPLA_CHANNELFNC_MAILSENSOR: {
       return "Mail sensor";
     }
+    case SUPLA_CHANNELFNC_MOTION_SENSOR: {
+      return "Motion sensor";
+    }
+    case SUPLA_CHANNELFNC_BINARY_SENSOR:
     default: {
       return "Binary sensor";
     }
   }
 }
+
+bool Supla::isLittleEndian() {
+    uint32_t num = 0x01020304;
+    return *(reinterpret_cast<uint8_t*>(&num)) == 0x04;
+}
+
+int Supla::compareSemVer(const char *sw1, const char *sw2) {
+  const char* p1 = sw1;
+  const char* p2 = sw2;
+
+  if (p1 == nullptr || p2 == nullptr) {
+    return 0;
+  }
+
+  while (*p1 != '\0' || *p2 != '\0') {
+    int v1 = 0;
+    while (*p1 && isdigit(*p1)) {
+      v1 = v1 * 10 + (*p1 - '0');
+      p1++;
+    }
+    while (*p1 != '\0' && !isdigit(*p1)) {
+      p1++;
+    }
+
+    int v2 = 0;
+    while (*p2 && isdigit(*p2)) {
+      v2 = v2 * 10 + (*p2 - '0');
+      p2++;
+    }
+    while (*p2 != '\0' && !isdigit(*p2)) {
+      p2++;
+    }
+
+    if (v1 > v2) return 1;
+    if (v1 < v2) return -1;
+  }
+
+  return 0;
+}
+
+void Supla::fillRandom(uint8_t *buffer, int size) {
+#if defined(ESP8266)
+  ESP.random(buffer, size);
+#elif defined(ESP32) || defined(SUPLA_DEVICE_ESP32)
+  esp_fill_random(buffer, size);
+#else
+  (void)(buffer);
+  (void)(size);
+  // TODO(klew): Arduino MEGA, sd4linux
+#endif
+}
+

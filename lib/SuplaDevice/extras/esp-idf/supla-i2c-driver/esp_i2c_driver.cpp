@@ -24,7 +24,8 @@
 
 using Supla::I2CDriver;
 
-I2CDriver::I2CDriver(int sda, int scl) : sda(sda), scl(scl) {
+I2CDriver::I2CDriver(int sda, int scl, bool internalPullUp)
+    : sda(sda), scl(scl), internalPullUp(internalPullUp) {
   mutex = Supla::Mutex::Create();
   mutex->unlock();
 }
@@ -34,6 +35,7 @@ I2CDriver::~I2CDriver() {
     delete mutex;
     mutex = nullptr;
   }
+  deinitialize();
 }
 
 void I2CDriver::initialize() {
@@ -43,13 +45,14 @@ void I2CDriver::initialize() {
     conf.clk_source = I2C_CLK_SRC_DEFAULT;
     conf.sda_io_num = static_cast<gpio_num_t>(sda);
     conf.scl_io_num = static_cast<gpio_num_t>(scl);
-    conf.flags.enable_internal_pullup = 0;
+    conf.flags.enable_internal_pullup = internalPullUp ? 1 : 0;
     conf.glitch_ignore_cnt = 7;
 
     esp_err_t err = i2c_new_master_bus(&conf, &busHandle);
 
     if (err == ESP_OK) {
-      SUPLA_LOG_INFO("I2C driver initialized");
+      SUPLA_LOG_INFO("I2C driver initialized, SDA %d, SCL %d, %s", sda, scl,
+                     internalPullUp ? "internal pullup" : "external pullup");
       initialized = true;
     } else {
       SUPLA_LOG_WARNING("Failed to init i2c (%d)", err);
@@ -57,24 +60,34 @@ void I2CDriver::initialize() {
   }
 }
 
-i2c_master_dev_handle_t *I2CDriver::addDevice(uint8_t address,
+void I2CDriver::deinitialize() {
+  if (isInitialized()) {
+    i2c_del_master_bus(busHandle);
+    SUPLA_LOG_INFO("I2C driver deinitialized");
+    initialized = false;
+    busHandle = nullptr;
+  }
+}
+
+i2c_master_dev_handle_t I2CDriver::addDevice(uint8_t address,
                                               uint32_t frequency) {
+  if (!initialized) {
+    initialize();
+  }
+  if (busHandle == nullptr) {
+    return nullptr;
+  }
   if (i2c_master_probe(busHandle, address, 200) != ESP_OK) {
     SUPLA_LOG_WARNING("Failed to probe i2c device 0x%2X", address);
     return nullptr;
   }
-  i2c_device_config_t devCfg = {
-      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-      .device_address = address,
-      .scl_speed_hz = frequency,
-  };
+  i2c_device_config_t devCfg = {};
+  devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+  devCfg.device_address = address;
+  devCfg.scl_speed_hz = frequency;
 
-  auto *devHandle = new i2c_master_dev_handle_t;
-  if (devHandle == nullptr) {
-    SUPLA_LOG_WARNING("Failed to allocate i2c device handle");
-    return nullptr;
-  }
-  auto err = i2c_master_bus_add_device(busHandle, &devCfg, devHandle);
+  i2c_master_dev_handle_t devHandle = nullptr;
+  auto err = i2c_master_bus_add_device(busHandle, &devCfg, &devHandle);
   if (err != ESP_OK) {
     SUPLA_LOG_WARNING("Failed to add i2c device (%d)", err);
   }

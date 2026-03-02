@@ -29,13 +29,19 @@
 #include <storage_mock.h>
 #include <string.h>
 #include <supla/device/register_device.h>
+#include <simple_time.h>
+#include "supla/element.h"
 
 using ::testing::_;
 using ::testing::Return;
 
 class SuplaDeviceTests : public ::testing::Test {
  protected:
+  SimpleTime time;
   virtual void SetUp() {
+    if (SuplaDevice.getClock()) {
+      delete SuplaDevice.getClock();
+    }
     Supla::Channel::resetToDefaults();
   }
   virtual void TearDown() {
@@ -91,6 +97,10 @@ TEST_F(SuplaDeviceTests, StartWithoutNetworkInterfaceNoElementsWithStorage) {
   SuplaDeviceClass sd;
   TimerMock timer;
   StorageMockSimulator storage;
+
+  if (Supla::Element::begin()) {
+    ASSERT_EQ(Supla::Element::begin(), nullptr);
+  }
 
   ASSERT_EQ(Supla::Element::begin(), nullptr);
   EXPECT_CALL(storage, commit()).Times(1);
@@ -203,7 +213,8 @@ TEST_F(SuplaDeviceTests, BeginStopsAtEmptyAuthkey) {
   EXPECT_EQ(sd.getCurrentStatus(), STATUS_INVALID_AUTHKEY);
 }
 
-TEST_F(SuplaDeviceTests, BeginStopsAtEmptyServer) {
+TEST_F(SuplaDeviceTests, BeginAcceptsEmptyServer) {
+  // with AD support, empty server is not an issue
   ::testing::InSequence seq;
   NetworkMockWithMac net;
   TimerMock timer;
@@ -211,14 +222,15 @@ TEST_F(SuplaDeviceTests, BeginStopsAtEmptyServer) {
   SuplaDeviceClass sd;
 
   EXPECT_CALL(timer, initTimers());
+  EXPECT_CALL(net, getMacAddr(_)).WillRepeatedly(Return(false));
 
   char GUID[SUPLA_GUID_SIZE] = {1};
   char AUTHKEY[SUPLA_AUTHKEY_SIZE] = {2};
   sd.setGUID(GUID);
   sd.setAuthKey(AUTHKEY);
   sd.setEmail("john@supla");
-  EXPECT_FALSE(sd.begin());
-  EXPECT_EQ(sd.getCurrentStatus(), STATUS_UNKNOWN_SERVER_ADDRESS);
+  EXPECT_TRUE(sd.begin());
+  EXPECT_EQ(sd.getCurrentStatus(), STATUS_INITIALIZED);
 }
 
 TEST_F(SuplaDeviceTests, BeginStopsAtEmptyEmail) {
@@ -301,7 +313,6 @@ TEST_F(SuplaDeviceTests, TwoChannelElementsNoNetworkWithStorage) {
   StorageMockSimulator storage;
   EXPECT_CALL(storage, commit()).Times(2);
   TimerMock timer;
-  TimeInterfaceStub time;
   SuplaDeviceClass sd;
   ElementMock el1;
   ElementMock el2;
@@ -328,6 +339,7 @@ TEST_F(SuplaDeviceTests, TwoChannelElementsNoNetworkWithStorage) {
 
   EXPECT_CALL(el1, onSaveState());
   EXPECT_CALL(el2, onSaveState());
+  time.advance(2000);
 
   for (int i = 0; i < 2; i++) sd.iterate();
   EXPECT_TRUE(storage.isPreampleInitialized());

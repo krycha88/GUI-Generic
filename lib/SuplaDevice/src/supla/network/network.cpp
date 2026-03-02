@@ -25,6 +25,7 @@
 #include <supla/element.h>
 #include <supla/network/network.h>
 #include <supla/storage/config.h>
+#include <supla/storage/storage.h>
 #include <supla/tools.h>
 #include <supla/protocol/supla_srpc.h>
 
@@ -149,6 +150,22 @@ void Network::SetNormalMode() {
   auto ptr = firstNetIntf;
   while (ptr) {
     ptr->setNormalMode();
+    ptr = ptr->nextNetIntf;
+  }
+}
+
+void Network::SetOfflineMode() {
+  auto ptr = firstNetIntf;
+  while (ptr) {
+    ptr->setOfflineMode();
+    ptr = ptr->nextNetIntf;
+  }
+}
+
+void Network::SetTestMode() {
+  auto ptr = firstNetIntf;
+  while (ptr) {
+    ptr->setTestMode();
     ptr = ptr->nextNetIntf;
   }
 }
@@ -357,13 +374,25 @@ void Network::setPassword(const char *wifiPassword) {
 }
 
 void Network::setConfigMode() {
+  SUPLA_LOG_DEBUG("[%s] setConfigMode", getIntfName());
   mode = Supla::DEVICE_MODE_CONFIG;
   setupNeeded = true;
 }
 
 void Network::setNormalMode() {
+  SUPLA_LOG_DEBUG("[%s] setNormalMode", getIntfName());
   mode = Supla::DEVICE_MODE_NORMAL;
   setupNeeded = true;
+}
+
+void Network::setOfflineMode() {
+  SUPLA_LOG_DEBUG("[%s] setOfflineMode", getIntfName());
+  mode = Supla::DEVICE_MODE_OFFLINE;
+  setupNeeded = true;
+}
+
+void Network::setTestMode() {
+  testMode = true;
 }
 
 void Network::uninit() {
@@ -383,7 +412,8 @@ void Network::generateHostname(const char *prefix, int macSize, char *output) {
   if (macSize < 0) {
     macSize = 0;
   }
-  strncpy(result, prefix, hostnameSize);
+  strncpy(result, prefix, hostnameSize - 1);
+  result[hostnameSize - 1] = '\0';
   int destIdx = strnlen(result, hostnameSize);
 
   if (macSize > 0) {

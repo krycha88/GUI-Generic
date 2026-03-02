@@ -28,6 +28,7 @@ COMPONENT_OBJS := \
   ../../../src/supla/mutex.o \
   ../../../src/supla/auto_lock.o \
   ../../../src/supla/sha256.o \
+  ../../../src/supla/crypto.o \
   ../../../src/supla/rsa_verificator.o \
   ../../../src/supla/crc8.o \
   ../../../src/supla/crc16.o \
@@ -54,6 +55,7 @@ COMPONENT_OBJS := \
   ../../../src/supla/network/html/sw_update_beta.o \
   ../../../src/supla/network/html/sw_update.o \
   ../../../src/supla/network/html/button_multiclick_parameters.o \
+  ../../../src/supla/network/html/relay_parameters.o \
   ../../../src/supla/network/html/custom_parameter.o \
   ../../../src/supla/network/html/channel_correction.o \
   ../../../src/supla/network/html/hide_show_container.o \
@@ -78,6 +80,11 @@ COMPONENT_OBJS := \
   ../../../src/supla/protocol/mqtt.o \
   ../../../src/supla/protocol/mqtt_topic.o \
   ../../../src/supla/protocol/supla_srpc.o \
+	\
+  ../../../src/supla/modbus/modbus_configurator.o \
+  ../../../src/supla/modbus/modbus_client_handler.o \
+  ../../../src/supla/modbus/modbus_em_handler.o \
+  ../../../src/supla/modbus/modbus_device_handler.o \
   \
   ../../../src/supla/clock/clock.o \
 	\
@@ -97,11 +104,14 @@ COMPONENT_OBJS := \
   ../../../src/supla/control/rgbw_base.o \
   ../../../src/supla/control/rgbw_leds.o \
   ../../../src/supla/control/roller_shutter.o \
+  ../../../src/supla/control/roller_shutter_interface.o \
   ../../../src/supla/control/sequence_button.o \
   ../../../src/supla/control/simple_button.o \
   ../../../src/supla/control/virtual_relay.o \
   ../../../src/supla/control/hvac_base.o \
   ../../../src/supla/control/blinking_led.o \
+  ../../../src/supla/control/valve_base.o \
+  ../../../src/supla/control/virtual_valve.o \
 	\
   ../../../src/supla/condition.o \
   ../../../src/supla/condition_getter.o \
@@ -137,6 +147,7 @@ COMPONENT_OBJS := \
   ../../../src/supla/sensor/distance.o \
   ../../../src/supla/sensor/HC_SR04.o \
   ../../../src/supla/sensor/temperature_drop_sensor.o \
+	../../../src/supla/sensor/container.o \
 	\
   ../../../src/nettle/bignum.o \
   ../../../src/nettle/gmp-glue.o \
@@ -173,6 +184,7 @@ COMPONENT_SRCDIRS := ../../../src/supla-common \
 										 ../../../src/supla/sensor \
 										 ../../../src/supla/storage \
 										 ../../../src \
+										 ../../../src/supla/modbus \
 										 ../../../src/supla/network \
 										 ../../../src/supla/network/html \
 										 ../../../src/supla/protocol \

@@ -27,10 +27,13 @@ namespace Supla {
 class EspIdfSectorWlStorage : public Storage {
  public:
   explicit EspIdfSectorWlStorage(uint32_t size = 512);
+  EspIdfSectorWlStorage(uint32_t offset, uint32_t size);
   virtual ~EspIdfSectorWlStorage();
 
   bool init() override;
   void commit() override;
+
+  void eraseSector(unsigned int address, int size) override;
 
  protected:
   int readStorage(unsigned int address,
@@ -40,7 +43,6 @@ class EspIdfSectorWlStorage : public Storage {
   int writeStorage(unsigned int address,
                    const unsigned char *buf,
                    int size) override;
-  void eraseSector(unsigned int address, int size) override;
 
   bool dataChanged = false;
   char *buffer = nullptr;

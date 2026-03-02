@@ -31,6 +31,11 @@ EspIdfSectorWlStorage::EspIdfSectorWlStorage(uint32_t size) : Storage(0, size,
   setStateSavePeriod(5000);
 }
 
+EspIdfSectorWlStorage::EspIdfSectorWlStorage(uint32_t offset, uint32_t size) :
+    Storage(offset, size, WearLevelingMode::SECTOR_WRITE_MODE) {
+  setStateSavePeriod(5000);
+}
+
 EspIdfSectorWlStorage::~EspIdfSectorWlStorage() {
 }
 
@@ -42,7 +47,8 @@ bool EspIdfSectorWlStorage::init() {
 
   if (storagePartition == nullptr) {
     SUPLA_LOG_ERROR("Storage partition not found");
-    return false;
+    initResult = false;
+    return initResult;
   }
 
   return Storage::init();

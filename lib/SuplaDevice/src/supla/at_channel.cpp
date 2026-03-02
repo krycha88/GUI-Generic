@@ -16,19 +16,25 @@
 
 #include "at_channel.h"
 
+#include <supla/channels/channel.h>
 #include <supla/protocol/protocol_layer.h>
-#include <supla/device/register_device.h>
 
 namespace Supla {
 
   void AtChannel::sendUpdate() {
-    if (valueChanged) {
+    if (channelNumber < 0 || channelNumber > 255) {
+      return;
+    }
+    if (isValueUpdateReady()) {
       auto actionId = popAction();
       if (actionId) {
         for (auto proto = Supla::Protocol::ProtocolLayer::first();
             proto != nullptr; proto = proto->next()) {
-          proto->sendActionTrigger(channelNumber, actionId);
+          proto->sendActionTrigger(static_cast<uint8_t>(channelNumber),
+                                   actionId);
         }
+      } else {
+        Channel::sendUpdate();
       }
     } else {
       Channel::sendUpdate();
@@ -40,7 +46,7 @@ namespace Supla {
       if (actionToSend & (1 << i)) {
         actionToSend ^= (1 << i);
         if (actionToSend == 0) {
-          clearUpdateReady();
+          clearSendValue();
         }
         return (1 << i);
       }
@@ -50,7 +56,7 @@ namespace Supla {
 
   void AtChannel::pushAction(uint32_t action) {
     actionToSend |= action;
-    setUpdateReady();
+    setSendValue();
   }
 
   void AtChannel::activateAction(uint32_t action) {

@@ -17,7 +17,8 @@
 #ifndef SRC_SUPLA_AT_CHANNEL_H_
 #define SRC_SUPLA_AT_CHANNEL_H_
 
-#include "channel.h"
+#include <stdint.h>
+#include <supla/channels/channel.h>
 
 namespace Supla {
 

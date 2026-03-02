@@ -16,8 +16,13 @@
  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+#ifndef ARDUINO_ARCH_AVR
+
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
+#include <time.h>
+#include <inttypes.h>
 
 #include "web_sender.h"
 
@@ -102,10 +107,18 @@ void WebSender::sendSafe(const char *buf, int size) {
   }
 }
 
-void WebSender::sendSelectItem(int value, const char *label, bool selected) {
+void WebSender::sendSelectItem(int value,
+                               const char *label,
+                               bool selected,
+                               bool emptyValue) {
   char buf[100];
-  snprintf(buf, sizeof(buf), "<option value=\"%d\" %s>%s</option>", value,
-      selected ? "selected" : "", label);
+  if (emptyValue) {
+    snprintf(buf, sizeof(buf), "<option value=\"\" %s>%s</option>", selected
+        ? "selected" : "", label);
+  } else {
+    snprintf(buf, sizeof(buf), "<option value=\"%d\" %s>%s</option>", value,
+        selected ? "selected" : "", label);
+  }
   send(buf);
 }
 
@@ -127,4 +140,21 @@ void WebSender::sendDisabled(bool disabled) {
   }
 }
 
+void WebSender::sendTimestamp(uint32_t timestamp) {
+  // timestamp may contain unix timestamp, or just seconds since board boot
+  char buf[100] = {};
+  if (timestamp < 1600000000) {
+    // somewhere in 2020, so assume it is seconds since board boot
+    snprintf(buf, sizeof(buf), "%" PRIu32 " s (since boot)", timestamp);
+  } else {
+    struct tm timeinfo;
+    time_t time = timestamp;
+    localtime_r(&time, &timeinfo);
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+  }
+  send(buf);
+}
+
 };  // namespace Supla
+
+#endif

@@ -61,6 +61,8 @@ class Storage {
   static bool ReadState(unsigned char *, int);
   static bool WriteState(const unsigned char *, int);
 
+  static void EraseSector(unsigned int offset, int size);
+
   // Register special section in storage data (outside of State storage)
   // sectionId - user selected sectionId
   // offset - storage memory offset - absolute value. Please make sure that it
@@ -88,12 +90,23 @@ class Storage {
   virtual void setStateSavePeriod(uint32_t periodMs);
 
   virtual void deleteAll();
+  virtual void eraseSector(unsigned int address, int size);
 
   void enableChannelNumbers();
   bool isAddChannelNumbersEnabled() const;
 
+  /**
+   * Enables or disables delete all method which is called during factory reset.
+   * By default it's enabled. Disable it if you want to keep state storage
+   * intact after factory reset.
+   *
+   * @param value
+   */
+  void setDeleteAllMethodEnabled(bool value);
+
  protected:
   virtual bool init();
+  bool getInitResult() const;
   virtual int readStorage(unsigned int address,
                           unsigned char *buf,
                           int size,
@@ -101,7 +114,6 @@ class Storage {
   virtual int writeStorage(unsigned int address,
                            const unsigned char *buf,
                            int size) = 0;
-  virtual void eraseSector(unsigned int address, int size);
   virtual void commit() = 0;
 
   virtual int updateStorage(unsigned int, const unsigned char *, int);
@@ -130,6 +142,8 @@ class Storage {
   static Storage *instance;
   static Config *configInstance;
   bool addChannelNumbers = false;
+  bool deleteAllMethodEnabled = true;
+  bool initResult = false;
 };
 
 #pragma pack(push, 1)

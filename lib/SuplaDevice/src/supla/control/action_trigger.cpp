@@ -28,7 +28,7 @@
 
 Supla::Control::ActionTrigger::ActionTrigger() {
   channel.setType(SUPLA_CHANNELTYPE_ACTIONTRIGGER);
-  channel.setDefault(SUPLA_CHANNELFNC_ACTIONTRIGGER);
+  channel.setDefaultFunction(SUPLA_CHANNELFNC_ACTIONTRIGGER);
 }
 
 Supla::Control::ActionTrigger::~ActionTrigger() {
@@ -42,8 +42,10 @@ void Supla::Control::ActionTrigger::attach(Supla::Control::Button &button) {
   attach(&button);
 }
 
-void Supla::Control::ActionTrigger::handleAction(int event, int action) {
-  (void)(event);
+void Supla::Control::ActionTrigger::handleAction(int, int action) {
+  if (!enabled) {
+    return;
+  }
   uint32_t actionCap = getActionTriggerCap(action);
 
   if (actionCap & activeActionsFromServer ||
@@ -198,7 +200,7 @@ void Supla::Control::ActionTrigger::onRegistered(
   while (channel.popAction()) {
   }
 
-  channel.requestChannelConfig();
+  channel.setSendGetConfig();
 }
 
 void Supla::Control::ActionTrigger::parseActiveActionsFromServer() {
@@ -213,7 +215,8 @@ void Supla::Control::ActionTrigger::parseActiveActionsFromServer() {
     bool makeSureThatOnChangePressReleaseIsDisabled = false;
 
     if (activeActionsFromServer ||
-        actionHandlingType == ActionHandlingType_PublishAllDisableNone) {
+        actionHandlingType == ActionHandlingType_PublishAllDisableNone ||
+        alwaysUseOnClick1) {
       // disable on_press, on_release, on_change local actions and enable
       // on_click_1
       if (localHandlerForDisabledAt && localHandlerForEnabledAt) {
@@ -248,7 +251,9 @@ void Supla::Control::ActionTrigger::parseActiveActionsFromServer() {
           actionHandlingType == ActionHandlingType_PublishAllDisableNone) {
         attachedButton->enableAction(actionId, this, eventId);
       } else {
-        attachedButton->disableAction(actionId, this, eventId);
+        if (eventId != Supla::ON_CLICK_1 || !alwaysUseOnClick1) {
+          attachedButton->disableAction(actionId, this, eventId);
+        }
       }
 
       // enable/disable other actions when AT from server is disabled/enabled
@@ -265,6 +270,9 @@ void Supla::Control::ActionTrigger::parseActiveActionsFromServer() {
                                               Supla::ON_CHANGE);
           attachedButton->disableOtherClients(this,
                                               Supla::CONDITIONAL_ON_CHANGE);
+        } else if (eventId == Supla::ON_HOLD) {
+          attachedButton->disableOtherClients(this,
+                                              Supla::ON_HOLD_RELEASE);
         }
       } else if (disablesLocalOperation & actionCap) {
         attachedButton->enableOtherClients(this, eventId);
@@ -279,6 +287,9 @@ void Supla::Control::ActionTrigger::parseActiveActionsFromServer() {
                                              Supla::ON_CHANGE);
           attachedButton->enableOtherClients(this,
                                              Supla::CONDITIONAL_ON_CHANGE);
+        } else if (eventId == Supla::ON_HOLD) {
+          attachedButton->enableOtherClients(this,
+                                             Supla::ON_HOLD_RELEASE);
         }
         if (makeSureThatOnClick1IsDisabled && eventId == Supla::ON_CLICK_1) {
           makeSureThatOnClick1IsDisabled = false;
@@ -379,10 +390,11 @@ void Supla::Control::ActionTrigger::onInit() {
         localHandlerForDisabledAt = attachedButton->getHandlerForFirstClient(
             Supla::CONDITIONAL_ON_RELEASE);
       }
-    } else if (attachedButton->isMotionSensor()) {
-      // Nothing to do here. For motion sensor we always use reaction to
-      // on press and on release events. Even if AT is enabled and used.
-      // So no localHandlerFor* is configured here.
+    } else if (attachedButton->isMotionSensor() ||
+               attachedButton->isCentral()) {
+      // Nothing to do here. For motion sensor and central we always use
+      // reaction to on press and on release events. Even if AT is enabled and
+      // used. So no localHandlerFor* is configured here.
     }
 
     if (localHandlerForDisabledAt) {
@@ -507,8 +519,9 @@ void Supla::Control::ActionTrigger::onInit() {
                                       Supla::ON_CLICK_5);
       }
 
-    } else if (attachedButton->isMotionSensor()) {
-      // Configure default actions for motion sensor button
+    } else if (attachedButton->isMotionSensor() ||
+               attachedButton->isCentral()) {
+      // Configure default actions for motion sensor and central buttons
       if (attachedButton->isEventAlreadyUsed(Supla::ON_PRESS, true)) {
         disablesLocalOperation |= SUPLA_ACTION_CAP_TURN_ON;
       }
@@ -604,5 +617,17 @@ void Supla::Control::ActionTrigger::addActionToButtonAndDisableIt(int action,
 
 bool Supla::Control::ActionTrigger::isAnyActionEnabledOnServer() const {
   return activeActionsFromServer != 0;
+}
+
+void Supla::Control::ActionTrigger::setAlwaysUseOnClick1() {
+  alwaysUseOnClick1 = true;
+}
+
+void Supla::Control::ActionTrigger::enable() {
+  enabled = true;
+}
+
+void Supla::Control::ActionTrigger::disable() {
+  enabled = false;
 }
 

@@ -21,6 +21,7 @@
 #include <SuplaDevice.h>
 #include <supla/io.h>
 #include <supla/protocol/protocol_layer.h>
+#include <supla/storage/config.h>
 #include <supla/storage/storage.h>
 #include <supla/time.h>
 #include <supla/log_wrapper.h>
@@ -30,7 +31,9 @@
 #include <supla/auto_lock.h>
 #include <supla/storage/config_tags.h>
 
-Supla::Device::StatusLed::StatusLed(Supla::Io *io, uint8_t outPin, bool invert)
+Supla::Device::StatusLed::StatusLed(Supla::Io::Base *io,
+                                    uint8_t outPin,
+                                    bool invert)
     : Supla::Control::BlinkingLed(io, outPin, invert) {
 }
 
@@ -142,6 +145,7 @@ void Supla::Device::StatusLed::iterateAlways() {
     case STATUS_SOFTWARE_RESET:
       offDuration = 1000;
       onDuration = 0;
+      repeatLimit = 0;
       currentSequence = CUSTOM_SEQUENCE;
       break;
 
@@ -171,6 +175,11 @@ void Supla::Device::StatusLed::iterateAlways() {
       } else {
         currentSequence = TESTING_PROCEDURE;
       }
+      break;
+    }
+
+    case STATUS_NOT_CONFIGURED_MODE: {
+      currentSequence = NOT_CONFIGURED_MODE;
       break;
     }
 
@@ -223,17 +232,25 @@ void Supla::Device::StatusLed::iterateAlways() {
   }
 
   switch (currentSequence) {
-    case NETWORK_CONNECTING:
+    case NETWORK_CONNECTING: {
       onDuration = 2000;
       offDuration = 2000;
+      pauseDuration = 0;
+      onLimit = 0;
+      repeatLimit = 0;
       break;
+    }
 
-    case SERVER_CONNECTING:
+    case SERVER_CONNECTING: {
       onDuration = 500;
       offDuration = 500;
+      pauseDuration = 0;
+      onLimit = 0;
+      repeatLimit = 0;
       break;
+    }
 
-    case REGISTERED_AND_READY:
+    case REGISTERED_AND_READY: {
       if (ledMode == LED_ON_WHEN_CONNECTED) {
         onDuration = 1000;
         offDuration = 0;
@@ -241,31 +258,61 @@ void Supla::Device::StatusLed::iterateAlways() {
         onDuration = 0;
         offDuration = 1000;
       }
+      pauseDuration = 0;
+      onLimit = 0;
+      repeatLimit = 0;
       break;
+    }
 
-    case CONFIG_MODE:
+    case CONFIG_MODE: {
       onDuration = 100;
       offDuration = 100;
+      pauseDuration = 0;
+      onLimit = 0;
+      repeatLimit = 0;
       break;
+    }
 
-    case SW_DOWNLOAD:
+    case SW_DOWNLOAD: {
       onDuration = 20;
       offDuration = 20;
+      pauseDuration = 0;
+      onLimit = 0;
+      repeatLimit = 0;
       break;
+    }
 
-    case PACZKOW_WE_HAVE_A_PROBLEM:
+    case PACZKOW_WE_HAVE_A_PROBLEM: {
       onDuration = 300;
       offDuration = 100;
+      pauseDuration = 0;
+      onLimit = 0;
+      repeatLimit = 0;
       break;
+    }
 
-    case TESTING_PROCEDURE:
+    case TESTING_PROCEDURE: {
       onDuration = 50;
       offDuration = 50;
+      pauseDuration = 0;
+      onLimit = 0;
+      repeatLimit = 0;
       break;
+    }
+
+    case NOT_CONFIGURED_MODE: {
+      onDuration = 300;
+      offDuration = 150;
+      pauseDuration = 2000;
+      onLimit = 2;
+      repeatLimit = 0;
+      break;
+    }
 
     case CUSTOM_SEQUENCE:
-    default:
+    default: {
       break;
+    }
   }
 }
 
@@ -273,10 +320,16 @@ void Supla::Device::StatusLed::setCustomSequence(uint32_t onDurationMs,
                                                  uint32_t offDurationMs,
                                                  uint32_t pauseDurrationMs,
                                                  uint8_t onLimit,
-                                                 uint8_t repeatLimit) {
+                                                 uint8_t repeatLimit,
+                                                 bool startWithOff) {
   currentSequence = CUSTOM_SEQUENCE;
   Supla::Control::BlinkingLed::setCustomSequence(
-      onDurationMs, offDurationMs, pauseDurrationMs, onLimit, repeatLimit);
+      onDurationMs, offDurationMs, pauseDurrationMs, onLimit, repeatLimit,
+      startWithOff);
+}
+
+enum Supla::LedSequence Supla::Device::StatusLed::getCurrentSequence() const {
+  return currentSequence;
 }
 
 void Supla::Device::StatusLed::setAutoSequence() {

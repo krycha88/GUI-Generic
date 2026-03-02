@@ -19,6 +19,7 @@
 #include "group_button_control_rgbw.h"
 #include <supla/control/button.h>
 #include <supla/storage/config.h>
+#include <supla/storage/storage.h>
 #include <supla/log_wrapper.h>
 #include <supla/actions.h>
 #include <supla/control/rgbw_base.h>
@@ -262,8 +263,9 @@ void GroupButtonControlRgbw::onInit() {
       SUPLA_LOG_DEBUG("GroupButtonControl configuring bistable button");
       attachedButton->addAction(
           Supla::TOGGLE, this, Supla::CONDITIONAL_ON_CHANGE);
-    } else if (attachedButton->isMotionSensor()) {
-      SUPLA_LOG_DEBUG("GroupButtonControl configuring motion sensor");
+    } else if (attachedButton->isMotionSensor() ||
+               attachedButton->isCentral()) {
+      SUPLA_LOG_DEBUG("GroupButtonControl configuring motion sensor/central");
       attachedButton->addAction(Supla::TURN_ON, this, Supla::ON_PRESS);
       attachedButton->addAction(Supla::TURN_OFF, this, Supla::ON_RELEASE);
 

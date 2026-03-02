@@ -69,6 +69,7 @@ channels:
 #include <supla/storage/config.h>
 #include <supla/storage/key_value.h>
 #include <supla/payload/payload.h>
+#include <yaml-cpp/exceptions.h>
 #include <yaml-cpp/yaml.h>
 
 #include <map>
@@ -109,7 +110,6 @@ class LinuxYamlConfig : public KeyValue {
 
   // Supla protocol config
   bool setSuplaCommProtocolEnabled(bool enabled) override;  // disabled
-  bool setSuplaServer(const char* server) override;         // disabled
   bool setSuplaServerPort(int32_t port) override;           // disabled
   bool setEmail(const char* email) override;                // disabled
 
@@ -125,14 +125,14 @@ class LinuxYamlConfig : public KeyValue {
   bool isMqttSource();
   bool isValidMqttConfig();
 
-  bool getMqttHost(char* result) const;
-  int32_t getMqttPort() const;
-  bool getMqttUsername(char* result) const;
-  bool getMqttPassword(char* result) const;
+  bool getMqttClientHost(char* result) const;
+  int32_t getMqttClientPort() const;
+  bool getMqttClientUsername(char* result) const;
+  bool getMqttClientPassword(char* result) const;
   bool getMqttClientName(char* result) const;
-  bool getMqttUseSSL() const;
-  bool getMqttVerifyCA() const;
-  bool getMqttFileCA(char* result) const;
+  bool getMqttClientUseSSL() const;
+  bool getMqttClientVerifyCA() const;
+  bool getMqttClientFileCA(char* result) const;
 
  protected:
   bool parseChannel(const YAML::Node& ch, int channelNumber);
@@ -147,13 +147,22 @@ class LinuxYamlConfig : public KeyValue {
   bool addCmdRelay(const YAML::Node& ch,
                    int channelNumber,
                    Supla::Parser::Parser*);
+  bool addCmdRollerShutter(const YAML::Node& ch,
+                           int channelNumber,
+                           Supla::Parser::Parser*);
   bool addCustomRelay(const YAML::Node& ch,
                       int channelNumber,
                       Parser::Parser* parser,
                       Payload::Payload* payload);
+  bool addCmdValve(const YAML::Node& ch,
+                   int channelNumber,
+                   Supla::Parser::Parser*);
   bool addFronius(const YAML::Node& ch, int channelNumber);
   bool addAfore(const YAML::Node& ch, int channelNumber);
   bool addHvac(const YAML::Node& ch, int channelNumber);
+  bool addCustomHvac(const YAML::Node& ch,
+                     int channelNumber,
+                     Payload::Payload* payload);
   bool addCommonParameters(const YAML::Node& ch,
                            Supla::Element* element,
                            int* paramCount);
@@ -187,7 +196,13 @@ class LinuxYamlConfig : public KeyValue {
   bool addWeightParsed(const YAML::Node& ch,
                        int channelNumber,
                        Supla::Parser::Parser* parser);
+  bool addContainerParsed(const YAML::Node& ch,
+                       int channelNumber,
+                       Supla::Parser::Parser* parser);
   bool addDistanceParsed(const YAML::Node& ch,
+                         int channelNumber,
+                         Supla::Parser::Parser* parser);
+  bool addCustomChannel(const YAML::Node& ch,
                          int channelNumber,
                          Supla::Parser::Parser* parser);
   bool addCommonParametersParsed(const YAML::Node& ch,
@@ -214,6 +229,8 @@ class LinuxYamlConfig : public KeyValue {
   bool addGeneralPurposeMeterParsed(const YAML::Node& ch,
                                     int channelNumber,
                                     Supla::Parser::Parser* parser);
+
+  void logError(const std::string& filename, const YAML::Exception& ex) const;
 
   std::string file;
   YAML::Node config;

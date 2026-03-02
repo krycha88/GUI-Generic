@@ -19,6 +19,7 @@ set(SRCS
   supla/mutex.cpp
   supla/auto_lock.cpp
   supla/crc16.cpp
+  supla/crypto.cpp
 
   supla/device/last_state_logger.cpp
   supla/device/sw_update.cpp
@@ -27,6 +28,8 @@ set(SRCS
   supla/device/notifications.cpp
   supla/device/register_device.cpp
   supla/device/enter_cfg_mode_after_power_cycle.cpp
+  supla/device/factory_test.cpp
+  supla/device/security_logger.cpp
 
   supla/storage/storage.cpp
   supla/storage/config.cpp
@@ -36,7 +39,13 @@ set(SRCS
   supla/storage/state_wear_leveling_byte.cpp
   supla/storage/state_wear_leveling_sector.cpp
 
+  supla/modbus/modbus_configurator.cpp
+  supla/modbus/modbus_client_handler.cpp
+  supla/modbus/modbus_em_handler.cpp
+  supla/modbus/modbus_device_handler.cpp
+
   supla/control/internal_pin_output.cpp
+  supla/control/remote_output_interface.cpp
   supla/control/pin_status_led.cpp
   supla/control/rgbw_base.cpp
   supla/control/rgb_base.cpp
@@ -46,17 +55,23 @@ set(SRCS
   supla/control/dimmer_leds.cpp
   supla/control/simple_button.cpp
   supla/control/button.cpp
+  supla/control/button_aggregator.cpp
   supla/control/sequence_button.cpp
   supla/control/action_trigger.cpp
   supla/control/relay.cpp
+  supla/control/light_relay.cpp
+  supla/control/bistable_relay.cpp
   supla/control/relay_hvac_aggregator.cpp
   supla/control/virtual_relay.cpp
   supla/control/roller_shutter.cpp
+  supla/control/roller_shutter_interface.cpp
   supla/control/bistable_roller_shutter.cpp
   supla/control/tripple_button_roller_shutter.cpp
   supla/control/hvac_base.cpp
   supla/control/group_button_control_rgbw.cpp
   supla/control/blinking_led.cpp
+  supla/control/valve_base.cpp
+  supla/control/virtual_valve.cpp
 
   supla/condition.cpp
   supla/condition_getter.cpp
@@ -75,6 +90,8 @@ set(SRCS
   supla/network/html_element.cpp
   supla/network/html_generator.cpp
   supla/network/client.cpp
+  supla/network/netif_wifi.cpp
+  supla/network/netif_lan.cpp
   supla/network/ip_address.cpp
   supla/network/html/text_cmd_input_parameter.cpp
   supla/network/html/select_input_parameter.cpp
@@ -96,6 +113,15 @@ set(SRCS
   supla/network/html/status_led_parameters.cpp
   supla/network/html/power_status_led_parameters.cpp
   supla/network/html/roller_shutter_parameters.cpp
+  supla/network/html/button_refresh.cpp
+  supla/network/html/custom_sw_update.cpp
+  supla/network/html/custom_text_parameter.cpp
+  supla/network/html/custom_parameter.cpp
+  supla/network/html/custom_checkbox_parameter.cpp
+  supla/network/html/relay_parameters.cpp
+  supla/network/html/modbus_parameters.cpp
+  supla/network/html/binary_sensor_parameters.cpp
+  supla/network/html/security_log_list.cpp
   supla/network/web_sender.cpp
   supla/clock/clock.cpp
 
@@ -123,6 +149,7 @@ set(SRCS
   supla/sensor/weight.cpp
   supla/sensor/distance.cpp
   supla/sensor/temperature_drop_sensor.cpp
+  supla/sensor/container.cpp
 )
 
 add_library(supladevicelib SHARED ${SRCS})

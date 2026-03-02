@@ -20,8 +20,10 @@
 
 #include <supla/sensor/measurement_driver.h>
 #include <supla/storage/config.h>
+#include <supla/storage/storage.h>
 #include <supla/log_wrapper.h>
 #include <supla/actions.h>
+#include <supla/protocol/protocol_layer.h>
 #include <string.h>
 #include <math.h>
 
@@ -31,7 +33,7 @@ GeneralPurposeMeter::GeneralPurposeMeter(
     Supla::Sensor::MeasurementDriver *driver, bool addMemoryVariableDriver)
     : GeneralPurposeChannelBase(driver, addMemoryVariableDriver) {
   channel.setType(SUPLA_CHANNELTYPE_GENERAL_PURPOSE_METER);
-  channel.setDefault(SUPLA_CHANNELFNC_GENERAL_PURPOSE_METER);
+  channel.setDefaultFunction(SUPLA_CHANNELFNC_GENERAL_PURPOSE_METER);
   channel.setFlag(SUPLA_CHANNEL_FLAG_CALCFG_RESET_COUNTERS);
 }
 
@@ -54,20 +56,13 @@ void GeneralPurposeMeter::onLoadConfig(SuplaDeviceClass *sdc) {
   }
 }
 
-uint8_t GeneralPurposeMeter::applyChannelConfig(TSD_ChannelConfig *result,
-    bool local) {
-  (void)(local);
-  if (result == nullptr) {
-    return SUPLA_CONFIG_RESULT_DATA_ERROR;
-  }
-  if (result->ConfigType != SUPLA_CONFIG_TYPE_DEFAULT) {
-    return SUPLA_CONFIG_RESULT_DATA_ERROR;
-  }
+Supla::ApplyConfigResult GeneralPurposeMeter::applyChannelConfig(
+    TSD_ChannelConfig *result, bool local) {
   if (result->ConfigSize == 0) {
-    return SUPLA_CONFIG_RESULT_TRUE;
+    return Supla::ApplyConfigResult::SetChannelConfigNeeded;
   }
   if (result->ConfigSize != sizeof(TChannelConfig_GeneralPurposeMeter)) {
-    return SUPLA_CONFIG_RESULT_DATA_ERROR;
+    return Supla::ApplyConfigResult::DataError;
   }
 
   auto config = reinterpret_cast<TChannelConfig_GeneralPurposeMeter *>(
@@ -111,21 +106,30 @@ uint8_t GeneralPurposeMeter::applyChannelConfig(TSD_ChannelConfig *result,
               defaultUnitAfterValue,
               SUPLA_GENERAL_PURPOSE_UNIT_SIZE)) {
     SUPLA_LOG_INFO("GPM[%d]: meter config changed", getChannelNumber());
-    channelConfigState = Supla::ChannelConfigState::LocalChangePending;
-    saveConfigChangeFlag();
+    if (local) {
+      channelConfigState = Supla::ChannelConfigState::LocalChangePending;
+      saveConfigChangeFlag();
+    }
+
+    return Supla::ApplyConfigResult::SetChannelConfigNeeded;
   }
 
-  return SUPLA_CONFIG_RESULT_TRUE;
+  return Supla::ApplyConfigResult::Success;
 }
 
-void GeneralPurposeMeter::fillChannelConfig(void *channelConfig, int *size) {
-  SUPLA_LOG_DEBUG("GPM[%d]: fillChannelConfig", getChannelNumber());
+void GeneralPurposeMeter::fillChannelConfig(void *channelConfig,
+                                            int *size,
+                                            uint8_t configType) {
   if (size) {
     *size = 0;
   } else {
     return;
   }
   if (channelConfig == nullptr) {
+    return;
+  }
+
+  if (configType != SUPLA_CONFIG_TYPE_DEFAULT) {
     return;
   }
 
@@ -262,12 +266,12 @@ void GeneralPurposeMeter::setCounter(double newValue) {
   setValue(newValue);
 }
 
-void GeneralPurposeMeter::incCounter() {
-  setValue(getValue() + valueStep);
+void GeneralPurposeMeter::incCounter(double incrementBy) {
+  setValue(getValue() + (incrementBy == 0.0 ? valueStep : incrementBy));
 }
 
-void GeneralPurposeMeter::decCounter() {
-  setValue(getValue() - valueStep);
+void GeneralPurposeMeter::decCounter(double decrementBy) {
+  setValue(getValue() - (decrementBy == 0.0 ? valueStep : decrementBy));
 }
 
 void GeneralPurposeMeter::setValueStep(double newValueStep) {
@@ -287,5 +291,25 @@ void GeneralPurposeMeter::setCounterResetSupportFlag(bool support) {
     channel.setFlag(SUPLA_CHANNEL_FLAG_CALCFG_RESET_COUNTERS);
   } else {
     channel.unsetFlag(SUPLA_CHANNEL_FLAG_CALCFG_RESET_COUNTERS);
+  }
+}
+
+void GeneralPurposeMeter::setKeepStateInStorage(bool keep) {
+  keepStateInStorage = keep;
+}
+
+void GeneralPurposeMeter::onSaveState() {
+  if (keepStateInStorage) {
+    double value = getValue();
+    Supla::Storage::WriteState((unsigned char *)&value, sizeof(value));
+  }
+}
+
+void GeneralPurposeMeter::onLoadState() {
+  if (keepStateInStorage) {
+    double value = 0.0;
+    if (Supla::Storage::ReadState((unsigned char *)&value, sizeof(value))) {
+      setCounter(value);
+    }
   }
 }

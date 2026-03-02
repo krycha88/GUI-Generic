@@ -1,6 +1,333 @@
 # CHANGELOG.md
 
-## 24.10.04 (2024-10-18 SOP edition)
+# 25.11 (2025-11-12 Teddy Bear Edition)
+
+### Roller Shutter
+- Add support for facade blinds with tilt control.
+- Add new internal button actions (INTERNAL_BUTTON_MOVE_UP, INTERNAL_BUTTON_MOVE_DOWN, INTERNAL_BUTTON_COMFORT_UP, INTERNAL_BUTTON_COMFORT_DOWN) for more precise control, including invertable options.
+- Add ON_HOLD action support for tilt control.
+- Add `CmdRollerShutter` support for `sd4linux` to configure roller shutters via commands.
+- Add explicit "stop request" to halt motor actions regardless of the current state.
+- Add tilt-related settings to the HTML configuration form.
+
+### Relay
+- Add `setRestartTimerOnToggle` method for impulse and staircase timers to prolong the "on" state.
+- Add ability to configure a default duration for impulse and staircase functions.
+- Add `purgeConfig` implementation.
+- Fix for ignoring staircase extended config in some scenarios.
+
+### Generic
+- Add option to enable/disable ActionTrigger functionality.
+- Add `setInitialMode` to `SuplaDevice` for defining behavior in the "factory default" state (e.g., start not configured, start offline).
+- Add `ON_IDENTIFY` event to `SuplaDevice`.
+- Add support for PCF8574 GPIO expander with Arduino example for Kincony KC868-A16 (thanks @lukfud)
+- Add `CustomChannel` support for `sd4linux`.
+- BinarySensor: Add support for "motion sensor" and "binary sensor" functions.
+- BinarySensor: Add support for new configuration parameters: Timeout, Sensitivity, FilterinTime.
+- Add `setFunction()` and `onFunctionChange()` methods to `Element`.
+- Add `getChannelFunction` and `setChannelFunction` methods to `Config`.
+- Channel: add sending event ON_CHANNEL_FUNCTION_CHANGE
+- Split `examples` directory into `esp` and `arduino_mega` subdirectories.
+- Enable TLS by default for secured devices in MQTT.
+- Storage: Add EraseSector method to public interface.
+- StatusLed: add new blink sequences: double blink (not configured mode), quick double blink for test mode indication, 4x quick blick on registered and ready in test mode.
+- Add self-test logs on startup.
+- Ethernet classes: cleanup
+- Config: add getChannelFunction and setChannelFunction methods
+- Add default Supla::Clock instance when clock wasn't added by user.
+
+### Fixes
+- **SuplaDevice**: Fix for potential memory corruption.
+- **VirtualRelay**: Fix for staircase timer.
+- **WebServer**: Fix for `/beta` page disabling Wi-Fi/Ethernet interfaces.
+- **ElectricityMeter**: Fix reporting of values exceeding standard integer types.
+- **MQTT**: Correct `device_class` from "garage" to "garage_door".
+- **AtChannel**: Fix sending of channel value when only other fields (like online status) have changed.
+- **FactoryTest**: Fix for invalid HTTPS certificate check.
+- **SuplaSrpc**: Fix for certificate setup. Don't try to connect to a server when config is incomplete.
+- **KeyValue**: Fix potential problem with string copy.
+- **Tests**: Fix various ASAN errors in tests.
+
+### esp-idf
+- Add adjustments for esp-idf 6.0.
+- Add security logger implementation.
+- Replace "driver" dependency with "esp_driver_gpio".
+- Include `cjson` as an external component.
+- Increase `EspIdfWebServer` stack size to 6 KB.
+- Fix for a heap corruption bug.
+- Fix for `sslog` in `partitions.csv` example.
+- Add "security log" partition to the example.
+
+# 25.08.01 (2025-08-21)
+
+### Generic
+ - DEPERECATION WARNING: ESP8266 RTOS support will be removed from SuplaDevice.
+ - SuplaDevice: change default device behavior in order to not start Wi-Fi soft AP by default on power on. Additionally, cfg mode will be disabled after 5 min inactivity timeout.  Device will leave config mode after timeout, without restart - in case when no HTTP POST requests were received.  If HTTP POST request was received, device will restart after config mode inactivity timeout.
+    Add method setLeaveCfgModeAfterInactivityMin(int valueMin), to setup
+    inactivity timeout (default 5 min). Value 0 -> disable timeout. Allowed
+    range 1-255.
+    Use:
+    SuplaDevice.allowWorkInOfflineMode(0);
+    SuplaDevice.setLeaveCfgModeAfterInactivityMin(0);
+    to restore previous behavior (hovever it is not recommended).
+    Warning: this new behavior will make devices without "cfg button" inaccessible.
+ - MQTT fix: HA autodiscovery topics for EM should be published with "retain" flag set.
+ - Rename Supla::Io class to Supla::Io::Base. Io is now a namespace.
+ - Replace int64 prints with a workaround based on int32 prints. Some ESP platforms doesn't support printing int64 and they can crash on %llu, %lld, PRI.64 etc.
+ - Add "automatic OTA policy" device config support.
+ - Add support for Cloud/server OTA updates and checks for device's firmware.
+ - Add support for "factory reset" button in Cloud.
+ - Add "SuplaDevice (device name)/swVersion" HTTP Agent header in HTTP(s) requests form a device.
+ - Leaveing config mode (after starting it from Cloud) will not trigger device reset anymore (without user interaction with a web interface).
+ - Add getIntfName and getIP implementation for esp32eth.h
+
+### Sensors & peripherals
+ - Add Sensirion SGP41 VOC & NOx sensor support (thanks @malarz).
+ - Add support for MCP23017 (IO expander) (thanks @lukfud).
+ - Add support for TMP102 (temperature sensor) (thanks @lukfud).
+ - Add support for ADS1115 (ADC expander) (thanks @lukfud).
+ - Add support for Sensirion SCD4x therm/hygro/CO2 sensor (thanks @malarz).
+ - Add aqi.ecu WeatherSender integration (thanks @malarz).
+ - Add ButtonAggregator class to aggregate few buttons and capture 5s hold on both of them (i.e. to trigger cfg mode, or other action).
+ - InterruptAcToDc: add ability to use inverted logic (setOffStateLevel(int)).
+ - ActionTrigger: add option to use ON_CLICK_1 as a default button action even if other AT are not enabled (default is to use on_press).
+ - Button: fix storing default multiclick and hold time, when they are not configured (i.e. don't save 0 to Config).
+ - SimpleButton: skip GPIO actions when GPIO is not set (-1)
+ - RollerShutter: add setPinUp(), setPinDown() methods, to change GPIO assignement for relays.
+ - Button: add "Central control" button type (for roller shutters -> it sets position to 0 (up) or to 100 (down) ).
+ - RollerShutter: add "central control" button support, add ability to attach multiple buttons, each with configurable direction and internal/external type. Internal buttons are inverted by upsidedown configuration, and external buttons aren't.
+
+
+### Container
+ - add "invalid sensor state" alarm when internal level reporting (i.e. via analog read) contain invalid value.
+
+### HTML & WebServer
+ - add "OTA automatic update policy" field to sw update form.
+ - skip adding "addional box" when this HTML section is empty
+ - add HTTPS support to web server (esp-idf).
+ - add password protection for local web server (requires https to run, password can be reset via Cloud, or via factory reset).
+ - Login page will block for 1 min after 5 failed login attempts.
+ - fix styles for .wide-link
+
+### Factory test
+ - Add check if Flash Encryption in Release mode is enabled.
+ - Add check for WebServer presence, validity of used https certificates, and NVS config encryption.
+
+### esp-idf
+ - Wi-Fi: limit max TX power in AP mode to 15 dBm.
+ - NVS Config: add support for encrypted NVS storage on default nvs and suplanvs partitions (requires nvs keys partition).
+ - EspIdfSectorWlStorage: add optional storage offset configuration.
+ - move onTimer and onFastTimer execution to esp_timer instead of FreeRTOS timers.
+ - esp-idf version increased to 5.5
+ - enable logs in esp-idf example
+ - changed logging to use ESP_LOGx methods directly.
+ - change partitions.csv example for encryption purposes.
+ - add support for "supla_dev_data" partition with storage for AES key, GUID, Authkey.
+ - add starting https server with http redirect to https.
+ - OTA procedures will use iot.updates.supla.org with Supla root CA verification.
+ - Autodiscover will use iot.autodiscover.supla.org with Supla root CA verification.
+ - SwUpdate: add option to skip iot.updates.supla.org Supla CA verification (only in manual update triggered from local web interface).
+ - Esp-idf OTA: add "securityOnly" POST parameter.
+ - SuplaDevice: add warning/info print about used OTA mode.
+
+# 25.06 (2025-06-10)
+### HVAC
+- Fixed issue with antifreeze protection not working when thermostat was off after being in "manual override" mode.
+- Fixed default binary sensor assignment when `initialConfig` is used.
+- Fixed ignoring of "aux setpoint min/max" when thermostat is off.
+- Fixed overheat/antifreeze protection edge cases.
+- Added temperature control type support (it allows to switch between temperature control based on main vs auxiliary thermometer)
+- Added support for AuxHysteresis and its getters/setters.
+- Added method to suspend `iterateAlways` execution in HvacBase
+- Added external thermostat support via `RemoteOutputInterface`.
+- Added support for reporting and setting antifreeze/overheat active flag.
+- HVAC now ignores "min off time" on device startup.
+
+### Modbus
+- Added Modbus configurator class and EM handler.
+- Added validation for network and serial mode.
+- Added HTML web config for Modbus.
+
+### sd4linux
+- Added support for `offline_on_invalid_state` for BinarySensor.
+
+### Sensors & Devices
+- Added support for BMP180/BMP280 sensors (#92).
+- Added support for PM1006K Particle Sensor (from Ikea Vindriktning) (#89).
+- Added **TemperatureDropSensor** with configurable threshold and detection delay.
+- Added Arduino IDE example for VirtualBinary.
+- fix for not applying temperature corrections to thermometers. Add extra check if temperature is reported in valid range.
+
+### LED & UI
+- Added blinking LED synchronization features.
+- Added getCurrentSequence for `StatusLed`.
+
+### Button
+- Added sequence detection cancelation for long-press.
+- Added support for "on hold" during boot if button already held.
+
+### Relay
+- Fixed overcurrent filtering (thanks @elmaya).
+- Add support for overcurrent protection.
+- Add channel config exchange for Staircase function.
+
+### Valve
+- Introduced new configuration logic for closing valve on flood (always/on-change).
+
+### Container
+- Fixed Condition handling in local actions
+- Added getFillLevelForSensor(channelNumber) method
+- Don't allow sensor fill level == 0
+- Added option to mute sound alarms with internal logic for Containers.
+
+### Storage & Flash
+- Fixed `readSection` to prevent data corruption on read failure.
+- Added `setDeleteAllMethodEnabled` to Storage class.
+
+## Code Cleanup
+- Removed default GPIO methods from custom IO.
+- Removed deprecated Arduino CLI options.
+
+## Tools & Build System
+- Updated esp-idf Dockerfile to version 5.4.1.
+- Added Arduino-PM1006K and OneWire libraries to arduino-cli Dockerfile.
+- Added `compareSemVer` utility to Tools.
+- allow rssiToSignalStrength function to convert any rssi level range to 0-100% value.
+
+
+# 25.02 (2025-02-28)
+### Core Changes
+  - Consider "firmware update ongoing" as "online"
+  - Renamed `set/isOnline/Offline` methods by adding prefix `setState` / `isState`
+  - Renamed "offline" flag to "state"
+  - Added "offline/state=3" support (remote wakeup not supported)
+  - Added support for HVAC value flag "calibration error"
+  - Replaced `setDefault()` with `setDefaultFunction()`
+  - Thermometer & Hygrometer: Added support for adjustable min/max allowed temperature/humidity
+  - ElectricityMeter: Added methods to remove voltage/current phase sequence values and flags from reports
+  - Add HTML I2C scanner class (thanks @malarz-supla)
+  - Added `deinitialize` method for `EspI2cDriver`
+  - Changed `Mcp23008::init()` to return `bool` based on initialization result
+  - Adjusted `EspSht30` code to accommodate device handler changes
+  - Added a new link to `ClosedCube_SHT31D_Arduino` library (thanks @malarz-supla)
+  - `Io`: Added `attachInterrupt` and `detachInterrupt` interfaces (not yet implemented)
+
+### Valve
+  - Added methods for Valve: `setValveMotorProblemFlag` and `isValveMotorProblemFlagActive`
+  - Added support for `Valve OpenClose` channel type and function
+  - Extended `Channel` class with Valve-related getters and setters
+  - Added valve-related events: `ON_OPEN`, `ON_CLOSE`, `ON_FLOODING_ACTIVE`, `ON_FLOODING_INACTIVE`, `ON_VALVE_MANUALLY_CLOSED_ACTIVE`, `ON_VALVE_MANUALLY_CLOSED_INACTIVE`, `ON_MOTOR_PROBLEM_ACTIVE`, `ON_MOTOR_PROBLEM_INACTIVE`
+
+### Web & HTML Enhancements
+  - Fixed Arduino examples usage of HTML elements
+  - Added options to place buttons before/after standard "submit" buttons in `HtmlGenerator`
+  - Added `ButtonRefresh` example
+  - Updated Arduino based web server, so it will redirect after form POST in order to prevent "form resubmission" on page refresh (thanks @petione)
+  - `CustomTextParameter`: Restricted to 16-byte tags
+  - `CustomTextParameter`: Added Doxygen documentation
+  - Add HTML update button (thanks @petione)
+
+### sd4linux
+  - `sd4linux`: Fixed missing battery level in `CmdParsed`
+  - Improved YAML error logging
+  - Added error on channel configuration load when it contains unrecognized parameters
+  - Fixed invalid command in YAML config example
+  - Reorganized battery level info updates to improve efficiency
+  - Disabled ASAN
+  - Fixed method names in `Config MQTT`
+
+# 25.01.03 (2025-01-30)
+
+## Added
+- **Nova Fitness Laser Sensor Support**: Added support for Nova Fitness PM2.5/PM10 laser sensor (#82, thanks @malarz-supla).
+- **Supla Autodiscovery Service**: Devices can now automatically discover the server address based on the account email address, allowing the server address field in the configuration to be left empty. Works only for official servers.
+- **MCP23008 Expander Support (esp-idf)**: Initial support for the MCP23008 I2C expander added.
+- **I2C Driver Enhancement (esp-idf)**: Option to use internal pull-up resistors in the ESP-IDF I2C driver.
+- **Container Enhancements**: Added HTML configuration and initial support for container configuration handling, event support, and debugging.
+- **Doxygen Documentation**: Added documentation for `GeneralPurposeChannelBase`, `element.h`, and additional Doxygen improvements.
+- **New Configuration Options for HVAC**: Added readonly checks for `ParameterFlags` and new configuration parameters related to "local UI lock".
+- **New Methods for Factory Testing**: Added `setTestFinished` and `getTestStage` methods to `FactoryTest`.
+- **Improved Logging for KeyValue Storage**: Enhanced log messages when the configuration storage size is too big.
+- **VirtualBinary**: add option to keep state in storage.
+- **ThermHygroMeter (and all thermometers)**: add setApplyCorrections method which disables applying corrections on SD side.
+
+## Changed
+- **OCR Impulse Counter Improvements**:
+  - Default function set to water meter with 1000 impulses/unit.
+  - Test mode added.
+  - Increased HTTP buffer size to 2500 B for handling longer responses.
+  - Improved LED timing (turn on for 2s before taking a photo, then turn off immediately after).
+  - Removed max increment checking.
+  - Improved handling of measurement validity from the OCR server.
+- **ESP-IDF Updates**:
+  - Replaced `HSPI` with `SPI2` in the SPI driver.
+  - Changed factory reset to remove the whole NVS partition instead of clearing only current data.
+  - Updated the Docker ESP-IDF version to `5.4-beta1`.
+- **Improved Supla Device Initialization**:
+  - Devices can now start in test mode without requiring Supla server configuration.
+  - Improved `begin()` method logs with explicit info for each initialization stage.
+  - `iterateConnected` handling improved to prevent one element from starving others in communication.
+- **RollerShutter Enhancements**:
+  - `setNotCalibrated` and `setCalibrationOngoing` methods added.
+  - Add set/get for calibration failed, motor problem, calibration lost.
+  - Ensure channel state updates at most every 300 ms.
+  - Ensure config is sent to the server when some fields were previously disabled.
+  - Extracted `RollerShutterInterface` as a base class.
+- **NVS Configuration Cleanup**: Default `NVS` entries are now cleaned when `suplanvs` is used.
+- **ElectricityMeter**:
+  - Switch extended value to V3 variant.
+  - Add voltage phase angle 12 & 13, and voltage/current phase sequence.
+
+## Fixed
+- **OCR Impulse Counter Stability**:
+  - Ensured that `0` is sent when a photo reading is invalid or during device registration.
+- **HVAC Configuration Fixes**:
+  - Config fix is now sent only twice to avoid endless loops of read-only field modifications.
+  - Fixed IsOn reporting for % values from `2..101 (1-100%)` to `2..102 (0-100%)`.
+  - Prevented sending alternate weekly schedules for thermostats with a read-only subfunction set to "heat".
+- **Container Fixes**:
+  - Changed value range in alarm setters.
+  - Added tests for sensor-based level evaluation.
+- **LightRelay**: Fixed missing battery level and powered fields in the channel state.
+- **ElectricityMeter**:
+  - Fixed missing configuration reload when config is changed from Cloud.
+  - Improved logs and ensured extended value updates always occur after registration.
+- **SuplaDevice**:
+  - Fixed detection issues for removed channels at the end of the conflict channel list.
+  - Improved `sd4linux` storage handling, ensuring writes and reads remain within allocated limits.
+- **General Fixes**:
+  - Fixed an issue where channel state updates were not sent autonomously when only battery level was used.
+  - Improved log messages and error handling in multiple areas.
+  - Ensured GPIO operations in `RollerShutter` are ignored when the GPIO number is not initialized (`-1`).
+- **LittleFsConfig**: add writing backup config file in case of reset during write which could cause configuration loss.
+
+# 24.11.04 (2024-11-26)
+
+   - Fix: RollerShutter: ensure that config is send to server when some config fields were previously disabled - fixes problem with missing new config fields after device firmware update
+
+# 24.11.03 (2024-11-25)
+   - Change: SuplaSrpc: remove sending ChannelState as ExtendedValue and revert to sending it only via dedicated message
+   - Change: Channel: seperated "battery powered" and "battery level" channel state fields
+   - Fix: PZEM: fix for invalid metering/measuement data when device starts and there is problem with PZEM communication. PZEM lib return read error only on first parameter read (every 200 ms). If subsequent read is performed before <200 ms, then unintialized values are returned.
+   - Fix: 3-phase PZEM: clear phase data when measurments are not available.
+   - Fix: HVAC: fix initialization of previous subfunction in order to prevent mode change when HVAC is in Weekly Program and during startup, Clock is not yet ready.
+   - Fix: RelayHvacAggregator: fix for sending turn on/off logic, fix logic to not send turn off mulitiple times for relays that can't be turned off manually (in some scenarios), fix HVAC registration
+   - Fix: HVAC: add missing ON_HVAC_STANDBY when configuration changes between heat and cool modes
+   - Fix: HVAC: fix for attempt to apply empty config from server, further additions for PID algorithm, change check if output is controlled internally from algorithm based to explicit method on Output instance.
+   - Fix: SRPC: fix for "sproto_in_buffer_append" bug
+   - Add: ElectricityMeter: add resetReadParametersForPhase(int) which clears measuement parameters for a given phase.
+   - Add: HVAC: add master thermostat parameter check for invalid values (when change was done locally).
+   - Add: HVAC HTML parameters: add ability to configure master thermostat, pump switch, and heat or cold source switch, add option to "not set" main thermometer. Add PID algorithm
+   - Add: GP Meter: add setKeepStateInStorage(bool) method, which enables storing counter value in Supla::Storage class.
+   - Add: HVAC: add startup delay (30 s) which waits with some actions at startup (like switching to Program 1 on weekly schedule, when clock is not ready, or waiting for thermometers to be ready).
+   - Add: Esp-idf: add Watchdog class implementation
+   - Add: sd4linux: add reporting battery powered when battery level is configured
+   - Add: PinStatusLed: add option to work onTimer (instead of on iterateAlways)
+   - Add: Config: add purgeConfig implementation for HVAC, EM, RollerShutter, Termomter, Thermometer+Hygrometer, Hygrometer.
+   - Add: SuplaDevice & StatusLed: add "identify device" calcfg handling. Device will repeat 3 quick blinks 5 times as identification sequence.
+
+
+# 24.10.04 (2024-10-18 SOP edition)
    - Change: configuration tags (names used in internal config storage) are extracted from HTML related classes and moved to ./storage/config_tags.h file in order to cleanup some mess and dependency to HTML classes in other parts of code
    - Change: BlinkingLed: extracted base functionality from StatusLed class, so BlinkingLed can be used for purposes not related with device's status.
    - Change: OcrImpulseCounter: change default and minimum PhotoInterval to 60 min
@@ -27,7 +354,7 @@
    - Add: Channel: add setBatteryPowered() method to indicate battery powered device without knowing exact battery level.
    - Add: Element: add isOwnerOfSubDeviceId method to get element reponsible for specific subdevice handling.
 
-## 24.09 (2024-09-05)
+# 24.09 (2024-09-05)
    - Fix: Relay: change int to int32_t (potentially problem on Arduino Mega)
    - Fix: HVAC: small mem usage reduction
    - Fix: HVAC: add validation of stored THVACValues (currently only with warning log)
@@ -46,10 +373,10 @@
    - Add: SuplaDevice: add handling of SUPLA_CALCFG_CMD_RESTART_DEVICE. Add bool isDeviceSoftwareResetSupported() method.
 
 
-## 24.08.01 (2024-08-07)
+# 24.08.01 (2024-08-07)
   - Version increased to 24.08.01 for internal use
 
-## 24.08 (2024-08-07)
+# 24.08 (2024-08-07)
 
   - Fix: Arduino ESP32: fix for generating device hostname and softAP name which is based on device's mac address. On ESP32 3.0.0 boards onwards, WiFi.macAddress() returns 0 when it's called before initialization of WiFi.
   - Fix: HTML: rename current transformer "133.2mA" to "133.3mA"
@@ -101,18 +428,18 @@
   - Add: Supla::Sensor::OcrImpulseCounter - base class for impulse counter which sends photos to OCR server
   - Add: Supla::OrcIc - esp-idf implementation for Supla::Sensor::OcrImpulseCounter
 
-## 24.06 (2024-06-03)
+# 24.06 (2024-06-03)
 
   - Fix: compilation fix for ESP32 boards for Arduino with version 3.x
 
-## 24.05.02 (2024-05-31)
+# 24.05.02 (2024-05-31)
 
   - Change: default Supla proto version increased to 23
   - Change: registration message is using TDS_SuplaDeviceRegister_F and is send to server in chunks. This should reduce RAM memory usage on all boards.
   - Change: BH1750, MAX44009: set default GPM icon to 14 ("sun with light")
   - Add: Supla::Channel::setDefaultIcon(int) option that allow to configure initial default icon during registration of device.
 
-## 24.05.01 (2024-05-22)
+# 24.05.01 (2024-05-22)
 
   - Fix: GPM: fix missing handling of "refresh interval ms" parameter
   - Fix: esp-idf ADC driver: deprecation warning fix for v5.2
@@ -133,7 +460,7 @@
   - Add: DeviceConfig: add handling of ScreenDelayType
   - Add: HTML: add ScreenDelayTypeParameters form
 
-## 24.03 (2024-03-14 Pi day)
+# 24.03 (2024-03-14 Pi day)
 
   - Fix: MQTT: publish WiFi RSSI and signal strength only when those fields are available
   - Fix: Arduino esp32eth: code adjustment to changes in Network classes
@@ -166,7 +493,7 @@
   - Add: Element: add setter for default channel function (setDefaultFunction)
   - Add: esp-idf: new version of supla-i2c-driver
 
-## 24.02 (2024-02-14)
+# 24.02 (2024-02-14)
 
   - Fix: StatusLed: disable blinking for sleeping devices when other protocols are connected
   - Fix: WebServer: fix for invalid checkbox handling on beta web page
@@ -191,7 +518,7 @@
   - Add: new sensors based on GPM added: BH1750, MAX44099, GpmEspFreeHeap
   - Add: HVAC: add events: ON_HVAC_WEEKLY_SCHEDULE_ENABLED, ON_HVAC_WEEKLY_SCHEDULE_ENABLED, ON_HVAC_WEEKLY_SCHEDULE_DISABLED, ON_HVAC_MODE_OFF, ON_HVAC_MODE_HEAT, ON_HVAC_MODE_COOL, ON_HVAC_MODE_HEAT_COOL
 
-## 23.12 (2023-12-05)
+# 23.12 (2023-12-05)
 
   - Change: HVAC: allow invalid config with invalid main thermometer channel number.  Thermostat will be in "off" with theremometer error.
   - Change: RGBW, RGB, Dimmer: adjusted fading algorithm for smaller distances (target vs actuall PWM setting)
@@ -232,7 +559,7 @@
   - Add: ESP-IDF DS18B20: add sensor readout instant refresh after config change
   - Add: ESP-IDF: add bool guard for calling "disable" method, so it will be executed only when "start" was called before
 
-## 23.11 (2023-11-07)
+# 23.11 (2023-11-07)
 
   - Change: LocalAction: changed variable that holds actions and events to uint16_t
   - Change: Button: Html fields now allow 200 ms as minimum time to be set (was 300 ms)
@@ -262,7 +589,7 @@
   - CSS: add class for input form range
 
 
-## 23.10.01 (2023-10-17)
+# 23.10.01 (2023-10-17)
 
   - Change: HVAC: rename "screensaver" -> "home screen"
   - Fix: ESP-IDF MQTT: replace delay(0) with dedicated mutex in order to make sure that MQTT task will get CPU time ASAP
@@ -281,7 +608,7 @@
   - Add: RGBW, RGB, Dimmer: add actions for starting and stopping brightness iteration (by server). Add option to disable button local action from local config.
   - Add: GroupButtonControlRGBW: add class to handle group of RGBWs, RGBs, Dimmers by a single button
 
-## 23.10 (2023-10-02)
+# 23.10 (2023-10-02)
 
   - Change: Correction: method "add" on temperature/humidity correction will modify existing correction if it was added earlier
   - Change: Arduino Config: moved blob structures to be stored in separate files in "/supla" directory
@@ -308,7 +635,7 @@
   - Add: SuplaDevice: add allowWorkInOfflineMode variant which requires all communication protocols to be disalbed in order to enable offline mode
 
 
-## 23.08.01 (2023-08-17)
+# 23.08.01 (2023-08-17)
 
   - Change: ESP-IDF example: change partition scheme (factory removed, ota_0 and ota_1 size change to 1.5 M)
   - Change: Supla common update to proto v21
@@ -332,7 +659,7 @@
   - Add ThermometerDriver interface class for reading thermometer value from HW.
   - ESP-IDF: add ADC driver interface
 
-## 23.07.01 (2023-07-20)
+# 23.07.01 (2023-07-20)
 
   - Change: default proto version for SuplaDevice changed from 16 to 20 (if you want to use other proto version, please specify it in SuplaDevice.begin(proto_version) call)
   - Change: supla-common update
@@ -342,7 +669,7 @@
   - Add: Arduino IDE: add example with basic notifications usage (DSwithNotification)
   - Add: SuplaDevice: always print device's GUID in debug logs
 
-## 23.07 (2023-07-07)
+# 23.07 (2023-07-07)
 
   - Change: Relay with Staircase function: duration of staircase timer is now fetched from server after registration. It is no longer required to turn on timer from Supla app in order to store a new timer value on device.
   - Change: Relay: keepTurnOnDuration() function is DEPRECATED. It can be removed from all application. Currently it is left empty in order to not break compilation of user applications.
@@ -357,7 +684,7 @@
   - Add: ImpulseCounter: add support for counter reset from Cloud button
 
 
-## 23.05 (2023-05-25)
+# 23.05 (2023-05-25)
 
   - Change: ESP-IDF version update to 5.0.2
   - Change: Config: rename of MQTT AT config parameter tag
@@ -376,7 +703,7 @@
   - Add: HTML: add "use button as IN Config" HTML element
   - Add: Button: add option to automatically configure input as config based on Config Storage
 
-## 23.04 (2023-04-19)
+# 23.04 (2023-04-19)
 
   - Change: (Arduino ESP32) Dimmer, RGB, RGBW: ESP32 LEDC channel frequency changed from 12 kHz to 1 kHz.
   - Change: ESP-IDF example: change partition scheme (factory removed, ota_0 and ota_1 size change to 1.5 M)
@@ -386,12 +713,12 @@
   - Add: sd4linux: add documentation for Humidity, Pressure, Rain, Wind parsed sensors.
   - Add: RollerShutter: add getters for closing/opening time
 
-## 23.02.01 (2023-02-22)
+# 23.02.01 (2023-02-22)
 
   - Add: Roller shutter: add handling of server commands: up or stop, down or stop, step-by-step.
   - Change: Roller shutter: change local handling of "step by step" (i.e. by button) to use moveUp/Down instead of open/close.
 
-## 23.02 (2023-02-20)
+# 23.02 (2023-02-20)
 
   - Add: Linux: add support for ActionTrigger for CmdRelay and BinaryParsed
   - Add: Distance sensor: add setReadIntervalMs method to set delay between sensor readouts (default 100 ms).
@@ -400,13 +727,13 @@
   - Fix: Linux: terminate SSL connection on critical SSL error
   - Fix: change logging from Serial to SUPLA_LOG_ macro for esp_wifi.h file (thanks @arturtadel)
 
-## 22.12.01 (2023-01-09)
+# 22.12.01 (2023-01-09)
 
   - Fix: RGBW/Dimmer fix starting at lowest brighness when previously set brightness level was < 5%
   - Add: RGBW/Dimmer add option to set delay between dim direction change during dimming by button (setMinMaxIterationDelay)
   - Add: (ESP-IDF, ESP8266 RTOS) add HTTP status code to LAST STATE when it is different than 200
 
-## 22.12 (2022-12-19)
+# 22.12 (2022-12-19)
 
   - Fix: Afore: fix crash on initialization
   - Fix: allow 32 bytes of Wi-Fi SSID
@@ -431,7 +758,7 @@
   - Add: Linux: add CmdRelay - allows to execute Linux command on relay state change
 
 
-## 22.11.03 (2022-11-28)
+# 22.11.03 (2022-11-28)
 
   - Fix: THW-01: enabled more detailed logging of connection problem in "LAST STATE" field
   - Fix: allow going back to "server disconnected" device state, when device is in error state
@@ -446,16 +773,16 @@ when form is saved.
   - Add: SelectCmdInputParameter HTML element - works in the same way as TextCmdInputParameter, but generates select HTML input type with all available options
 
 
-## 22.11.02 (2022-11-03)
+# 22.11.02 (2022-11-03)
 
   - Fix: "beta" config HTML page stuck at "Loading..."
 
 
-## 22.11.01 (2022-11-02)
+# 22.11.01 (2022-11-02)
 
   - Change: THW-01 will try to connect for 15 s and then go to sleep in order to prevent internal heating.
 
-## 22.10.05 (N/A)
+# 22.10.05 (N/A)
 
   - Change: New CSS and HTML layout for web interface
   - Add: (Arduino ESPx, Arduino Mega) DS1307 external RTC support (thanks @lukfud)
@@ -463,20 +790,20 @@ when form is saved.
   - Add: ability for device to work in offline mode - allow normal functions without Wi-Fi, when Wi-Fi/server configuration is empty.
 
 
-## 22.10.04 (2022-10-18)
+# 22.10.04 (2022-10-18)
 
   - Add: ActionTrigger support for publishing Home Assistant MQTT auto discovery
   - Add: Linux: support for new parsed sensors: HumidityParsed, PressureParsed, RainParsed, WindParsed
   - Fix: THW-01: Fixed random hang during encrypted connection establishment on private Supla servers.
   - Fix: Linux reading of uint8_t from yaml config should use int conversion instead of char (ASCII value)
 
-## 22.10.03 (2022-10-12)
+# 22.10.03 (2022-10-12)
 
   - Change: Linux example extended with security_level setting
   - Add: support for factory test mode
   - Fix: watchdog timeout when using BME280 sensor or any other element with secondary channel
 
-## 22.10.01 (2022-10-03)
+# 22.10.01 (2022-10-03)
 
   - Change: versioning format changed to year.month.number
   - Change: startup procedure and iterate methods adjusted to support concurrent multiprotocol scenarios (i.e. concurrent Supla and MQTT mode, MQTT only)
@@ -506,7 +833,7 @@ when form is saved.
   - Add: (ESP-IDF) support for MQTT for thermometers, thermometers with humidity, relays with Home Assistant MQTT autodiscovery.
   - Fix: selecting between raw and encrypted connection and between encyrpted with/without certficate verification.
 
-## 2.4.2 (2022-06-20)
+# 2.4.2 (2022-06-20)
 
   - Change: (Arduino ESPx) Wi-Fi class handling change to support config mode
   - Change: StatusLed - change led sequence on error (300/100 ms)
@@ -540,7 +867,7 @@ when form is saved.
   - Add: (Linux) file storage for last state log
   - Add: (Arduino ESPx) WebInterface Arduino example
 
-## 2.4.1 (2022-03-23)
+# 2.4.1 (2022-03-23)
 
   - Change: (Arduino) move WiFi events for ESP8266 Arduino WiFi class to protected section
   - Change: (Arduino) Arduino ESP32 boards switch to version 2.x. Older boards will not compile ([see instructions](https://github.com/SUPLA/supla-device/commit/c533e73a4c811c026187374635dd812d4e294c8b))
@@ -558,7 +885,7 @@ when form is saved.
   - Add: getters for electricity meter measured values
   - Add: PZEMv3 with custom PZEM address setting (allow to use single TX/RX pair for multiple PZEM units)
 
-## 2.4.0 (2021-12-07)
+# 2.4.0 (2021-12-07)
 
 All changes for this and older releases are for Arduino IDE target.
 
@@ -567,4 +894,5 @@ All changes for this and older releases are for Arduino IDE target.
   - Add: MAX thermocouple
   - Change: Supla protocol version updated to 16
   - Fix: Roller shutter was sending invalid channel value for not calibrated state
-  - Fix: Compilaton error and warnings cleanup (especially for ESP32)
+  - Fix: Compilation error and warnings cleanup (especially for ESP32)
+

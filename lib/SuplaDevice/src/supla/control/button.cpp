@@ -33,7 +33,7 @@ using Supla::Control::Button;
 
 int Button::buttonCounter = 0;
 
-Button::Button(Supla::Io *io, int pin, bool pullUp, bool invertLogic)
+Button::Button(Supla::Io::Base *io, int pin, bool pullUp, bool invertLogic)
     : SimpleButton(io, pin, pullUp, invertLogic) {
   buttonNumber = buttonCounter;
   buttonCounter++;
@@ -75,12 +75,26 @@ void Button::onTimer() {
       runAction(CONDITIONAL_ON_RELEASE);
       runAction(CONDITIONAL_ON_CHANGE);
     }
+    if (clickCounter <= 1 && holdSend > 0) {
+      runAction(ON_HOLD_RELEASE);
+    }
   }
+
+  if (waitingForRelease) {
+    if (stateResult != TO_RELEASED) {
+      return;
+    } else {
+      clickCounter = 0;
+      holdSend = 0;
+      lastStateChangeMs = millis();
+    }
+  }
+  waitingForRelease = false;
 
   if (stateChanged) {
     lastStateChangeMs = millis();
     if (multiclickTimeMs > 0 && (stateResult == TO_PRESSED || isBistable() ||
-        isMotionSensor())) {
+        isMotionSensor() || isCentral())) {
       if (clickCounter <= maxMulticlickValueConfigured) {
         // don't increase counter if already at max value
         clickCounter++;
@@ -88,100 +102,122 @@ void Button::onTimer() {
     }
   }
 
-  if (!stateChanged && lastStateChangeMs) {
-    if (isMonostable() && stateResult == PRESSED) {
-      if (clickCounter <= 1 && holdTimeMs > 0 &&
-          timeDelta >
-              (holdTimeMs + static_cast<uint32_t>(holdSend) * repeatOnHoldMs) &&
-          (repeatOnHoldEnabled || holdSend == 0)) {
-        runAction(ON_HOLD);
-        ++holdSend;
-      }
-    } else if (stateResult == RELEASED || isBistable() || isMotionSensor()) {
-      // for all button types (monostable, bistable, and motion sensor)
-      if (multiclickTimeMs == 0) {
-        holdSend = 0;
-        clickCounter = 0;
-      }
-      if (multiclickTimeMs > 0 &&
-          (timeDelta > multiclickTimeMs ||
-           maxMulticlickValueConfigured == clickCounter)) {
-        if (holdSend == 0 && clickCounter != 255) {
-          switch (clickCounter) {
-            case 1: {
-              runAction(ON_CLICK_1);
-              break;
+  if (!stateChanged) {
+    if (lastStateChangeMs) {
+      if (isMonostable() && stateResult == PRESSED) {
+        if (clickCounter <= 1 && holdTimeMs > 0 &&
+            timeDelta > (holdTimeMs +
+                         static_cast<uint32_t>(holdSend) * repeatOnHoldMs) &&
+            (repeatOnHoldEnabled || holdSend == 0)) {
+          runAction(ON_HOLD);
+          ++holdSend;
+        }
+        if (clickCounter >= 1 && stateResult == PRESSED &&
+            timeDelta > multiclickTimeMs) {
+          clickCounter = 0;
+        }
+      } else if (stateResult == RELEASED || isBistable() || isMotionSensor() ||
+                 isCentral()) {
+        // for all button types (monostable, bistable, motion sensor, and
+        // central)
+        if (multiclickTimeMs == 0) {
+          holdSend = 0;
+          clickCounter = 0;
+        }
+        if (multiclickTimeMs > 0 &&
+            (timeDelta > multiclickTimeMs ||
+             maxMulticlickValueConfigured == clickCounter)) {
+          if (holdSend == 0 && clickCounter != 255) {
+            switch (clickCounter) {
+              case 1: {
+                runAction(ON_CLICK_1);
+                break;
+              }
+              case 2:
+                runAction(ON_CLICK_2);
+                break;
+              case 3:
+                runAction(ON_CLICK_3);
+                break;
+              case 4:
+                runAction(ON_CLICK_4);
+                break;
+              case 5:
+                runAction(ON_CLICK_5);
+                break;
+              case 6:
+                runAction(ON_CLICK_6);
+                break;
+              case 7:
+                runAction(ON_CLICK_7);
+                break;
+              case 8:
+                runAction(ON_CLICK_8);
+                break;
+              case 9:
+                runAction(ON_CLICK_9);
+                break;
+              case 10:
+                runAction(ON_CLICK_10);
+                runAction(ON_CRAZY_CLICKER);
+                break;
             }
-            case 2:
-              runAction(ON_CLICK_2);
-              break;
-            case 3:
-              runAction(ON_CLICK_3);
-              break;
-            case 4:
-              runAction(ON_CLICK_4);
-              break;
-            case 5:
-              runAction(ON_CLICK_5);
-              break;
-            case 6:
-              runAction(ON_CLICK_6);
-              break;
-            case 7:
-              runAction(ON_CLICK_7);
-              break;
-            case 8:
-              runAction(ON_CLICK_8);
-              break;
-            case 9:
-              runAction(ON_CLICK_9);
-              break;
-            case 10:
-              runAction(ON_CLICK_10);
-              runAction(ON_CRAZY_CLICKER);
-              break;
+          } else {
+            switch (clickCounter) {
+              // LONG click is send for clicking after HOLD
+              case 0:
+                runAction(ON_LONG_CLICK_0);
+                break;
+              case 1:
+                runAction(ON_LONG_CLICK_1);
+                break;
+              case 2:
+                runAction(ON_LONG_CLICK_2);
+                break;
+              case 3:
+                runAction(ON_LONG_CLICK_3);
+                break;
+              case 4:
+                runAction(ON_LONG_CLICK_4);
+                break;
+              case 5:
+                runAction(ON_LONG_CLICK_5);
+                break;
+              case 6:
+                runAction(ON_LONG_CLICK_6);
+                break;
+              case 7:
+                runAction(ON_LONG_CLICK_7);
+                break;
+              case 8:
+                runAction(ON_LONG_CLICK_8);
+                break;
+              case 9:
+                runAction(ON_LONG_CLICK_9);
+                break;
+              case 10:
+                runAction(ON_LONG_CLICK_10);
+                break;
+            }
           }
-        } else {
-          switch (clickCounter) {
-            // for LONG_CLICK counter was incremented once by ON_HOLD
-            case 1:
-              runAction(ON_LONG_CLICK_0);
-              break;
-            case 2:
-              runAction(ON_LONG_CLICK_1);
-              break;
-            case 3:
-              runAction(ON_LONG_CLICK_2);
-              break;
-            case 4:
-              runAction(ON_LONG_CLICK_3);
-              break;
-            case 5:
-              runAction(ON_LONG_CLICK_4);
-              break;
-            case 6:
-              runAction(ON_LONG_CLICK_5);
-              break;
-            case 7:
-              runAction(ON_LONG_CLICK_6);
-              break;
-            case 8:
-              runAction(ON_LONG_CLICK_7);
-              break;
-            case 9:
-              runAction(ON_LONG_CLICK_8);
-              break;
-            case 10:
-              runAction(ON_LONG_CLICK_9);
-              break;
-            case 11:
-              runAction(ON_LONG_CLICK_10);
-              break;
+          clickCounter = 255;
+          if (timeDelta > multiclickTimeMs) {
+            holdSend = 0;
+            clickCounter = 0;
           }
         }
-        clickCounter = 255;
-        if (timeDelta > multiclickTimeMs) {
-          holdSend = 0;
+      }
+    } else if (allowHoldOnPowerOn) {
+      if (isMonostable() && stateResult == PRESSED) {
+        if (clickCounter <= 1 && holdTimeMs > 0 &&
+            timeDelta > (holdTimeMs +
+                         static_cast<uint32_t>(holdSend) * repeatOnHoldMs) &&
+            (repeatOnHoldEnabled || holdSend == 0)) {
+          runAction(ON_HOLD);
+          ++holdSend;
+        }
+        if (clickCounter >= 1 && stateResult == PRESSED &&
+            timeDelta > multiclickTimeMs) {
           clickCounter = 0;
         }
       }
@@ -287,16 +323,19 @@ void Button::setHoldTime(unsigned int timeMs) {
     timeMs = UINT16_MAX;
   }
   holdTimeMs = timeMs;
-  SUPLA_LOG_DEBUG("Button[%d]::setHoldTime: %u", getButtonNumber(), holdTimeMs);
+  SUPLA_LOG_DEBUG("Button[%d] setHoldTime: %u", getButtonNumber(), holdTimeMs);
 }
 
 void Button::setMulticlickTime(unsigned int timeMs, bool bistableButton) {
+  if (timeMs > UINT16_MAX) {
+    timeMs = UINT16_MAX;
+  }
   multiclickTimeMs = timeMs;
   if (bistableButton) {
     buttonType = ButtonType::BISTABLE;
   }
   SUPLA_LOG_DEBUG(
-      "Button[%d]::setMulticlickTime: %u", getButtonNumber(), timeMs);
+      "Button[%d] setMulticlickTime: %u", getButtonNumber(), timeMs);
 }
 
 void Button::repeatOnHoldEvery(unsigned int timeMs) {
@@ -318,6 +357,10 @@ bool Button::isMotionSensor() const {
   return buttonType == ButtonType::MOTION_SENSOR;
 }
 
+bool Button::isCentral() const {
+  return buttonType == ButtonType::CENTRAL_CONTROL;
+}
+
 void Button::onLoadConfig(SuplaDeviceClass *sdc) {
   if (sdc->getDeviceMode() == Supla::DEVICE_MODE_TEST) {
     SUPLA_LOG_DEBUG("Button[%d] test mode", getButtonNumber());
@@ -325,7 +368,7 @@ void Button::onLoadConfig(SuplaDeviceClass *sdc) {
     return;
   }
   if (onLoadConfigType == OnLoadConfigType::DONT_LOAD_CONFIG) {
-    SUPLA_LOG_DEBUG("Button[%d]::onLoadConfig: skip", getButtonNumber());
+    SUPLA_LOG_DEBUG("Button[%d] don't load config", getButtonNumber());
     return;
   }
 
@@ -338,20 +381,29 @@ void Button::onLoadConfig(SuplaDeviceClass *sdc) {
     bool saveConfig = false;
 
     if (cfg->getInt32(key, &btnTypeValue)) {
-      SUPLA_LOG_DEBUG("Button[%d]::onLoadConfig: btnType: %d",
-                      getButtonNumber(),
-                      btnTypeValue);
       switch (btnTypeValue) {
-        default:
-        case 0:
+        case 0: {
           setButtonType(ButtonType::MONOSTABLE);
           break;
-        case 1:
+        }
+        case 1: {
           setButtonType(ButtonType::BISTABLE);
           break;
-        case 2:
+        }
+        case 2: {
           setButtonType(ButtonType::MOTION_SENSOR);
           break;
+        }
+        case 3: {
+          setButtonType(ButtonType::CENTRAL_CONTROL);
+          break;
+        }
+        default: {
+          SUPLA_LOG_WARNING("Button[%d] unknown button type in cfg: %d",
+                            getButtonNumber(),
+                            btnTypeValue);
+          break;
+        }
       }
     } else {
       saveConfig = true;
@@ -359,6 +411,8 @@ void Button::onLoadConfig(SuplaDeviceClass *sdc) {
         cfg->setInt32(key, 2);
       } else if (isBistable()) {
         cfg->setInt32(key, 1);
+      } else if (isCentral()) {
+        cfg->setInt32(key, 3);
       } else {
         cfg->setInt32(key, 0);
       }
@@ -374,7 +428,7 @@ void Button::onLoadConfig(SuplaDeviceClass *sdc) {
         multiclickTimeMsValue = 10000;
       }
       setMulticlickTime(multiclickTimeMsValue, isBistable());
-    } else {
+    } else if (multiclickTimeMsValue > 0) {
       cfg->setUInt32(Supla::ConfigTag::BtnMulticlickTag, multiclickTimeMs);
       saveConfig = true;
     }
@@ -388,7 +442,7 @@ void Button::onLoadConfig(SuplaDeviceClass *sdc) {
         holdTimeMsValue = 10000;
       }
       setHoldTime(holdTimeMsValue);
-    } else {
+    } else if (holdTimeMs > 0) {
       cfg->setUInt32(Supla::ConfigTag::BtnHoldTag, holdTimeMs);
       saveConfig = true;
     }
@@ -402,7 +456,7 @@ void Button::onLoadConfig(SuplaDeviceClass *sdc) {
                       &useInputAsConfigButtonValue);
       }
 
-      if (useInputAsConfigButtonValue == 0) {
+      if (!isCentral() && useInputAsConfigButtonValue == 0) {
         // ON is "0", which is default value
         SUPLA_LOG_DEBUG("Button[%d] enabling IN as config button",
             getButtonNumber());
@@ -417,7 +471,7 @@ void Button::onLoadConfig(SuplaDeviceClass *sdc) {
     }
 
     if (saveConfig) {
-      cfg->commit();
+      cfg->saveWithDelay(500);
     }
   }
 }
@@ -441,8 +495,11 @@ bool Button::disableActionsInConfigMode() {
 }
 
 void Button::setButtonType(const ButtonType type) {
-  SUPLA_LOG_DEBUG("Button[%d]::setButtonType: %d", getButtonNumber(), type);
   buttonType = type;
+  SUPLA_LOG_DEBUG("Button[%d] setButtonType: %s (%d)",
+                  getButtonNumber(),
+                  getButtonTypeName(type),
+                  type);
 }
 
 uint8_t Button::getMaxMulticlickValue() {
@@ -483,6 +540,9 @@ void Button::disableButton() {
 void Button::enableButton() {
   SUPLA_LOG_DEBUG("Button[%d]: enabling button", getButtonNumber());
   disabled = false;
+  clickCounter = 0;
+  holdSend = 0;
+  lastStateChangeMs = millis();
 }
 
 void Button::handleAction(int event, int action) {
@@ -511,4 +571,23 @@ void Button::handleAction(int event, int action) {
 
 uint32_t Button::getLastStateChange() const {
   return lastStateChangeMs;
+}
+
+void Button::waitForRelease() {
+  waitingForRelease = true;
+}
+
+
+const char *Button::getButtonTypeName(ButtonType type) const {
+  switch (type) {
+    case ButtonType::MONOSTABLE:
+      return "monostable";
+    case ButtonType::BISTABLE:
+      return "bistable";
+    case ButtonType::CENTRAL_CONTROL:
+      return "central";
+    case ButtonType::MOTION_SENSOR:
+      return "motion sensor";
+  }
+  return "unknown";
 }

@@ -21,13 +21,15 @@
 
 namespace Supla {
 
-class Io;
+namespace Io {
+class Base;
+}
 
 namespace Control {
 class PinStatusLed : public Element {
  public:
-  PinStatusLed(Supla::Io *ioSrc,
-               Supla::Io *ioOut,
+  PinStatusLed(Supla::Io::Base *ioSrc,
+               Supla::Io::Base *ioOut,
                uint8_t srcPin,
                uint8_t outPin,
                bool invert = false);
@@ -35,8 +37,10 @@ class PinStatusLed : public Element {
 
   void onInit() override;
   void iterateAlways() override;
+  void onTimer() override;
 
   void setInvertedLogic(bool invertedLogic);
+  void setWorkOnTimer(bool workOnTimer);
 
  protected:
   void updatePin();
@@ -44,8 +48,9 @@ class PinStatusLed : public Element {
   uint8_t srcPin = 0;
   uint8_t outPin = 0;
   bool invert = false;
-  Supla::Io *ioSrc = nullptr;
-  Supla::Io *ioOut = nullptr;
+  bool workOnTimer = false;
+  Supla::Io::Base *ioSrc = nullptr;
+  Supla::Io::Base *ioOut = nullptr;
 };
 
 }  // namespace Control

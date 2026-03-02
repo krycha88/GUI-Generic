@@ -23,6 +23,7 @@
 #include <supla/events.h>
 #include <supla/actions.h>
 #include <supla/device/register_device.h>
+#include <supla/action_handler.h>
 
 class ActionHandlerMock : public Supla::ActionHandler {
  public:
@@ -56,7 +57,7 @@ TEST_F(ChannelExtendedFixture, ExtendedChannelMethods) {
 TEST_F(ChannelExtendedFixture, SetNewValueOnExtChannel) {
   int number = 0;
   Supla::ChannelExtended extChannel;
-  TElectricityMeter_ExtendedValue_V2 emVal = {};
+  TElectricityMeter_ExtendedValue_V3 emVal = {};
   TElectricityMeter_Value expectedValue = {};
 
   emVal.m_count = 1;
@@ -72,7 +73,7 @@ TEST_F(ChannelExtendedFixture, SetNewValueOnExtChannel) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(extChannel.isUpdateReady());
-  extChannel.clearUpdateReady();
+  extChannel.clearSendValue();
 
   emVal.measured_values |= EM_VAR_VOLTAGE;
   emVal.m[0].voltage[0] = 10;
@@ -87,7 +88,7 @@ TEST_F(ChannelExtendedFixture, SetNewValueOnExtChannel) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(extChannel.isUpdateReady());
-  extChannel.clearUpdateReady();
+  extChannel.clearSendValue();
 
   emVal.m[0].voltage[0] = 0;
   emVal.m[0].voltage[1] = 20;
@@ -101,7 +102,7 @@ TEST_F(ChannelExtendedFixture, SetNewValueOnExtChannel) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(extChannel.isUpdateReady());
-  extChannel.clearUpdateReady();
+  extChannel.clearSendValue();
 
 
   emVal.m[0].voltage[0] = 0;
@@ -116,7 +117,7 @@ TEST_F(ChannelExtendedFixture, SetNewValueOnExtChannel) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(extChannel.isUpdateReady());
-  extChannel.clearUpdateReady();
+  extChannel.clearSendValue();
 
 
   emVal.m[0].voltage[0] = 10;
@@ -131,7 +132,7 @@ TEST_F(ChannelExtendedFixture, SetNewValueOnExtChannel) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(extChannel.isUpdateReady());
-  extChannel.clearUpdateReady();
+  extChannel.clearSendValue();
 
   emVal.m[0].voltage[0] = 10;
   emVal.m[0].voltage[1] = 230;
@@ -146,5 +147,5 @@ TEST_F(ChannelExtendedFixture, SetNewValueOnExtChannel) {
                           &expectedValue,
                           sizeof(expectedValue)));
   EXPECT_TRUE(extChannel.isUpdateReady());
-  extChannel.clearUpdateReady();
+  extChannel.clearSendValue();
 }

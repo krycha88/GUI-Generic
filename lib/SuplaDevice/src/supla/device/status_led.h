@@ -23,6 +23,10 @@
 
 namespace Supla {
 
+namespace Io {
+class Base;
+}  // namespace Io
+
 enum LedMode : uint8_t {
   LED_ON_WHEN_CONNECTED /* default */,
   LED_OFF_WHEN_CONNECTED,
@@ -44,7 +48,8 @@ enum LedSequence : uint8_t {
   SW_DOWNLOAD /* very fast flashing 20/20 ms */,
   PACZKOW_WE_HAVE_A_PROBLEM /* some problem 300/100 ms */,
   TESTING_PROCEDURE, /* used to indicate almost finished test 50/50 ms */
-  CUSTOM_SEQUENCE /* values set manually, state changes ignored */
+  CUSTOM_SEQUENCE, /* values set manually, state changes ignored */
+  NOT_CONFIGURED_MODE,  /* double blink, pause */
 };
 
 namespace Device {
@@ -52,7 +57,7 @@ namespace Device {
 
 class StatusLed : public Supla::Control::BlinkingLed {
  public:
-  explicit StatusLed(Supla::Io *io, uint8_t outPin, bool invert = false);
+  explicit StatusLed(Supla::Io::Base *io, uint8_t outPin, bool invert = false);
   explicit StatusLed(uint8_t outPin, bool invert = false);
 
   void onLoadConfig(SuplaDeviceClass *) override;
@@ -65,7 +70,10 @@ class StatusLed : public Supla::Control::BlinkingLed {
                          uint32_t offDurationMs,
                          uint32_t pauseDurrationMs = 0,
                          uint8_t onLimit = 0,
-                         uint8_t repeatLimit = 0) override;
+                         uint8_t repeatLimit = 0,
+                         bool startWithOff = true) override;
+
+  enum LedSequence getCurrentSequence() const;
 
   // Restores automatic LED sequence change based on device state.
   // It is enabled by default, so if it wasn't disabled by calling
