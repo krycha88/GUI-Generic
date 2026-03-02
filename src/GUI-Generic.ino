@@ -45,11 +45,6 @@ extern "C" {
 #include "src/sensor/WmbusMeter.h"
 #endif
 
-#ifdef SUPLA_ZIGBEE_GATEWAY
-#include "src/ZigbeeGateway/SuplaZigbeeGateway.h"
-#include "src/ZigbeeGateway/Z2S_database.h"
-#endif
-
 uint32_t last_loop{0};
 #define LOOP_INTERVAL 16
 
@@ -988,12 +983,6 @@ void setup() {
 #ifdef SUPLA_DEEP_SLEEP
   if (ConfigManager->get(KEY_DEEP_SLEEP_TIME)->getValueInt() > 0) {
     new Supla::Control::DeepSleep(ConfigManager->get(KEY_DEEP_SLEEP_TIME)->getValueInt() * 60);
-  }
-#endif
-
-#ifdef SUPLA_ZIGBEE_GATEWAY
-  if (ConfigESP->configModeESP == Supla::DEVICE_MODE_NORMAL) {
-    new Supla::SuplaZigbeeGateway(TEMPLATE_JSON, 9);
   }
 #endif
 

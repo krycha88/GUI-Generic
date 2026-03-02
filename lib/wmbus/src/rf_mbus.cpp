@@ -178,8 +178,13 @@ bool rf_mbus::init(uint8_t mosi, uint8_t miso, uint8_t clk, uint8_t cs, uint8_t 
   this->gdo0 = gdo0;
   this->gdo2 = gdo2;
 
+  #if defined(ESP32)
   gpio_reset_pin((gpio_num_t)this->gdo0);
   gpio_reset_pin((gpio_num_t)this->gdo2);
+#elif defined(ESP8266)
+  pinMode(this->gdo0, INPUT);
+  pinMode(this->gdo2, INPUT);
+#endif
   pinMode(this->gdo0, INPUT);
   pinMode(this->gdo2, INPUT);
 

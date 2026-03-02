@@ -194,26 +194,35 @@ void ELECHOUSE_CC1101::Reset (void)
 *OUTPUT       :none
 ****************************************************************/
 void ELECHOUSE_CC1101::Init(void) {
-  // setSpi();
+  #if defined(ESP32)
+
   gpio_reset_pin((gpio_num_t)MISO_PIN);
   gpio_reset_pin((gpio_num_t)MOSI_PIN);
   gpio_reset_pin((gpio_num_t)SCK_PIN);
   gpio_reset_pin((gpio_num_t)SS_PIN);
+
+  SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
+  pinMode(SS_PIN, OUTPUT);
+  digitalWrite(SS_PIN, HIGH);
+
+#elif defined(ESP8266)
 
   pinMode(MISO_PIN, INPUT);
   pinMode(MOSI_PIN, OUTPUT);
   pinMode(SCK_PIN, OUTPUT);
   pinMode(SS_PIN, OUTPUT);
 
+  SPI.begin();            // tylko tak na ESP8266
+  SPI.setHwCs(false);     // CS sterowany ręcznie
   digitalWrite(SS_PIN, HIGH);
 
-  SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
+#endif
 
-  SpiStart();  // Start SPI Transaction
-  digitalWrite(SS_PIN, HIGH);
-  Reset();              // CC1101 reset
-  RegConfigSettings();  // CC1101 register config
-  SpiEnd();             // Stops SPI Transaction
+  // --- CC1101 INIT ---
+  SpiStart();             // CS LOW
+  Reset();                // Reset CC1101
+  RegConfigSettings();    // Rejestry CC1101
+  SpiEnd();               // CS HIGH
 }
 
 /****************************************************************
