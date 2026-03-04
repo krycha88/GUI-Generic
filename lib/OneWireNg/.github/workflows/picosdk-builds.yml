@@ -1,0 +1,60 @@
+name: Pico SDK builds
+env:
+  SDK_VER: 2.1.1
+  PICO_SDK_PATH: /opt/pico-sdk
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+defaults:
+  run:
+    shell: bash
+jobs:
+  picosdk_info:
+    runs-on: ubuntu-latest
+    container: ghcr.io/pstolarz/picosdk-ci
+    steps:
+      - name: Pico SDK recent versions info
+        run: |
+          cd ${PICO_SDK_PATH}
+          sudo git fetch || true
+          sudo git checkout -f ${SDK_VER}
+          git tag | sort | awk "/$(git describe --tags)/ {f=1} f==1 {print}"
+  picosdk_build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/pstolarz/picosdk-ci
+    env:
+      BUILD_FLAGS: "\
+        -DCONFIG_PWR_CTRL_ENABLED \
+        -DCONFIG_OVERDRIVE_ENABLED \
+        -DCONFIG_CRC16_ENABLED \
+        -DCONFIG_ITERATION_RETRIES=1"
+    strategy:
+      matrix:
+        example:
+          - DallasTemperature
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pico SDK checkout
+        run: |
+          cd ${PICO_SDK_PATH}
+          sudo git fetch || true
+          sudo git checkout -f ${SDK_VER}
+          sudo git submodule update -f --init --recursive
+      - name: Build
+        run: |
+          repo_dir=$(pwd)
+          rm -rf /tmp/picosdk-build && mkdir /tmp/picosdk-build && cd /tmp/picosdk-build
+          ln -s ${repo_dir} OneWireNg
+          ln -s ${repo_dir}/examples/pico-sdk/${{ matrix.example }}/${{ matrix.example }}.cpp ${{ matrix.example }}.cpp
+          ln -s ${repo_dir}/examples/pico-sdk/${{ matrix.example }}/CMakeLists.txt CMakeLists.txt
+          ln -s ${repo_dir}/examples/pico-sdk/${{ matrix.example }}/pico_sdk_import.cmake pico_sdk_import.cmake
+          mkdir build && cd build
+          export CXXFLAGS="${BUILD_FLAGS}"
+          export CFLAGS="${BUILD_FLAGS}"
+          cmake ..
+          make

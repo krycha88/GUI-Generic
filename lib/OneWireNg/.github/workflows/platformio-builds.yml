@@ -1,0 +1,82 @@
+name: PlatformIO builds
+env:
+  PIO_ARDUINO_PATH: /opt/platformio-ard-ci
+  PIO_IDF_PATH: /opt/platformio-idf-ci
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+defaults:
+  run:
+    shell: bash
+jobs:
+  platformio_info:
+    runs-on: ubuntu-latest
+    container: ghcr.io/pstolarz/platformio-ci
+    steps:
+      - name: PlatformIO recent packages versions info
+        run: |
+          cd ${PIO_ARDUINO_PATH} && sudo platformio pkg list && sudo platformio pkg outdated
+          cd ${PIO_IDF_PATH} && sudo platformio pkg list && sudo platformio pkg outdated
+  platformio_ard_build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/pstolarz/platformio-ci
+    env:
+      BUILD_FLAGS: "\
+        -DOWNG_NO_NATIVE_CONFIG \
+        -DCONFIG_PWR_CTRL_ENABLED \
+        -DCONFIG_OVERDRIVE_ENABLED \
+        -DCONFIG_CRC16_ENABLED \
+        -DCONFIG_ITERATION_RETRIES=1"
+    strategy:
+      matrix:
+        plat:
+          - uno
+          - uno_wifi_rev2
+          - due
+          - esp32dev
+          - d1
+          - nucleo_l552ze_q
+          - pico
+        example:
+          - DallasTemperature
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          repo_dir=$(pwd)
+          cd ${PIO_ARDUINO_PATH}
+          cp ${repo_dir}/examples/arduino/${{ matrix.example }}/${{ matrix.example }}.ino src/${{ matrix.example }}.ino
+          sudo platformio pkg install -l ${repo_dir}
+          sudo PLATFORMIO_BUILD_FLAGS="${BUILD_FLAGS}" platformio run -e ${{ matrix.plat }}
+  platformio_idf_build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/pstolarz/platformio-ci
+    env:
+      BUILD_FLAGS: "\
+        -DOWNG_NO_NATIVE_CONFIG \
+        -DCONFIG_PWR_CTRL_ENABLED \
+        -DCONFIG_OVERDRIVE_ENABLED \
+        -DCONFIG_CRC16_ENABLED \
+        -DCONFIG_ITERATION_RETRIES=1 \
+        -DCONFIG_OW_PIN=13"
+    strategy:
+      matrix:
+        plat:
+          - esp32-s2-saola-1
+          - esp32-c3-devkitm-1
+        example:
+          - DallasTemperature
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          repo_dir=$(pwd)
+          cd ${PIO_IDF_PATH}
+          cp ${repo_dir}/examples/esp-idf/${{ matrix.example }}/main/${{ matrix.example }}.cpp src/${{ matrix.example }}.cpp
+          sudo platformio pkg install -l ${repo_dir}
+          sudo PLATFORMIO_BUILD_FLAGS="${BUILD_FLAGS}" platformio run -e ${{ matrix.plat }}

@@ -1,0 +1,103 @@
+name: ESP-IDF builds
+env:
+  ESPIDF_VER: v5.4
+  ESP8266_SDK_VER: v3.4
+  ESPIDF_PATH: /opt/esp-idf
+  ESP8266_SDK_PATH: /opt/ESP8266_RTOS_SDK
+  TOOLCHAIN_PATH: ~/.espressif
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+defaults:
+  run:
+    shell: bash
+jobs:
+  espidf_info:
+    runs-on: ubuntu-latest
+    container: ghcr.io/pstolarz/espidf-ci
+    steps:
+      - name: ESP IDF recent versions info
+        run: |
+          cd ${ESPIDF_PATH}
+          sudo git fetch || true
+          sudo git checkout -f ${ESPIDF_VER}
+          git tag | sort | awk "/$(git describe --tags)/ {f=1} f==1 {print}"
+      - name: ESP8266 RTOS SDK recent versions info
+        run: |
+          cd ${ESP8266_SDK_PATH}
+          sudo git fetch || true
+          sudo git checkout -f ${ESP8266_SDK_VER}
+          git tag | sort | awk "/$(git describe --tags)/ {f=1} f==1 {print}"
+  espidf_build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/pstolarz/espidf-ci
+    strategy:
+      matrix:
+        plat:
+          - esp32
+          - esp32s2
+          - esp32s3
+          - esp32c2
+          - esp32c3
+          - esp32c5
+          - esp32c6
+          - esp32c61
+          - esp32h2
+          - esp32p4
+          - esp8266
+        example:
+          - DallasTemperature
+    steps:
+      - uses: actions/checkout@v4
+      - name: ESP checkout
+        run: |
+          cd ${ESPIDF_PATH}
+          sudo git fetch || true
+          sudo git checkout -f ${ESPIDF_VER}
+          sudo git submodule update -f --init --recursive
+
+          cd ${ESP8266_SDK_PATH}
+          sudo git fetch || true
+          sudo git checkout -f ${ESP8266_SDK_VER}
+          sudo git submodule update -f --init --recursive
+      - uses: actions/cache@v4
+        id: cache_esp_toolchains
+        with:
+          path: ${{ env.TOOLCHAIN_PATH }}
+          key: toolchains-espidf-${{ env.ESPIDF_VER }}-esp8266_rtos_sdk-${{ env.ESP8266_SDK_VER }}
+      - name: Install ESP toolchains
+        if: steps.cache_esp_toolchains.outputs.cache-hit != 'true'
+        run: |
+          cd ${ESPIDF_PATH}
+          ./install.sh
+
+          cd ${ESP8266_SDK_PATH}
+          ./install.sh
+      - name: Build
+        run: |
+          repo_dir=$(pwd)
+          rm -rf /tmp/espidf-build && mkdir /tmp/espidf-build && cd /tmp/espidf-build
+          mkdir components
+          ln -s ${repo_dir} components/OneWireNg
+          ln -s ${repo_dir}/examples/esp-idf/${{ matrix.example }}/main main
+          ln -s ${repo_dir}/examples/esp-idf/${{ matrix.example }}/CMakeLists.txt CMakeLists.txt
+          echo "CONFIG_PWR_CTRL_ENABLED=y"      >sdkconfig.defaults
+          echo "CONFIG_OVERDRIVE_ENABLED=y"     >>sdkconfig.defaults
+          echo "CONFIG_CRC8_ALGO_TAB_32=y"      >>sdkconfig.defaults
+          echo "CONFIG_CRC16_ENABLED=y"         >>sdkconfig.defaults
+          echo "CONFIG_CRC16_ALGO_BASIC=y"      >>sdkconfig.defaults
+          echo "CONFIG_BUS_BLINK_PROTECTION=y"  >>sdkconfig.defaults
+          echo "CONFIG_ITERATION_RETRIES=1"     >>sdkconfig.defaults
+          if [[ "${{ matrix.plat }}" != 'esp8266' ]]; then
+            source ${ESPIDF_PATH}/export.sh
+            idf.py --preview set-target ${{ matrix.plat }}
+            idf.py build
+          else
+            source ${ESP8266_SDK_PATH}/export.sh
+            idf.py build
+          fi
