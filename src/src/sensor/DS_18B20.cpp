@@ -13,7 +13,7 @@ void DS18B20::initSharedResources(uint8_t pin) {
   sharedOneWire.begin(pin);
   sharedSensors.setOneWire(&sharedOneWire);
   sharedSensors.begin();
-  sharedSensors.setResolution(12);
+  sharedSensors.setResolution(10);
 
   waitForAndRequestTemperatures();
 }
@@ -41,19 +41,27 @@ void DS18B20::iterateAlways() {
   unsigned long currentTime = millis();
   unsigned long timeSinceLastConversion = currentTime - lastConversionTime;
 
-  if (timeSinceLastConversion >= conversionInterval) {
+  static bool requestDone = false;
+
+  if (timeSinceLastConversion >= conversionInterval && !requestDone) {
     sharedSensors.requestTemperatures();
     lastConversionTime = currentTime;
+    requestDone = true;
+  }
+
+  if (timeSinceLastConversion < conversionInterval) {
+    requestDone = false;
   }
 
   unsigned long timeSinceLastOperation = currentTime - lastUpdateTime;
 
-  if (timeSinceLastOperation >= conversionInterval + 4000) {
-    channel.setNewValue(getValue());
-
+  if (timeSinceLastOperation >= conversionInterval + 2000) {
+    float temp = getValue();
+    channel.setNewValue(temp);
     lastUpdateTime = currentTime;
-    lastConversionTime = currentTime;
   }
+
+  yield();
 }
 
 double DS18B20::getValue() {
@@ -73,7 +81,8 @@ double DS18B20::getValue() {
   if (value == TEMPERATURE_NOT_AVAILABLE) {
     retryCounter++;
     if (retryCounter > 3) {
-      //restartOneWire();
+      lastConversionTime = 0;
+      lastUpdateTime = millis();
       retryCounter = 0;
     }
     else {
@@ -90,9 +99,8 @@ double DS18B20::getValue() {
 }
 
 void DS18B20::waitForAndRequestTemperatures() {
-  sharedSensors.setWaitForConversion(true);
-  sharedSensors.requestTemperatures();
   sharedSensors.setWaitForConversion(false);
+  sharedSensors.requestTemperatures();
 }
 
 void DS18B20::restartOneWire() {
@@ -113,7 +121,7 @@ void DS18B20::setDeviceAddress(uint8_t *deviceAddress) {
   }
 }
 
-void findAndSaveDS18B20Addresses() {
+void DS18B20::findAndSaveDS18B20Addresses() {
   uint8_t pin = ConfigESP->getGpio(FUNCTION_DS18B20);
   uint8_t maxDevices = ConfigManager->get(KEY_MULTI_MAX_DS18B20)->getValueInt();
   OneWire ow(pin);

@@ -22,6 +22,8 @@ class DS18B20 : public Supla::Sensor::Thermometer {
   static void waitForAndRequestTemperatures();
   void restartOneWire();
 
+  static void findAndSaveDS18B20Addresses();
+
  private:
   static OneWire sharedOneWire;
   static DallasTemperature sharedSensors;
@@ -35,8 +37,6 @@ class DS18B20 : public Supla::Sensor::Thermometer {
 
   unsigned long lastUpdateTime;
 };
-
-void findAndSaveDS18B20Addresses();
 
 #endif  // SuplaSensorDS18B20_h
 #endif

@@ -32,7 +32,7 @@ void begin() {
 
   SuplaDevice.begin();
 
-  //if (ConfigESP->configModeESP == Supla::DEVICE_MODE_CONFIG)
+  // if (ConfigESP->configModeESP == Supla::DEVICE_MODE_CONFIG)
   //  Supla::Network::SetConfigMode();
 
   if (getCountChannels() == 0)
@@ -484,7 +484,7 @@ void addDS18B20MultiThermometer(int pinNumber) {
 
   if (maxDevices > 1) {
     if (strcmp(ConfigManager->get(KEY_ADDR_DS18B20)->getElement(0).c_str(), "") == 0) {
-      findAndSaveDS18B20Addresses();
+      DS18B20::findAndSaveDS18B20Addresses();
     }
 
     for (int i = 0; i < maxDevices; ++i) {

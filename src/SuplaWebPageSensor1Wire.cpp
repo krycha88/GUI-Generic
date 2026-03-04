@@ -138,7 +138,7 @@ void handleSensor1WireSave() {
   }
   else {
     if (strcmp(ConfigManager->get(KEY_ADDR_DS18B20)->getElement(0).c_str(), "") == 0) {
-      findAndSaveDS18B20Addresses();
+      DS18B20::findAndSaveDS18B20Addresses();
     }
   }
 #endif
@@ -169,89 +169,103 @@ void handleSensor1WireSave() {
 }
 
 #ifdef SUPLA_DS18B20
-void handleSensorDs18b20(int save) {
-  uint8_t count = 0;
-  uint8_t pin = ConfigESP->getGpio(FUNCTION_DS18B20);
 
+uint8_t scanDs18b20(uint8_t pin, DeviceAddress *addresses, uint8_t maxSensors) {
   OneWire ow(pin);
-  DallasTemperature sensors;
-  DeviceAddress address;
-  char strAddr[64];
-  uint8_t i;
+  DallasTemperature sensors(&ow);
+  sensors.begin();
 
-  double temp;
-  String s_temp;
-  s_temp.reserve(12);
+  ow.reset_search();
+  delay(2);
+
+  uint8_t foundCount = 0;
+  DeviceAddress address;
+
+  while (ow.search(address) && foundCount < maxSensors) {
+    // Sprawdzenie CRC
+    if (OneWire::crc8(address, 7) != address[7])
+      continue;
+    // Sprawdzenie czy to DS18B20
+    if (address[0] != 0x28)
+      continue;
+
+    memcpy(addresses[foundCount], address, sizeof(DeviceAddress));
+    foundCount++;
+
+    delay(0);  // WDT
+  }
+
+  return foundCount;
+}
+
+void handleSensorDs18b20(int save) {
+  uint8_t pin = ConfigESP->getGpio(FUNCTION_DS18B20);
+  uint8_t maxSensors = ConfigManager->get(KEY_MULTI_MAX_DS18B20)->getValueInt();
+
+  char strAddr[17];
 
   WebServer->sendHeaderStart();
   SuplaSaveResult(save);
   SuplaJavaScript(getURL(PATH_MULTI_DS));
 
-  if (ConfigESP->getGpio(FUNCTION_DS18B20) < OFF_GPIO) {
+  // ================= AKTUALNE CZUJNIKI =================
+  if (pin < OFF_GPIO) {
     addForm(F("post"), getURL(PATH_MULTI_DS));
+    addFormHeader(S_TEMPERATURE);
 
-    if (ConfigESP->getGpio(FUNCTION_DS18B20) != OFF_GPIO) {
-      addFormHeader(S_TEMPERATURE);
-      for (uint8_t i = 0; i < ConfigManager->get(KEY_MULTI_MAX_DS18B20)->getValueInt(); i++) {
-        temp = Supla::GUI::sensorDS[i]->getValue();
+    for (uint8_t i = 0; i < maxSensors; i++) {
+      double temp = Supla::GUI::sensorDS[i]->getValue();
+      char tempStr[8];
 
-        addTextBox(getInput(INPUT_DS18B20_NAME, i), String(S_NAME) + (i + 1), ConfigManager->get(KEY_NAME_SENSOR)->getElement(i), emptyString, 0,
-                   MAX_DS18B20_NAME, false, false, false, false);
-
-        s_temp = emptyString;
-        if (temp != -275) {
-          s_temp += temp;
-        }
-        else {
-          s_temp += F("--.--");
-        }
-        s_temp += F(" <b>&deg;C</b> ");
-
-        addTextBox(getInput(INPUT_DS18B20_ADDR, i), s_temp, ConfigManager->get(KEY_ADDR_DS18B20)->getElement(i), emptyString, 0,
-                   MAX_DS18B20_ADDRESS_HEX, false);
-        delay(0);
+      if (temp != TEMPERATURE_NOT_AVAILABLE) {
+        dtostrf(temp, 0, 2, tempStr);
       }
-      addFormHeaderEnd();
+      else {
+        strcpy(tempStr, "--.--");
+      }
+
+      addTextBox(getInput(INPUT_DS18B20_NAME, i), String(S_NAME) + (i + 1), ConfigManager->get(KEY_NAME_SENSOR)->getElement(i), emptyString, 0,
+                 MAX_DS18B20_NAME, false, false, false, false);
+
+      addTextBox(getInput(INPUT_DS18B20_ADDR, i), String(tempStr) + F(" <b>&deg;C</b> "), ConfigManager->get(KEY_ADDR_DS18B20)->getElement(i),
+                 emptyString, 0, MAX_DS18B20_ADDRESS_HEX, false);
+
+      yield();
     }
 
+    addFormHeaderEnd();
     addButtonSubmit(S_SAVE);
     addFormEnd();
     addBr();
   }
 
+  // ================= SKAN 1-WIRE =================
   addForm(F("post"), getURL(PATH_MULTI_DS));
   addFormHeader(String(S_FOUND) + S_SPACE + S_DS18B20);
-  sensors.setOneWire(&ow);
-  sensors.begin();
-  if (sensors.isParasitePowerMode()) {
-    supla_log(LOG_DEBUG, "OneWire(pin %d) Parasite power is ON", pin);
-  }
-  else {
-    supla_log(LOG_DEBUG, "OneWire(pin %d) Parasite power is OFF", pin);
-  }
-  for (i = 0; i < sensors.getDeviceCount(); i++) {
-    if (!sensors.getAddress(address, i)) {
-      supla_log(LOG_DEBUG, "Unable to find address for Device %d", i);
-    }
-    else {
-      sprintf(strAddr, "%02X%02X%02X%02X%02X%02X%02X%02X", address[0], address[1], address[2], address[3], address[4], address[5], address[6],
-              address[7]);
-      supla_log(LOG_DEBUG, "Index %d - address %s", i, strAddr);
 
-      addTextBox(getInput(INPUT_DS18B20_ADDR, count), emptyString, String(strAddr), emptyString, 0, MAX_DS18B20_ADDRESS_HEX, false, true);
-      count++;
+  if (pin < OFF_GPIO) {
+    DeviceAddress addresses[maxSensors];
+    uint8_t foundCount = scanDs18b20(pin, addresses, maxSensors);
+
+    for (uint8_t i = 0; i < foundCount; i++) {
+      sprintf(strAddr, "%02X%02X%02X%02X%02X%02X%02X%02X", addresses[i][0], addresses[i][1], addresses[i][2], addresses[i][3], addresses[i][4],
+              addresses[i][5], addresses[i][6], addresses[i][7]);
+
+      supla_log(LOG_DEBUG, "Found DS18B20: %s", strAddr);
+
+      addTextBox(getInput(INPUT_DS18B20_ADDR, i), emptyString, String(strAddr), emptyString, 0, MAX_DS18B20_ADDRESS_HEX, false, true);
     }
-    delay(0);
+
+    if (foundCount == 0) {
+      addLabel(S_NO_SENSORS_CONNECTED);
+    }
   }
 
-  if (count == 0) {
-    addLabel(S_NO_SENSORS_CONNECTED);
-  }
   addFormHeaderEnd();
-
   addButtonSubmit(String(S_SAVE_FOUND) + S_DS18B20);
   addFormEnd();
   addButton(S_RETURN, PATH_1WIRE);
+
   WebServer->sendHeaderEnd();
 }
 
