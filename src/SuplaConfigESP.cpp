@@ -118,8 +118,9 @@ void SuplaConfigESP::configModeInit() {
     Supla::GUI::enableConnectionSSL(false);
     Supla::GUI::setupConnection();
 #endif
+    SuplaDevice.enterConfigMode();
+    //Supla::Network::SetConfigMode();
 
-    Supla::Network::SetConfigMode();
 
     // if (getCountChannels() > 0) {
     //   SuplaDevice.enterConfigMode();
