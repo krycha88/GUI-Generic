@@ -295,6 +295,9 @@ void status_func(int status, const char *msg) {
       ConfigESP->configModeESP = Supla::DEVICE_MODE_CONFIG;
       ConfigESP->ledBlinking(100);
       break;
+    case STATUS_NOT_CONFIGURED_MODE:
+      ConfigESP->supla_status.msg = "Nieskonfigurowane";
+      break;  
     default:
       ConfigESP->supla_status.msg = msg;
       break;
