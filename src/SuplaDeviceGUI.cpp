@@ -30,6 +30,7 @@ void begin() {
   SuplaDevice.setSwVersion(ver.c_str());
 #endif
 
+  SuplaDevice.setInitialMode(Supla::InitialMode::StartInCfgMode);
   SuplaDevice.begin();
 
   // if (ConfigESP->configModeESP == Supla::DEVICE_MODE_CONFIG)
