@@ -206,8 +206,8 @@ uint8_t ConfigExpander::getNrExpander(uint8_t adress) {
   return OFF_GPIO_EXPENDER;
 }
 
-Supla::Io *ConfigExpander::getIoExpender(uint8_t nr, uint8_t function) {
-  Supla::Io *io = nullptr;
+Supla::Io::Base *ConfigExpander::getIoExpender(uint8_t nr, uint8_t function) {
+  Supla::Io::Base *io = nullptr;
   uint8_t address = getAdressExpander(nr, function);
   uint8_t addressHex = 0x20 | (address & 0x07);
 

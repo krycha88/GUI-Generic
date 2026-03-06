@@ -514,7 +514,7 @@ void displayThermostat(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t 
     }
 
     if (channel->getHvacMode() != SUPLA_HVAC_MODE_OFF) {
-      if (channel->getHvacIsOn()) {
+      if (channel->getHvacIsOnBool()) {
         display->setColor(WHITE);
         int16_t x0 = 0, y0 = 10;
         int16_t x1 = 10, y1 = 10;

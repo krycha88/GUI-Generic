@@ -16,6 +16,8 @@
 #ifdef SUPLA_RF_BRIDGE
 
 #include "RFBridgeRelay.h"
+#include <supla/storage/storage.h>
+#include <supla/io.h>
 
 namespace Supla {
 namespace Control {

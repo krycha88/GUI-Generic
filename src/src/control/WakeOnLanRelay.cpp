@@ -15,6 +15,7 @@
 */
 #ifdef SUPLA_WAKE_ON_LAN
 #include "WakeOnLanRelay.h"
+#include <supla/storage/storage.h>
 
 namespace Supla {
 namespace Control {

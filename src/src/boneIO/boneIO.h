@@ -73,7 +73,7 @@
 namespace Supla {
 
 struct DevicePin {
-  Supla::Io *io;
+  Supla::Io::Base *io;
   int pin;
 };
 

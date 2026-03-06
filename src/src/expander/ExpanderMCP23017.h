@@ -75,7 +75,7 @@ class MCP23017 {
 
 namespace Supla {
 namespace Control {
-class ExpanderMCP23017 : public Supla::Io, public Supla::Element {
+class ExpanderMCP23017 : public Supla::Io::Base, public Supla::Element {
  public:
   ExpanderMCP23017(TwoWire *wire, uint8_t address);
 

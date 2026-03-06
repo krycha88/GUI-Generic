@@ -19,7 +19,7 @@
 
 namespace Supla {
 namespace Control {
-ExpanderPCF8574::ExpanderPCF8574(TwoWire *wire, uint8_t address) : Supla::Io(false) {
+ExpanderPCF8574::ExpanderPCF8574(TwoWire *wire, uint8_t address) : Supla::Io::Base(false) {
   if (_control.begin(address, wire)) {
     Serial.print("PCF8574 is connected address: ");
     Serial.println(address, HEX);

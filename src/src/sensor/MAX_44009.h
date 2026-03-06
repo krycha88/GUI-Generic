@@ -21,6 +21,7 @@
 
 #include <Arduino.h>
 #include <supla/sensor/general_purpose_measurement.h>
+#include <supla/log_wrapper.h>
 
 namespace Supla {
 namespace Sensor {
