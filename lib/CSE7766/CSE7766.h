@@ -8,8 +8,13 @@
 #define CSE7766_h
 
 #include "Arduino.h"
+#include "debug.h"
 
+#ifdef ARDUINO_ARCH_ESP8266
+#include <SoftwareSerial.h>
+#elif ARDUINO_ARCH_ESP32
 #include <HardwareSerial.h>
+#endif
 
 #ifndef CSE7766_RX_PIN
 #define CSE7766_RX_PIN 3
@@ -44,11 +49,15 @@ class CSE7766 {
   // Public
   // ---------------------------------------------------------------------
 
-  CSE7766(HardwareSerial& serial);
-
+  CSE7766();
+  virtual ~CSE7766();
+  void setRX(unsigned char pin_rx);
+  void setInverted(bool inverted);
+  unsigned char getRX();
+  bool getInverted();
   void expectedCurrent(double expected);
-  void expectedVoltage(double expected);
-  void expectedPower(double expected);
+  void expectedVoltage(unsigned int expected);
+  void expectedPower(unsigned int expected);
   void setCurrentRatio(double value);
   void setVoltageRatio(double value);
   void setPowerRatio(double value);
@@ -76,8 +85,14 @@ class CSE7766 {
   int _error = 0;
   bool _dirty = true;
   bool _ready = false;
+  unsigned int _pin_rx = CSE7766_RX_PIN;
+  bool _inverted = CSE7766_PIN_INVERSE;
 
-  Stream* _serial;
+#ifdef ARDUINO_ARCH_ESP8266
+  SoftwareSerial* _serial = NULL;
+#elif ARDUINO_ARCH_ESP32
+  HardwareSerial* _serial = NULL;
+#endif
 
   double _active = 0;
   double _voltage = 0;
@@ -88,15 +103,13 @@ class CSE7766 {
   double _ratioC = 1.0;
   double _ratioP = 1.0;
 
-  uint8_t index = 0;
-  uint32_t last_transmission = 0;
-
   unsigned char _data[24];
 
   bool _checksum();
   void _process();
   void _read();
-  int _serial_available();
+  bool _serial_is_hardware();
+  bool _serial_available();
   void _serial_flush();
   uint8_t _serial_read();
 };
