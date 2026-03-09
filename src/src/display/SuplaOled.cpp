@@ -357,7 +357,7 @@ bool readElectricityMeterValues(OLEDDisplay* display,
                                 int16_t& x,
                                 int16_t& y,
                                 TSuplaChannelExtendedValue*& extValue,
-                                TElectricityMeter_ExtendedValue_V2*& emValue,
+                                TElectricityMeter_ExtendedValue_V3*& emValue,
                                 _supla_int_t& flags) {
   auto channel = getChanelByChannelNumber(oled[state->currentFrame].chanelSensor);
   if (!channel) {
@@ -371,7 +371,7 @@ bool readElectricityMeterValues(OLEDDisplay* display,
     return false;
   }
 
-  emValue = reinterpret_cast<TElectricityMeter_ExtendedValue_V2*>(extValue->value);
+  emValue = reinterpret_cast<TElectricityMeter_ExtendedValue_V3*>(extValue->value);
   if (emValue == nullptr || emValue->m_count < 1) {
     displayUiGeneral(display, state, x, y, "Data error");
     return false;
@@ -383,7 +383,7 @@ bool readElectricityMeterValues(OLEDDisplay* display,
 
 void displayEnergyVoltage(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
   TSuplaChannelExtendedValue* extValue;
-  TElectricityMeter_ExtendedValue_V2* emValue;
+  TElectricityMeter_ExtendedValue_V3* emValue;
   _supla_int_t flags;
 
   if (!readElectricityMeterValues(display, state, x, y, extValue, emValue, flags)) {
@@ -411,7 +411,7 @@ void displayEnergyVoltage(OLEDDisplay* display, OLEDDisplayUiState* state, int16
 
 void displayEnergyCurrent(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
   TSuplaChannelExtendedValue* extValue;
-  TElectricityMeter_ExtendedValue_V2* emValue;
+  TElectricityMeter_ExtendedValue_V3* emValue;
   _supla_int_t flags;
 
   if (!readElectricityMeterValues(display, state, x, y, extValue, emValue, flags)) {
@@ -438,7 +438,7 @@ void displayEnergyCurrent(OLEDDisplay* display, OLEDDisplayUiState* state, int16
 }
 void displayEnergyPowerActive(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
   TSuplaChannelExtendedValue* extValue;
-  TElectricityMeter_ExtendedValue_V2* emValue;
+  TElectricityMeter_ExtendedValue_V3* emValue;
   _supla_int_t flags;
 
   if (!readElectricityMeterValues(display, state, x, y, extValue, emValue, flags)) {

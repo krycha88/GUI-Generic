@@ -89,7 +89,7 @@ void handlePageHome(int save) {
           if (extValue == nullptr)
             continue;
 
-          TElectricityMeter_ExtendedValue_V2* emValue = reinterpret_cast<TElectricityMeter_ExtendedValue_V2*>(extValue->value);
+          TElectricityMeter_ExtendedValue_V3* emValue = reinterpret_cast<TElectricityMeter_ExtendedValue_V3*>(extValue->value);
           if (emValue->m_count < 1 || emValue == nullptr)
             continue;
 
