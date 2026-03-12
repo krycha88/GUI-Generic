@@ -39,26 +39,20 @@ DS18B20::DS18B20(uint8_t *deviceAddress) : lastValidValue(TEMPERATURE_NOT_AVAILA
 
 void DS18B20::iterateAlways() {
   unsigned long currentTime = millis();
-  unsigned long timeSinceLastConversion = currentTime - lastConversionTime;
-
   static bool requestDone = false;
 
-  if (timeSinceLastConversion >= conversionInterval && !requestDone) {
+  if (!requestDone && currentTime - lastConversionTime >= conversionInterval) {
     sharedSensors.requestTemperatures();
     lastConversionTime = currentTime;
     requestDone = true;
   }
 
-  if (timeSinceLastConversion < conversionInterval) {
-    requestDone = false;
-  }
-
-  unsigned long timeSinceLastOperation = currentTime - lastUpdateTime;
-
-  if (timeSinceLastOperation >= conversionInterval + 2000) {
+  if (requestDone && currentTime - lastConversionTime >= 800) {
     float temp = getValue();
     channel.setNewValue(temp);
+
     lastUpdateTime = currentTime;
+    requestDone = false;
   }
 
   yield();
@@ -80,8 +74,9 @@ double DS18B20::getValue() {
 
   if (value == TEMPERATURE_NOT_AVAILABLE) {
     retryCounter++;
+
     if (retryCounter > 3) {
-      lastConversionTime = 0;
+      lastConversionTime = millis();
       lastUpdateTime = millis();
       retryCounter = 0;
     }
@@ -91,9 +86,8 @@ double DS18B20::getValue() {
   }
   else {
     retryCounter = 0;
+    lastValidValue = value;
   }
-
-  lastValidValue = value;
 
   return value;
 }
