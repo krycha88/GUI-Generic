@@ -73,7 +73,7 @@ bool readElectricityMeterValues(OLEDDisplay* display,
                                 int16_t& x,
                                 int16_t& y,
                                 TSuplaChannelExtendedValue*& extValue,
-                                TElectricityMeter_ExtendedValue_V2*& emValue,
+                                TElectricityMeter_ExtendedValue_V3*& emValue,
                                 _supla_int_t& flags);
 void displayEnergyVoltage(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 void displayEnergyCurrent(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);

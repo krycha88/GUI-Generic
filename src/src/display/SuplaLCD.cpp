@@ -234,7 +234,7 @@ String SuplaLCD::getValueSensor(uint8_t numberSensor) {
         if (extValue == nullptr)
           return S_ERROR;
 
-        TElectricityMeter_ExtendedValue_V2* emValue = reinterpret_cast<TElectricityMeter_ExtendedValue_V2*>(extValue->value);
+        TElectricityMeter_ExtendedValue_V3* emValue = reinterpret_cast<TElectricityMeter_ExtendedValue_V3*>(extValue->value);
         if (emValue->m_count < 1 || emValue == nullptr)
           return S_ERROR;
 
