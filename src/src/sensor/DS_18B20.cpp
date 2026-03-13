@@ -68,7 +68,7 @@ double DS18B20::getValue() {
     value = sharedSensors.getTempC(address);
   }
 
-  if (value == 85.0) {
+  if (value == DEVICE_DISCONNECTED_C || value == 85.0) {
     value = TEMPERATURE_NOT_AVAILABLE;
   }
 
@@ -76,9 +76,9 @@ double DS18B20::getValue() {
     retryCounter++;
 
     if (retryCounter > 3) {
-      lastConversionTime = millis();
       lastUpdateTime = millis();
       retryCounter = 0;
+      value = lastValidValue;
     }
     else {
       value = lastValidValue;
