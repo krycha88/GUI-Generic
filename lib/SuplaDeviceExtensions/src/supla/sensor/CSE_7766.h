@@ -29,7 +29,7 @@ namespace Sensor {
 
 class CSE_7766 : public OnePhaseElectricityMeter {
  public:
-  CSE_7766(int8_t pinRX);
+  CSE_7766(HardwareSerial& serial);
 
   void onInit();
   void readValuesFromDevice();
@@ -45,12 +45,14 @@ class CSE_7766 : public OnePhaseElectricityMeter {
   void setVoltageMultiplier(double value);
   void setPowerMultiplier(double value);
   void setCounter(_supla_int64_t value);
+  int handleCalcfgFromServer(TSD_DeviceCalCfgRequest* request);
 
+  void iterateAlways();
+  void unblockingDelay(unsigned long mseconds);
   void calibrate(double calibPower, double calibVoltage);
 
  protected:
-  static CSE7766 *sensor;
-  int8_t pinRX;
+  CSE7766 sensor;
 
   double currentMultiplier;
   double voltageMultiplier;

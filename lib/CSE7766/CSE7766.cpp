@@ -6,36 +6,9 @@
 
 #include "CSE7766.h"
 
-// Constructor
-CSE7766::CSE7766() {
-}
-// Destructor
-CSE7766::~CSE7766() {
-  if (_serial)
-    delete _serial;
-  // end();
-}
-
-void CSE7766::setRX(unsigned char pin_rx) {
-  if (_pin_rx == pin_rx)
-    return;
-  _pin_rx = pin_rx;
-  _dirty = true;
-}
-
-void CSE7766::setInverted(bool inverted) {
-  if (_inverted == inverted)
-    return;
-  _inverted = inverted;
-  _dirty = true;
-}
-
-unsigned char CSE7766::getRX() {
-  return _pin_rx;
-}
-
-bool CSE7766::getInverted() {
-  return _inverted;
+CSE7766::CSE7766(HardwareSerial& serial) {
+  serial.begin(CSE7766_BAUDRATE);
+  this->_serial = &serial;
 }
 
 void CSE7766::expectedCurrent(double expected) {
@@ -44,13 +17,13 @@ void CSE7766::expectedCurrent(double expected) {
   }
 }
 
-void CSE7766::expectedVoltage(unsigned int expected) {
+void CSE7766::expectedVoltage(double expected) {
   if ((expected > 0) && (_voltage > 0)) {
     _ratioV = _ratioV * (expected / _voltage);
   }
 }
 
-void CSE7766::expectedPower(unsigned int expected) {
+void CSE7766::expectedPower(double expected) {
   if ((expected > 0) && (_active > 0)) {
     _ratioP = _ratioP * (expected / _active);
   }
@@ -127,29 +100,7 @@ void CSE7766::begin() {
   if (!_dirty)
     return;
 
-  if (_serial)
-    delete _serial;
-
-  if (3 == _pin_rx) {
-    Serial.begin(CSE7766_BAUDRATE);
-  }
-  else if (13 == _pin_rx) {
-    Serial.begin(CSE7766_BAUDRATE);
-    Serial.flush();
-#ifdef ARDUINO_ARCH_ESP8266
-    Serial.swap();
-#endif
-  }
-  else {
-#ifdef ARDUINO_ARCH_ESP8266
-    _serial = new SoftwareSerial(_pin_rx, -1, _inverted);
-    _serial->enableIntTx(false);
-    _serial->begin(CSE7766_BAUDRATE);
-#elif ARDUINO_ARCH_ESP32
-    _serial = new HardwareSerial(_pin_rx);
-    _serial->begin(CSE7766_BAUDRATE, SERIAL_8N1, _pin_rx, -1, _inverted);
-#endif
-  }
+  this->last_transmission = millis();
 
   _ready = true;
   _dirty = false;
@@ -280,27 +231,25 @@ void CSE7766::_read() {
   static unsigned long last = millis();
 
   while (_serial_available()) {
-    // A 24 bytes message takes ~55ms to go through at 4800 bps
-    // Reset counter if more than 1000ms have passed since last byte.
-    if (millis() - last > CSE7766_SYNC_INTERVAL)
+    if (millis() - last > CSE7766_SYNC_INTERVAL) {
       index = 0;
+    }
     last = millis();
 
     uint8_t byte = _serial_read();
 
-    // first byte must be 0x55 or 0xF?
-    if (0 == index) {
-      if ((0x55 != byte) && (byte < 0xF0)) {
-        continue;
-      }
-
-      // second byte must be 0x5A
-    }
-    else if (1 == index) {
-      if (0x5A != byte) {
-        index = 0;
-        continue;
-      }
+    switch (index) {
+      case 0:
+        if (byte != 0x55 && byte < 0xF0) {
+          continue;
+        }
+        break;
+      case 1:
+        if (byte != 0x5A) {
+          index = 0;
+          continue;
+        }
+        break;
     }
 
     _data[index++] = byte;
@@ -310,40 +259,20 @@ void CSE7766::_read() {
     }
   }
 
-  // Process packet
-  if (24 == index) {
+  if (index == 24) {
     _process();
     index = 0;
   }
 }
 
-bool CSE7766::_serial_is_hardware() {
-  return (3 == _pin_rx) || (13 == _pin_rx);
-}
-
-bool CSE7766::_serial_available() {
-  if (_serial_is_hardware()) {
-    return Serial.available();
-  }
-  else {
-    return _serial->available();
-  }
+int CSE7766::_serial_available() {
+  return this->_serial->available();
 }
 
 void CSE7766::_serial_flush() {
-  if (_serial_is_hardware()) {
-    return Serial.flush();
-  }
-  else {
-    return _serial->flush();
-  }
+  return this->_serial->flush();
 }
 
 uint8_t CSE7766::_serial_read() {
-  if (_serial_is_hardware()) {
-    return Serial.read();
-  }
-  else {
-    return _serial->read();
-  }
+  return this->_serial->read();
 }
