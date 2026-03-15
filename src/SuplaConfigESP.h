@@ -93,7 +93,7 @@ class SuplaConfigESP : public Supla::ActionHandler, public Supla::Element {
     return getGpio(0, function);
   }
 
-  HardwareSerial &getHardwareSerial(int8_t rxPin, int8_t txPin = -1);
+  HardwareSerial &getHardwareSerial(int8_t rxPin, int8_t txPin = -1, unsigned long baud = 4800, uint32_t cfg = SERIAL_8N1);
 
   uint8_t getBaudRate(uint8_t gpio);
   void setBaudRate(uint8_t gpio, int baudRate);

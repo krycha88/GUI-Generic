@@ -119,8 +119,7 @@ void SuplaConfigESP::configModeInit() {
     Supla::GUI::setupConnection();
 #endif
     SuplaDevice.enterConfigMode();
-    //Supla::Network::SetConfigMode();
-
+    // Supla::Network::SetConfigMode();
 
     // if (getCountChannels() > 0) {
     //   SuplaDevice.enterConfigMode();
@@ -297,7 +296,7 @@ void status_func(int status, const char *msg) {
       break;
     case STATUS_NOT_CONFIGURED_MODE:
       ConfigESP->supla_status.msg = "Nieskonfigurowane";
-      break;  
+      break;
     default:
       ConfigESP->supla_status.msg = msg;
       break;
@@ -362,74 +361,45 @@ int SuplaConfigESP::getGpio(int nr, int function) {
   return OFF_GPIO;
 }
 
-
-// Zwraca ZAINICJALIZOWANY port UART dla danego układu i ustawionych pinów.
-// - uartNum: 0, 1, 2 (na większości ESP32 istnieje 0/1, czasem 2; na ESP8266 liczy się tylko 0)
-// - rxPin / txPin: dla ESP32 dowolne GPIO (TX może być -1 dla "RX-only")
-// - dla ESP8266: jeżeli chcesz RX na GPIO13 użyj rxPin=13 -> zrobimy Serial.swap()
-//   UWAGA: Serial1 na ESP8266 to z reguły tylko TX (GPIO2), więc NIE używamy do odbioru.
-inline HardwareSerial& getHardwareSerial(int uartNum,
-                                         int8_t rxPin,
-                                         int8_t txPin = -1,
-                                         unsigned long baud = CSE7766_BAUDRATE,
-                                         uint32_t cfg = SERIAL_8N1) {
+HardwareSerial &SuplaConfigESP::getHardwareSerial(int8_t rxPin, int8_t txPin, unsigned long baud, uint32_t cfg) {
 #if defined(ARDUINO_ARCH_ESP32)
-  // Wybór instancji portu zgodnie z uartNum i dostępnością
-  HardwareSerial* port = &Serial;  // fallback
-  if (uartNum == 0) {
-    port = &Serial;
-  }
-  else if (uartNum == 1) {
-#if SOC_UART_NUM >= 2
-    port = &Serial1;
-#else
-    port = &Serial;  // jeśli dany target ma tylko UART0
-#endif
-  }
-  else if (uartNum == 2) {
-#if SOC_UART_NUM >= 3
-    port = &Serial2;
-#else
-    // część targetów nie ma UART2 – spadnijmy na Serial1, a jak nie ma, to Serial
-  #if SOC_UART_NUM >= 2
-    port = &Serial1;
-  #else
-    port = &Serial;
-  #endif
-#endif
-  }
 
-  // Bezpiecznie „zrestartuj” port i przypnij piny (TX może być -1)
-  port->end();
-  // Uwaga: dla UART0 (Serial) na części płytek TX/RX są używane przez USB/JTAG – preferuj UART1 na czujnik.
-  port->begin(baud, cfg, rxPin, txPin);
-  return *port;
+  // ESP32 → zawsze używamy UART1 (Serial1)
+  Serial1.end();
+  Serial1.begin(baud, cfg, rxPin, txPin);  // TX = -1 → RX‑only
+  return Serial1;
 
 #elif defined(ARDUINO_ARCH_ESP8266)
-  (void)uartNum; // tylko UART0 (Serial) sensownie odbiera
 
-  // ESP8266: jeśli chcesz RX na GPIO13 → swap()
-  // Uwaga: swap() mapuje UART0: RX=GPIO13, TX=GPIO15
+  // ESP8266:
+  // UART0 (Serial) → jedyny odbierający
+  Serial.end();
+
+  // Jeśli RX = 13 → używamy swap() (RX=GPIO13, TX=GPIO15)
   if (rxPin == 13) {
-    Serial.end();
     Serial.swap();
-    Serial.begin(baud, cfg);
-    return Serial;
+  }
+  else {
+    // normalny RX0 (GPIO3), brak swap
+    // jeśli user poda inny pin to i tak UART0 tylko tam działa
   }
 
-  // Jeżeli ktoś poda rxPin=3 (domyślny RX0) – też OK
-  Serial.end();
-  Serial.begin(baud, cfg);  // RX=GPIO3, TX=GPIO1
+  // tryb RX‑only, jeśli nie ma TX
+#if defined(SERIAL_FULL) && defined(SERIAL_RX_ONLY)
+  Serial.begin(baud, static_cast<SerialConfig>(cfg), (txPin < 0) ? SERIAL_RX_ONLY : SERIAL_FULL);
+#else
+  Serial.begin(baud, static_cast<SerialConfig>(cfg));
+#endif
+
   return Serial;
 
 #else
-  // Inne architektury – bezpieczny fallback
+  // fallback dla innych MCU – po prostu Serial
   Serial.end();
-  Serial.begin(baud, cfg);
+  Serial.begin(baud, static_cast<SerialConfig>(cfg));
   return Serial;
 #endif
 }
-
 
 uint8_t SuplaConfigESP::getBaudRate(uint8_t gpio) {
   return ConfigManager->get(getKeyGpio(gpio))->getElement(ACTION_BUTTON).toInt();
