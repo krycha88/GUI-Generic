@@ -7,8 +7,9 @@
 #include "CSE7766.h"
 
 CSE7766::CSE7766(HardwareSerial& serial) {
-  serial.begin(CSE7766_BAUDRATE);
   this->_serial = &serial;
+  //this->_serial->begin(CSE7766_BAUDRATE);
+  _dirty = true;
 }
 
 void CSE7766::expectedCurrent(double expected) {
@@ -97,11 +98,7 @@ double CSE7766::getEnergy() {
 }
 
 void CSE7766::begin() {
-  if (!_dirty)
-    return;
-
   this->last_transmission = millis();
-
   _ready = true;
   _dirty = false;
 }
@@ -227,22 +224,20 @@ void CSE7766::_process() {
 void CSE7766::_read() {
   _error = SENSOR_ERROR_OK;
 
-  static unsigned char index = 0;
-  static unsigned long last = millis();
+  static uint8_t index = 0;
+  static uint32_t last = millis();
 
   while (_serial_available()) {
-    if (millis() - last > CSE7766_SYNC_INTERVAL) {
+    if (millis() - last > CSE7766_SYNC_INTERVAL)
       index = 0;
-    }
     last = millis();
 
     uint8_t byte = _serial_read();
 
     switch (index) {
       case 0:
-        if (byte != 0x55 && byte < 0xF0) {
+        if (byte != 0x55 && byte < 0xF0)
           continue;
-        }
         break;
       case 1:
         if (byte != 0x5A) {
@@ -253,15 +248,11 @@ void CSE7766::_read() {
     }
 
     _data[index++] = byte;
-    if (index > 23) {
-      _serial_flush();
-      break;
-    }
-  }
 
-  if (index == 24) {
-    _process();
-    index = 0;
+    if (index == 24) {
+      _process();
+      index = 0;
+    }
   }
 }
 
