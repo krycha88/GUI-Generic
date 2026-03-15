@@ -8,7 +8,7 @@
 
 CSE7766::CSE7766(HardwareSerial& serial) {
   this->_serial = &serial;
-  //this->_serial->begin(CSE7766_BAUDRATE);
+  this->_serial->begin(CSE7766_BAUDRATE);
   _dirty = true;
 }
 
