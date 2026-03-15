@@ -362,104 +362,74 @@ int SuplaConfigESP::getGpio(int nr, int function) {
   return OFF_GPIO;
 }
 
-HardwareSerial &SuplaConfigESP::getHardwareSerial(int8_t rxPin, int8_t txPin) {
-#ifdef ARDUINO_ARCH_ESP32
 
-#ifndef SOC_RX0
-#if CONFIG_IDF_TARGET_ESP32
-#define SOC_RX0 3
-#elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-#define SOC_RX0 44
-#elif CONFIG_IDF_TARGET_ESP32C3
-#define SOC_RX0 20
-#endif
-#endif
-
-#ifndef SOC_TX0
-#if CONFIG_IDF_TARGET_ESP32
-#define SOC_TX0 1
-#elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-#define SOC_TX0 43
-#elif CONFIG_IDF_TARGET_ESP32C3
-#define SOC_TX0 21
-#endif
-#endif
-
-#if SOC_UART_NUM > 1
-#ifndef RX1
-#if CONFIG_IDF_TARGET_ESP32
-#define RX1 9
-#elif CONFIG_IDF_TARGET_ESP32S2
-#define RX1 18
-#elif CONFIG_IDF_TARGET_ESP32C3
-#define RX1 18
-#elif CONFIG_IDF_TARGET_ESP32S3
-#define RX1 15
-#endif
-#endif
-
-#ifndef TX1
-#if CONFIG_IDF_TARGET_ESP32
-#define TX1 10
-#elif CONFIG_IDF_TARGET_ESP32S2
-#define TX1 17
-#elif CONFIG_IDF_TARGET_ESP32C3
-#define TX1 19
-#elif CONFIG_IDF_TARGET_ESP32S3
-#define TX1 16
-#endif
-#endif
-
-#if defined(RX1) && defined(TX1)
-  if (rxPin == RX1 || txPin == TX1) {
-    return Serial1;
+// Zwraca ZAINICJALIZOWANY port UART dla danego układu i ustawionych pinów.
+// - uartNum: 0, 1, 2 (na większości ESP32 istnieje 0/1, czasem 2; na ESP8266 liczy się tylko 0)
+// - rxPin / txPin: dla ESP32 dowolne GPIO (TX może być -1 dla "RX-only")
+// - dla ESP8266: jeżeli chcesz RX na GPIO13 użyj rxPin=13 -> zrobimy Serial.swap()
+//   UWAGA: Serial1 na ESP8266 to z reguły tylko TX (GPIO2), więc NIE używamy do odbioru.
+inline HardwareSerial& getHardwareSerial(int uartNum,
+                                         int8_t rxPin,
+                                         int8_t txPin = -1,
+                                         unsigned long baud = CSE7766_BAUDRATE,
+                                         uint32_t cfg = SERIAL_8N1) {
+#if defined(ARDUINO_ARCH_ESP32)
+  // Wybór instancji portu zgodnie z uartNum i dostępnością
+  HardwareSerial* port = &Serial;  // fallback
+  if (uartNum == 0) {
+    port = &Serial;
   }
+  else if (uartNum == 1) {
+#if SOC_UART_NUM >= 2
+    port = &Serial1;
 #else
-  return Serial;
+    port = &Serial;  // jeśli dany target ma tylko UART0
 #endif
-#endif
-
-#if SOC_UART_NUM > 2
-#ifndef RX2
-#if CONFIG_IDF_TARGET_ESP32
-#define RX2 16
-#elif CONFIG_IDF_TARGET_ESP32S3
-#define RX2 19
-#endif
-#endif
-
-#ifndef TX2
-#if CONFIG_IDF_TARGET_ESP32
-#define TX2 17
-#elif CONFIG_IDF_TARGET_ESP32S3
-#define TX2 20
-#endif
-#endif
-
-#if defined(RX2) && defined(TX2)
-  if (rxPin == RX2 || txPin == TX2) {
-    return Serial2;
   }
+  else if (uartNum == 2) {
+#if SOC_UART_NUM >= 3
+    port = &Serial2;
 #else
-  return Serial;
+    // część targetów nie ma UART2 – spadnijmy na Serial1, a jak nie ma, to Serial
+  #if SOC_UART_NUM >= 2
+    port = &Serial1;
+  #else
+    port = &Serial;
+  #endif
 #endif
-#endif
+  }
 
-#endif
+  // Bezpiecznie „zrestartuj” port i przypnij piny (TX może być -1)
+  port->end();
+  // Uwaga: dla UART0 (Serial) na części płytek TX/RX są używane przez USB/JTAG – preferuj UART1 na czujnik.
+  port->begin(baud, cfg, rxPin, txPin);
+  return *port;
 
-#ifdef ARDUINO_ARCH_ESP8266
-  if (rxPin == 13 || txPin == 15) {
+#elif defined(ARDUINO_ARCH_ESP8266)
+  (void)uartNum; // tylko UART0 (Serial) sensownie odbiera
+
+  // ESP8266: jeśli chcesz RX na GPIO13 → swap()
+  // Uwaga: swap() mapuje UART0: RX=GPIO13, TX=GPIO15
+  if (rxPin == 13) {
+    Serial.end();
     Serial.swap();
+    Serial.begin(baud, cfg);
     return Serial;
   }
 
-  if (rxPin == 2 && txPin == -1) {
-    return Serial1;
-  }
-#endif
-
+  // Jeżeli ktoś poda rxPin=3 (domyślny RX0) – też OK
+  Serial.end();
+  Serial.begin(baud, cfg);  // RX=GPIO3, TX=GPIO1
   return Serial;
+
+#else
+  // Inne architektury – bezpieczny fallback
+  Serial.end();
+  Serial.begin(baud, cfg);
+  return Serial;
+#endif
 }
+
 
 uint8_t SuplaConfigESP::getBaudRate(uint8_t gpio) {
   return ConfigManager->get(getKeyGpio(gpio))->getElement(ACTION_BUTTON).toInt();

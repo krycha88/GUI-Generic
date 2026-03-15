@@ -77,7 +77,7 @@ class CSE7766 {
   bool _dirty = true;
   bool _ready = false;
 
-  Stream* _serial;
+  HardwareSerial* _serial = nullptr;
 
   double _active = 0;
   double _voltage = 0;
