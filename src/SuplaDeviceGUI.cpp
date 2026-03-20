@@ -573,6 +573,7 @@ void addRolleShutter(uint8_t nr) {
   }
 
   auto rollerShutterRelay = Supla::Control::GUI::RollerShutter(pinRelayUp, pinRelayDown, highIsOn, nr);
+  rollerShutterRelay->addTiltFunctions();
 
 #ifdef SUPLA_CONDITIONS
   Supla::GUI::Conditions::addConditionsExecutive(CONDITIONS::EXECUTIVE_ROLLER_SHUTTER, S_ROLLERSHUTTERS, rollerShutterRelay, nr);

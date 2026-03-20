@@ -17,8 +17,6 @@
 #ifndef GUI_GENERIC_COMMON_H
 #define GUI_GENERIC_COMMON_H
 
-#include "GUI-Generic_Config.h"
-#include "GUIGenericCommonDefined.h"
 #include "src/language/common.h"
 #include "Arduino.h"
 
