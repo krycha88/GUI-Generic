@@ -709,20 +709,7 @@ void addRGBWLeds(uint8_t nr) {
     }
 
     if (rgbwButtonManager.buttonRGBW.find(nrButton) == rgbwButtonManager.buttonRGBW.end()) {
-      auto button = new Supla::Control::Button(buttonPin, ConfigESP->getPullUp(buttonPin), ConfigESP->getInversed(buttonPin));
-
-      auto eventType = ConfigESP->getEvent(buttonPin);
-
-      if (eventType == Supla::Event::ON_CHANGE) {
-        button->setButtonType(Supla::Control::Button::ButtonType::BISTABLE);
-      }
-      else {
-        button->setButtonType(Supla::Control::Button::ButtonType::MONOSTABLE);
-
-        button->setMulticlickTime(200);
-        button->setHoldTime(400);
-        button->repeatOnHoldEvery(35);
-      }
+      auto button = Supla::Control::GUI::Button(buttonPin, ConfigESP->getPullUp(buttonPin), ConfigESP->getInversed(buttonPin), nr);
 
       rgbw->setStep(1);
       rgbwButtonManager.buttonRGBW[nrButton] = button;

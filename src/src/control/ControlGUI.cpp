@@ -36,9 +36,19 @@ Supla::Control::Button *Button(int pin, bool pullUp, bool invertLogic, uint8_t n
   int muliclickTimeMs = ConfigManager->get(KEY_AT_MULTICLICK_TIME)->getValueFloat() * 1000;
   int holdTimeMs = ConfigManager->get(KEY_AT_HOLD_TIME)->getValueFloat() * 1000;
 
-  button->setHoldTime(holdTimeMs);
-  button->setMulticlickTime(muliclickTimeMs);
-  button->repeatOnHoldEvery(250);
+  auto eventType = ConfigESP->getEvent(pin);
+
+  if (eventType == Supla::Event::ON_CHANGE) {
+    button->setButtonType(Supla::Control::Button::ButtonType::BISTABLE);
+  }
+  else {
+    button->setButtonType(Supla::Control::Button::ButtonType::MONOSTABLE);
+
+    button->setMulticlickTime(muliclickTimeMs);
+    button->setHoldTime(holdTimeMs);
+    button->repeatOnHoldEvery(250);
+  }
+
   button->setSwNoiseFilterDelay(50);
   button->dontUseOnLoadConfig();
 
