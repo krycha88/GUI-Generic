@@ -182,8 +182,8 @@ void SuplaWebServer::sendHeaderEnd() {
 #ifdef ARDUINO_ARCH_ESP8266
     tcpCleanup();
     httpServer->client().flush();
-#elif ARDUINO_ARCH_ESP32
-    httpServer->client().clear();
+// #elif ARDUINO_ARCH_ESP32
+//     httpServer->client().clear();
 
 #endif
     httpServer->client().stop();
