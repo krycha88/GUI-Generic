@@ -46,8 +46,8 @@ Supla::Control::Button *Button(int pin, bool pullUp, bool invertLogic, uint8_t n
 
     button->setMulticlickTime(muliclickTimeMs);
     button->setHoldTime(holdTimeMs);
-    button->repeatOnHoldEvery(250);
   }
+    button->repeatOnHoldEvery(250);
 
   button->setSwNoiseFilterDelay(50);
   button->dontUseOnLoadConfig();
