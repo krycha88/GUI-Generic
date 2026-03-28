@@ -78,16 +78,17 @@ on:
       SUPLA_INCREASE_LIMIT: { type: boolean, default: false }
       SUPLA_INA219: { type: boolean, default: false }
 
-
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - run: pip install platformio
 
       - name: Prepare FLAGS
@@ -109,7 +110,8 @@ jobs:
           SUPLA_AHTX0 SUPLA_DISABLE_LOGS SUPLA_SPS30_KPOP SUPLA_INCREASE_LIMIT SUPLA_INA219"
 
           for FLAG in $ALL_FLAGS; do
-            VALUE="${{ inputs[FLAG] }}"
+            VAR="INPUT_${FLAG}"
+            VALUE="${!VAR}"
             if [ "$VALUE" = "true" ]; then
               FLAGS="$FLAGS -D $FLAG"
             fi
@@ -121,12 +123,15 @@ jobs:
       - name: Build firmware
         run: |
           echo "Using flags: $FLAGS"
-          pio run -e ${{ inputs.environment }} --project-option="build_flags=${FLAGS}"
+          pio run \
+            -e ${{ inputs.environment }} \
+            --project-option="build_flags=${FLAGS}"
 
       - name: Copy firmware
         run: |
           mkdir -p release
-          cp .pio/build/${{ inputs.environment }}/firmware.bin release/custom.bin
+          cp .pio/build/${{ inputs.environment }}/firmware.bin \
+             release/${{ inputs.environment }}.bin
 
       - uses: actions/upload-artifact@v4
         with:
