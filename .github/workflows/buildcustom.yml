@@ -16,51 +16,206 @@ on:
           - GUI_Generic_ESP32S2
           - GUI_Generic_ESP32S3
 
+name: Build Custom Firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment"
+        required: true
+        default: GUI_Generic_ESP32
+        type: choice
+        options:
+          - GUI_Generic_4MB_ESP8266
+          - GUI_Generic_ESP32
+          - GUI_Generic_ESP32C3
+          - GUI_Generic_ESP32S2
+          - GUI_Generic_ESP32S3
       SUPLA_RELAY:
         type: boolean
         default: false
-
       SUPLA_BUTTON:
         type: boolean
         default: false
-
+      SUPLA_ACTION_TRIGGER:
+        type: boolean
+        default: false
+      SUPLA_LIMIT_SWITCH:
+        type: boolean
+        default: false
+      SUPLA_ROLLERSHUTTER:
+        type: boolean
+        default: false
       SUPLA_DS18B20:
         type: boolean
         default: false
-
       SUPLA_DHT11:
         type: boolean
         default: false
-
       SUPLA_DHT22:
         type: boolean
         default: false
-
+      SUPLA_SI7021_SONOFF:
+        type: boolean
+        default: false
       SUPLA_BME280:
         type: boolean
         default: false
-
+      SUPLA_SHT3x:
+        type: boolean
+        default: false
+      SUPLA_SI7021:
+        type: boolean
+        default: false
+      SUPLA_MAX6675:
+        type: boolean
+        default: false
+      SUPLA_HC_SR04:
+        type: boolean
+        default: false
+      SUPLA_IMPULSE_COUNTER:
+        type: boolean
+        default: false
       SUPLA_OLED:
         type: boolean
         default: false
-
-      SUPLA_PZEM_V_3:
+      SUPLA_HLW8012:
         type: boolean
         default: false
-
+      SUPLA_MCP23017:
+        type: boolean
+        default: false
       SUPLA_RGBW:
         type: boolean
         default: false
-
+      SUPLA_PUSHOVER:
+        type: boolean
+        default: false
+      SUPLA_DIRECT_LINKS:
+        type: boolean
+        default: false
+      SUPLA_LED:
+        type: boolean
+        default: false
+      SUPLA_NTC_10K:
+        type: boolean
+        default: false
+      SUPLA_PZEM_V_3:
+        type: boolean
+        default: false
+      SUPLA_PZEM_ADR:
+        type: boolean
+        default: false
+      SUPLA_BMP280:
+        type: boolean
+        default: false
+      SUPLA_CSE7766:
+        type: boolean
+        default: false
+      SUPLA_DEEP_SLEEP:
+        type: boolean
+        default: false
+      SUPLA_MPX_5XXX:
+        type: boolean
+        default: false
+      SUPLA_VL53L0X:
+        type: boolean
+        default: false
+      SUPLA_DIRECT_LINKS_SENSOR_THERMOMETR:
+        type: boolean
+        default: false
+      SUPLA_CONDITIONS:
+        type: boolean
+        default: false
+      SUPLA_RF_BRIDGE:
+        type: boolean
+        default: false
+      SUPLA_HDC1080:
+        type: boolean
+        default: false
+      SUPLA_LCD_HD44780:
+        type: boolean
+        default: false
+      SUPLA_MAX31855:
+        type: boolean
+        default: false
+      SUPLA_ANALOG_READING_KPOP:
+        type: boolean
+        default: false
+      SUPLA_MAX44009_KPOP:
+        type: boolean
+        default: false
+      SUPLA_BH1750_KPOP:
+        type: boolean
+        default: false
+      SUPLA_VINDRIKTNING_IKEA_KPOP:
+        type: boolean
+        default: false
+      SUPLA_PMSX003_KPOP:
+        type: boolean
+        default: false
+      SUPLA_WT32_ETH01_LAN8720:
+        type: boolean
+        default: false
+      SUPLA_ETH01_LAN8720:
+        type: boolean
+        default: false
+      SUPLA_ADE7953:
+        type: boolean
+        default: false
+      SUPLA_PCF8575:
+        type: boolean
+        default: false
+      SUPLA_SHT_AUTODETECT:
+        type: boolean
+        default: false
+      SUPLA_PCF8574:
+        type: boolean
+        default: false
+      SUPLA_DIRECT_LINKS_MULTI_SENSOR:
+        type: boolean
+        default: false
+      SUPLA_WAKE_ON_LAN:
+        type: boolean
+        default: false
       SUPLA_MODBUS_SDM:
         type: boolean
         default: false
-
+      SUPLA_MODBUS_SDM_ONE_PHASE:
+        type: boolean
+        default: false
+      SUPLA_MODBUS_SDM_72_V2:
+        type: boolean
+        default: false
+      SUPLA_MS5611:
+        type: boolean
+        default: false
+      SUPLA_BONEIO_32x10A:
+        type: boolean
+        default: false
+      SUPLA_BONEIO_24x16A:
+        type: boolean
+        default: false
       SUPLA_THERMOSTAT:
         type: boolean
         default: false
-
+      SUPLA_CC1101:
+        type: boolean
+        default: false
+      SUPLA_AHTX0:
+        type: boolean
+        default: false
       SUPLA_DISABLE_LOGS:
+        type: boolean
+        default: false
+      SUPLA_SPS30_KPOP:
+        type: boolean
+        default: false
+      SUPLA_INCREASE_LIMIT:
+        type: boolean
+        default: false
+      SUPLA_INA219:
         type: boolean
         default: false
 
@@ -81,18 +236,24 @@ jobs:
         run: |
           FLAGS=""
 
-          [ "${{ inputs.SUPLA_RELAY }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_RELAY"
-          [ "${{ inputs.SUPLA_BUTTON }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_BUTTON"
-          [ "${{ inputs.SUPLA_DS18B20 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_DS18B20"
-          [ "${{ inputs.SUPLA_DHT11 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_DHT11"
-          [ "${{ inputs.SUPLA_DHT22 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_DHT22"
-          [ "${{ inputs.SUPLA_BME280 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_BME280"
-          [ "${{ inputs.SUPLA_OLED }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_OLED"
-          [ "${{ inputs.SUPLA_PZEM_V_3 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_PZEM_V_3"
-          [ "${{ inputs.SUPLA_RGBW }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_RGBW"
-          [ "${{ inputs.SUPLA_MODBUS_SDM }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_MODBUS_SDM"
-          [ "${{ inputs.SUPLA_THERMOSTAT }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_THERMOSTAT"
-          [ "${{ inputs.SUPLA_DISABLE_LOGS }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_DISABLE_LOGS"
+          for FLAG in SUPLA_RELAY SUPLA_BUTTON SUPLA_ACTION_TRIGGER SUPLA_LIMIT_SWITCH \
+          SUPLA_ROLLERSHUTTER SUPLA_DS18B20 SUPLA_DHT11 SUPLA_DHT22 SUPLA_SI7021_SONOFF \
+          SUPLA_BME280 SUPLA_SHT3x SUPLA_SI7021 SUPLA_MAX6675 SUPLA_HC_SR04 SUPLA_IMPULSE_COUNTER \
+          SUPLA_OLED SUPLA_HLW8012 SUPLA_MCP23017 SUPLA_RGBW SUPLA_PUSHOVER SUPLA_DIRECT_LINKS \
+          SUPLA_LED SUPLA_NTC_10K SUPLA_PZEM_V_3 SUPLA_PZEM_ADR SUPLA_BMP280 SUPLA_CSE7766 \
+          SUPLA_DEEP_SLEEP SUPLA_MPX_5XXX SUPLA_VL53L0X SUPLA_DIRECT_LINKS_SENSOR_THERMOMETR \
+          SUPLA_CONDITIONS SUPLA_RF_BRIDGE SUPLA_HDC1080 SUPLA_LCD_HD44780 SUPLA_MAX31855 \
+          SUPLA_ANALOG_READING_KPOP SUPLA_MAX44009_KPOP SUPLA_BH1750_KPOP SUPLA_VINDRIKTNING_IKEA_KPOP \
+          SUPLA_PMSX003_KPOP SUPLA_WT32_ETH01_LAN8720 SUPLA_ETH01_LAN8720 SUPLA_ADE7953 \
+          SUPLA_PCF8575 SUPLA_SHT_AUTODETECT SUPLA_PCF8574 SUPLA_DIRECT_LINKS_MULTI_SENSOR \
+          SUPLA_WAKE_ON_LAN SUPLA_MODBUS_SDM SUPLA_MODBUS_SDM_ONE_PHASE SUPLA_MODBUS_SDM_72_V2 \
+          SUPLA_MS5611 SUPLA_BONEIO_32x10A SUPLA_BONEIO_24x16A SUPLA_THERMOSTAT SUPLA_CC1101 \
+          SUPLA_AHTX0 SUPLA_DISABLE_LOGS SUPLA_SPS30_KPOP SUPLA_INCREASE_LIMIT SUPLA_INA219
+          do
+            if [ "${{ inputs[$FLAG] }}" = "true" ]; then
+              FLAGS="$FLAGS -D $FLAG"
+            fi
+          done
 
           echo "FLAGS=$FLAGS"
           echo "FLAGS=$FLAGS" >> $GITHUB_ENV
