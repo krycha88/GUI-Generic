@@ -1,4 +1,4 @@
-name: Build and Release SuplaDeviceGUI
+name: Build and Release GUI Generic
 
 on:
   workflow_dispatch:
