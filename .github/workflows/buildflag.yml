@@ -1,0 +1,84 @@
+name: Build Custom Firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment"
+        required: true
+        default: GUI_Generic_ESP32
+        type: choice
+        options:
+          - GUI_Generic_4MB_ESP8266
+          - GUI_Generic_ESP32
+          - GUI_Generic_ESP32C3
+          - GUI_Generic_ESP32S2
+          - GUI_Generic_ESP32S3
+
+      TEST_BUILD:
+        description: "Enable TEST_BUILD"
+        type: boolean
+        default: false
+
+      DEBUG:
+        description: "Enable DEBUG"
+        type: boolean
+        default: false
+
+      OTA_TEST:
+        description: "Enable OTA_TEST"
+        type: boolean
+        default: false
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install platformio
+
+      - name: Prepare flags
+        id: flags
+        run: |
+          FLAGS=""
+
+          if [ "${{ inputs.TEST_BUILD }}" = "true" ]; then
+            FLAGS="$FLAGS -D TEST_BUILD"
+          fi
+
+          if [ "${{ inputs.DEBUG }}" = "true" ]; then
+            FLAGS="$FLAGS -D DEBUG"
+          fi
+
+          if [ "${{ inputs.OTA_TEST }}" = "true" ]; then
+            FLAGS="$FLAGS -D OTA_TEST"
+          fi
+
+          echo "FLAGS=$FLAGS"
+          echo "FLAGS=$FLAGS" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
+          echo "Using flags: $FLAGS"
+          pio run \
+            -e ${{ inputs.environment }} \
+            --project-option="build_flags=${FLAGS}"
+
+      - name: Copy firmware
+        run: |
+          mkdir -p release
+          cp .pio/build/${{ inputs.environment }}/firmware.bin \
+             release/${{ inputs.environment }}.bin
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-${{ inputs.environment }}-${{ github.run_number }}
+          path: release/*.bin
