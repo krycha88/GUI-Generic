@@ -13,11 +13,11 @@ jobs:
     strategy:
       matrix:
         env:
-          - ESP8266
-          - ESP32
-          - ESP32C3
-          - ESP32S2
-          - ESP32S3
+          - GUI_Generic_4MB_ESP8266
+          - GUI_Generic_ESP32
+          - GUI_Generic_ESP32C3
+          - GUI_Generic_ESP32S2
+          - GUI_Generic_ESP32S3
 
     steps:
       - name: Checkout repo
@@ -32,25 +32,12 @@ jobs:
         run: pip install platformio
 
       - name: Build ${{ matrix.env }}
-        run: |
-          case "${{ matrix.env }}" in
-            ESP8266) pio run -e SuplaDevice_ESP8266 ;;
-            ESP32)   pio run -e SuplaDevice_ESP32 ;;
-            ESP32C3) pio run -e SuplaDevice_ESP32C3 ;;
-            ESP32S2) pio run -e SuplaDevice_ESP32S2 ;;
-            ESP32S3) pio run -e SuplaDevice_ESP32S3 ;;
-          esac
+        run: pio run -e ${{ matrix.env }}
 
       - name: Copy firmware binaries
         run: |
           mkdir -p release
-          case "${{ matrix.env }}" in
-            ESP8266) cp .pio/build/SuplaDevice_ESP8266/firmware.bin release/SuplaDevice_ESP8266.bin ;;
-            ESP32)   cp .pio/build/SuplaDevice_ESP32/firmware.bin release/SuplaDevice_ESP32.bin ;;
-            ESP32C3) cp .pio/build/SuplaDevice_ESP32C3/firmware.bin release/SuplaDevice_ESP32C3.bin ;;
-            ESP32S2) cp .pio/build/SuplaDevice_ESP32S2/firmware.bin release/SuplaDevice_ESP32S2.bin ;;
-            ESP32S3) cp .pio/build/SuplaDevice_ESP32S3/firmware.bin release/SuplaDevice_ESP32S3.bin ;;
-          esac
+          cp .pio/build/${{ matrix.env }}/firmware.bin release/${{ matrix.env }}.bin
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -81,7 +68,7 @@ jobs:
       - name: List release files
         run: ls -R release
 
-      # 🚀 Release versioned
+      # Release versioned
       - name: Upload versioned release
         uses: softprops/action-gh-release@v1
         with:
@@ -90,7 +77,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: release/**/*.bin
 
-      # 🔁 Delete old latest
+      # Delete latest
       - name: Delete old latest
         uses: dev-drprasad/delete-tag-and-release@v1.0
         continue-on-error: true
@@ -99,7 +86,7 @@ jobs:
           delete_release: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 🚀 Upload latest
+      # Upload latest
       - name: Upload latest
         uses: softprops/action-gh-release@v1
         with:
