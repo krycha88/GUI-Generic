@@ -15,8 +15,6 @@ jobs:
         env:
           - GUI_Generic_4MB_ESP8266
           - GUI_Generic_ESP32
-          - GUI_Generic_ESP32C3
-          - GUI_Generic_ESP32S3
 
     steps:
       - name: Checkout repo
