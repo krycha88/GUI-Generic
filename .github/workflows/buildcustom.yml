@@ -1,0 +1,118 @@
+name: Build Custom Firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+
+      environment:
+        description: "Environment"
+        required: true
+        default: GUI_Generic_ESP32
+        type: choice
+        options:
+          - GUI_Generic_4MB_ESP8266
+          - GUI_Generic_ESP32
+          - GUI_Generic_ESP32C3
+          - GUI_Generic_ESP32S2
+          - GUI_Generic_ESP32S3
+
+      SUPLA_RELAY:
+        type: boolean
+        default: false
+
+      SUPLA_BUTTON:
+        type: boolean
+        default: false
+
+      SUPLA_DS18B20:
+        type: boolean
+        default: false
+
+      SUPLA_DHT11:
+        type: boolean
+        default: false
+
+      SUPLA_DHT22:
+        type: boolean
+        default: false
+
+      SUPLA_BME280:
+        type: boolean
+        default: false
+
+      SUPLA_OLED:
+        type: boolean
+        default: false
+
+      SUPLA_PZEM_V_3:
+        type: boolean
+        default: false
+
+      SUPLA_RGBW:
+        type: boolean
+        default: false
+
+      SUPLA_MODBUS_SDM:
+        type: boolean
+        default: false
+
+      SUPLA_THERMOSTAT:
+        type: boolean
+        default: false
+
+      SUPLA_DISABLE_LOGS:
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install platformio
+
+      - name: Prepare flags
+        run: |
+          FLAGS=""
+
+          [ "${{ inputs.SUPLA_RELAY }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_RELAY"
+          [ "${{ inputs.SUPLA_BUTTON }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_BUTTON"
+          [ "${{ inputs.SUPLA_DS18B20 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_DS18B20"
+          [ "${{ inputs.SUPLA_DHT11 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_DHT11"
+          [ "${{ inputs.SUPLA_DHT22 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_DHT22"
+          [ "${{ inputs.SUPLA_BME280 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_BME280"
+          [ "${{ inputs.SUPLA_OLED }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_OLED"
+          [ "${{ inputs.SUPLA_PZEM_V_3 }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_PZEM_V_3"
+          [ "${{ inputs.SUPLA_RGBW }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_RGBW"
+          [ "${{ inputs.SUPLA_MODBUS_SDM }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_MODBUS_SDM"
+          [ "${{ inputs.SUPLA_THERMOSTAT }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_THERMOSTAT"
+          [ "${{ inputs.SUPLA_DISABLE_LOGS }}" = "true" ] && FLAGS="$FLAGS -D SUPLA_DISABLE_LOGS"
+
+          echo "FLAGS=$FLAGS"
+          echo "FLAGS=$FLAGS" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
+          echo "Extra flags: $FLAGS"
+
+          pio run \
+            -e ${{ inputs.environment }} \
+            --project-option="build_flags=${FLAGS}"
+
+      - name: Copy firmware
+        run: |
+          mkdir -p release
+          cp .pio/build/${{ inputs.environment }}/firmware.bin \
+             release/${{ inputs.environment }}.bin
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-${{ inputs.environment }}-${{ github.run_number }}
+          path: release/*.bin
