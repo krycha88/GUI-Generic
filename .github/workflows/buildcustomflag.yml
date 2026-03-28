@@ -15,68 +15,11 @@ on:
           - GUI_Generic_ESP32S2
           - GUI_Generic_ESP32S3
 
-      SUPLA_RELAY: { type: boolean, default: false }
-      SUPLA_BUTTON: { type: boolean, default: false }
-      SUPLA_ACTION_TRIGGER: { type: boolean, default: false }
-      SUPLA_LIMIT_SWITCH: { type: boolean, default: false }
-      SUPLA_ROLLERSHUTTER: { type: boolean, default: false }
-      SUPLA_DS18B20: { type: boolean, default: false }
-      SUPLA_DHT11: { type: boolean, default: false }
-      SUPLA_DHT22: { type: boolean, default: false }
-      SUPLA_SI7021_SONOFF: { type: boolean, default: false }
-      SUPLA_BME280: { type: boolean, default: false }
-      SUPLA_SHT3x: { type: boolean, default: false }
-      SUPLA_SI7021: { type: boolean, default: false }
-      SUPLA_MAX6675: { type: boolean, default: false }
-      SUPLA_HC_SR04: { type: boolean, default: false }
-      SUPLA_IMPULSE_COUNTER: { type: boolean, default: false }
-      SUPLA_OLED: { type: boolean, default: false }
-      SUPLA_HLW8012: { type: boolean, default: false }
-      SUPLA_MCP23017: { type: boolean, default: false }
-      SUPLA_RGBW: { type: boolean, default: false }
-      SUPLA_PUSHOVER: { type: boolean, default: false }
-      SUPLA_DIRECT_LINKS: { type: boolean, default: false }
-      SUPLA_LED: { type: boolean, default: false }
-      SUPLA_NTC_10K: { type: boolean, default: false }
-      SUPLA_PZEM_V_3: { type: boolean, default: false }
-      SUPLA_PZEM_ADR: { type: boolean, default: false }
-      SUPLA_BMP280: { type: boolean, default: false }
-      SUPLA_CSE7766: { type: boolean, default: false }
-      SUPLA_DEEP_SLEEP: { type: boolean, default: false }
-      SUPLA_MPX_5XXX: { type: boolean, default: false }
-      SUPLA_VL53L0X: { type: boolean, default: false }
-      SUPLA_DIRECT_LINKS_SENSOR_THERMOMETR: { type: boolean, default: false }
-      SUPLA_CONDITIONS: { type: boolean, default: false }
-      SUPLA_RF_BRIDGE: { type: boolean, default: false }
-      SUPLA_HDC1080: { type: boolean, default: false }
-      SUPLA_LCD_HD44780: { type: boolean, default: false }
-      SUPLA_MAX31855: { type: boolean, default: false }
-      SUPLA_ANALOG_READING_KPOP: { type: boolean, default: false }
-      SUPLA_MAX44009_KPOP: { type: boolean, default: false }
-      SUPLA_BH1750_KPOP: { type: boolean, default: false }
-      SUPLA_VINDRIKTNING_IKEA_KPOP: { type: boolean, default: false }
-      SUPLA_PMSX003_KPOP: { type: boolean, default: false }
-      SUPLA_WT32_ETH01_LAN8720: { type: boolean, default: false }
-      SUPLA_ETH01_LAN8720: { type: boolean, default: false }
-      SUPLA_ADE7953: { type: boolean, default: false }
-      SUPLA_PCF8575: { type: boolean, default: false }
-      SUPLA_SHT_AUTODETECT: { type: boolean, default: false }
-      SUPLA_PCF8574: { type: boolean, default: false }
-      SUPLA_DIRECT_LINKS_MULTI_SENSOR: { type: boolean, default: false }
-      SUPLA_WAKE_ON_LAN: { type: boolean, default: false }
-      SUPLA_MODBUS_SDM: { type: boolean, default: false }
-      SUPLA_MODBUS_SDM_ONE_PHASE: { type: boolean, default: false }
-      SUPLA_MODBUS_SDM_72_V2: { type: boolean, default: false }
-      SUPLA_MS5611: { type: boolean, default: false }
-      SUPLA_BONEIO_32x10A: { type: boolean, default: false }
-      SUPLA_BONEIO_24x16A: { type: boolean, default: false }
-      SUPLA_THERMOSTAT: { type: boolean, default: false }
-      SUPLA_CC1101: { type: boolean, default: false }
-      SUPLA_AHTX0: { type: boolean, default: false }
-      SUPLA_DISABLE_LOGS: { type: boolean, default: false }
-      SUPLA_SPS30_KPOP: { type: boolean, default: false }
-      SUPLA_INCREASE_LIMIT: { type: boolean, default: false }
-      SUPLA_INA219: { type: boolean, default: false }
+      modules:
+        description: "JSON list of selected modules"
+        required: false
+        default: "{}"
+        type: string
 
 jobs:
   build:
@@ -84,16 +27,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
       - run: pip install platformio
 
-      - name: Prepare FLAGS
+      - name: Parse flags
         run: |
           FLAGS=""
+          JSON='${{ inputs.modules }}'
 
           ALL_FLAGS="SUPLA_RELAY SUPLA_BUTTON SUPLA_ACTION_TRIGGER SUPLA_LIMIT_SWITCH \
           SUPLA_ROLLERSHUTTER SUPLA_DS18B20 SUPLA_DHT11 SUPLA_DHT22 SUPLA_SI7021_SONOFF \
@@ -110,9 +57,7 @@ jobs:
           SUPLA_AHTX0 SUPLA_DISABLE_LOGS SUPLA_SPS30_KPOP SUPLA_INCREASE_LIMIT SUPLA_INA219"
 
           for FLAG in $ALL_FLAGS; do
-            VAR="INPUT_${FLAG}"
-            VALUE="${!VAR}"
-            if [ "$VALUE" = "true" ]; then
+            if echo "$JSON" | jq -e ".${FLAG} == true" >/dev/null 2>&1; then
               FLAGS="$FLAGS -D $FLAG"
             fi
           done
@@ -122,16 +67,15 @@ jobs:
 
       - name: Build firmware
         run: |
-          echo "Using flags: $FLAGS"
           pio run \
             -e ${{ inputs.environment }} \
             --project-option="build_flags=${FLAGS}"
 
-      - name: Copy firmware
+      - name: Copy
         run: |
           mkdir -p release
           cp .pio/build/${{ inputs.environment }}/firmware.bin \
-             release/${{ inputs.environment }}.bin
+            release/${{ inputs.environment }}.bin
 
       - uses: actions/upload-artifact@v4
         with:
