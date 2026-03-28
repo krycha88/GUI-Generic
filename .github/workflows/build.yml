@@ -70,7 +70,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
-          name: SuplaDeviceGUI ${{ env.VERSION }}
+          name: GUI-Generic ${{ env.VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}
           files: release/**/*.bin
 
@@ -88,6 +88,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
-          name: SuplaDeviceGUI latest
+          name: GUI-Generic latest
           token: ${{ secrets.GITHUB_TOKEN }}
           files: release/**/*.bin
