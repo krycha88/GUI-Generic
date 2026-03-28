@@ -1,36 +1,105 @@
 #ifdef SUPLA_DS18B20
-
 #include "DS_18B20.h"
 #include "../../SuplaDeviceGUI.h"
 
-OneWire DS18B20::sharedOneWire;
-DallasTemperature DS18B20::sharedSensors(&sharedOneWire);
-unsigned long DS18B20::lastConversionTime = 0;
+namespace Supla {
+namespace Sensor {
 
-void DS18B20::initSharedResources(uint8_t pin) {
-  pinMode(pin, INPUT_PULLUP);
+OneWireBus::OneWireBus(uint8_t pinNumber) : pin(pinNumber), nextBus(nullptr), lastReadTime(0), oneWire(pinNumber) {
+  SUPLA_LOG_DEBUG("Initializing OneWire bus at pin %d", pinNumber);
+  sensors.setOneWire(&oneWire);
+  sensors.begin();
 
-  sharedOneWire.begin(pin);
-  sharedSensors.setOneWire(&sharedOneWire);
-  sharedSensors.begin();
-  sharedSensors.setResolution(10);
+  if (sensors.isParasitePowerMode()) {
+    SUPLA_LOG_DEBUG("OneWire(pin %d) Parasite power is ON", pinNumber);
+  }
+  else {
+    SUPLA_LOG_DEBUG("OneWire(pin %d) Parasite power is OFF", pinNumber);
+  }
 
-  waitForAndRequestTemperatures();
+  SUPLA_LOG_DEBUG("OneWire(pin %d) Found %d devices:", pinNumber, sensors.getDeviceCount());
+
+  DeviceAddress address;
+  char strAddr[64];
+
+  for (int i = 0; i < sensors.getDeviceCount(); i++) {
+    if (!sensors.getAddress(address, i)) {
+      SUPLA_LOG_DEBUG("Unable to find address for Device %d", i);
+    }
+    else {
+      snprintf(strAddr, sizeof(strAddr), "{0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X}", address[0], address[1], address[2],
+               address[3], address[4], address[5], address[6], address[7]);
+
+      SUPLA_LOG_DEBUG("Index %d - address %s", i, strAddr);
+      sensors.setResolution(address, 12);
+    }
+    delay(0);
+  }
+
+  sensors.setWaitForConversion(true);
+  sensors.requestTemperatures();
+  sensors.setWaitForConversion(false);
 }
 
-void DS18B20::onInit() {
-  channel.setNewValue(getValue());
+int8_t OneWireBus::getIndex(uint8_t *deviceAddress) {
+  DeviceAddress address;
+
+  for (int i = 0; i < sensors.getDeviceCount(); i++) {
+    if (sensors.getAddress(address, i)) {
+      bool found = true;
+      for (int j = 0; j < 8; j++) {
+        if (deviceAddress[j] != address[j]) {
+          found = false;
+        }
+      }
+
+      if (found) {
+        return i;
+      }
+    }
+  }
+
+  return -1;
 }
 
-DS18B20::DS18B20(uint8_t *deviceAddress) : lastValidValue(TEMPERATURE_NOT_AVAILABLE), retryCounter(0), lastUpdateTime(0) {
-  unsigned long currentTime = millis();
-  channel.setNewValue(getValue());
+// ---------------- DS18B20 ----------------
 
-  lastConversionTime = currentTime;
-  lastUpdateTime = currentTime;
+OneWireBus *DS18B20::oneWireBus = nullptr;
+
+DS18B20::DS18B20(uint8_t pin, uint8_t *deviceAddress) {
+  OneWireBus *bus = oneWireBus;
+  OneWireBus *prevBus = nullptr;
+
+  address[0] = 0;
+  lastValidValue = TEMPERATURE_NOT_AVAILABLE;
+  retryCounter = 0;
+  lastReadTime = 0;
+
+  if (bus) {
+    while (bus) {
+      if (bus->pin == pin) {
+        myBus = bus;
+        break;
+      }
+      prevBus = bus;
+      bus = bus->nextBus;
+    }
+  }
+
+  if (!bus) {
+    SUPLA_LOG_DEBUG("Creating OneWire bus for pin: %d", pin);
+    myBus = new OneWireBus(pin);
+
+    if (prevBus) {
+      prevBus->nextBus = myBus;
+    }
+    else {
+      oneWireBus = myBus;
+    }
+  }
 
   if (deviceAddress == nullptr) {
-    address[0] = 0;
+    SUPLA_LOG_DEBUG("Device address not provided. Using device from index 0");
   }
   else {
     memcpy(address, deviceAddress, 8);
@@ -38,31 +107,25 @@ DS18B20::DS18B20(uint8_t *deviceAddress) : lastValidValue(TEMPERATURE_NOT_AVAILA
 }
 
 void DS18B20::iterateAlways() {
-  unsigned long now = millis();
-
-  if (now - lastConversionTime >= 10000) {
-    sharedSensors.requestTemperatures();
-    lastConversionTime = now;
+  if (millis() - myBus->lastReadTime > 10000) {
+    myBus->sensors.requestTemperatures();
+    myBus->lastReadTime = millis();
   }
 
-  if ((now - lastConversionTime >= 5000) && (lastUpdateTime != lastConversionTime)) {
-    float temp = getValue();
-    channel.setNewValue(temp);
-
-    lastUpdateTime = lastConversionTime;
+  if (millis() - myBus->lastReadTime > 5000 && (lastReadTime != myBus->lastReadTime)) {
+    channel.setNewValue(getValue());
+    lastReadTime = myBus->lastReadTime;
   }
-
-  yield();
 }
 
 double DS18B20::getValue() {
   double value = TEMPERATURE_NOT_AVAILABLE;
 
-  if (address[0] == 0 && ConfigManager->get(KEY_MULTI_MAX_DS18B20)->getValueInt() == 1) {
-    value = sharedSensors.getTempCByIndex(0);
+  if (address[0] == 0) {
+    value = myBus->sensors.getTempCByIndex(0);
   }
   else {
-    value = sharedSensors.getTempC(address);
+    value = myBus->sensors.getTempC(address);
   }
 
   if (value == DEVICE_DISCONNECTED_C || value == 85.0) {
@@ -71,42 +134,23 @@ double DS18B20::getValue() {
 
   if (value == TEMPERATURE_NOT_AVAILABLE) {
     retryCounter++;
-
     if (retryCounter > 3) {
       retryCounter = 0;
-      return lastValidValue;
     }
     else {
-      return lastValidValue;
+      value = lastValidValue;
     }
   }
+  else {
+    retryCounter = 0;
+  }
 
-  retryCounter = 0;
   lastValidValue = value;
   return value;
 }
 
-void DS18B20::waitForAndRequestTemperatures() {
-  sharedSensors.setWaitForConversion(false);
-  sharedSensors.requestTemperatures();
-}
-
-void DS18B20::restartOneWire() {
-  if (ConfigManager->get(KEY_MULTI_MAX_DS18B20)->getValueInt() == 1) {
-    supla_log(LOG_DEBUG, "Restarting OneWire...");
-    sharedOneWire.reset();
-    waitForAndRequestTemperatures();
-    channel.setNewValue(getValue());
-  }
-}
-
-void DS18B20::setDeviceAddress(uint8_t *deviceAddress) {
-  if (deviceAddress == nullptr) {
-    supla_log(LOG_DEBUG, "Device address not provided. Using device from index 0");
-  }
-  else {
-    memcpy(address, deviceAddress, 8);
-  }
+DallasTemperature &DS18B20::getHwSensors() {
+  return myBus->sensors;
 }
 
 void DS18B20::findAndSaveDS18B20Addresses() {
@@ -150,4 +194,15 @@ void DS18B20::findAndSaveDS18B20Addresses() {
 
   ConfigManager->save();
 }
+void DS18B20::setDeviceAddress(uint8_t *deviceAddress) {
+  if (deviceAddress == nullptr) {
+    supla_log(LOG_DEBUG, "Device address not provided. Using device from index 0");
+  }
+  else {
+    memcpy(address, deviceAddress, 8);
+  }
+}
+
+};  // namespace Sensor
+};  // namespace Supla
 #endif

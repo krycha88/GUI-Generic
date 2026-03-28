@@ -480,16 +480,15 @@ void addDirectLinks(uint8_t nr) {
 #ifdef SUPLA_DS18B20
 void addDS18B20MultiThermometer(int pinNumber) {
   uint8_t maxDevices = ConfigManager->get(KEY_MULTI_MAX_DS18B20)->getValueInt();
-
-  DS18B20::initSharedResources(pinNumber);
+  uint8_t pin = ConfigESP->getGpio(FUNCTION_DS18B20);
 
   if (maxDevices > 1) {
     if (strcmp(ConfigManager->get(KEY_ADDR_DS18B20)->getElement(0).c_str(), "") == 0) {
-      DS18B20::findAndSaveDS18B20Addresses();
+      Supla::Sensor::DS18B20::findAndSaveDS18B20Addresses();
     }
 
     for (int i = 0; i < maxDevices; ++i) {
-      auto ds = new DS18B20(HexToBytes(ConfigManager->get(KEY_ADDR_DS18B20)->getElement(i)));
+      auto ds = new Supla::Sensor::DS18B20(pin, HexToBytes(ConfigManager->get(KEY_ADDR_DS18B20)->getElement(i)));
       sensorDS.push_back(ds);
 
       supla_log(LOG_DEBUG, "Index %d - address %s", i, ConfigManager->get(KEY_ADDR_DS18B20)->getElement(i).c_str());
@@ -500,8 +499,7 @@ void addDS18B20MultiThermometer(int pinNumber) {
     }
   }
   else {
-    auto ds = new DS18B20(nullptr);
-
+    auto ds = new Supla::Sensor::DS18B20(pin, nullptr);
     sensorDS.push_back(ds);
 
 #ifdef SUPLA_CONDITIONS
@@ -771,7 +769,7 @@ std::vector<Supla::Control::Relay *> relay;
 #endif
 
 #ifdef SUPLA_DS18B20
-std::vector<DS18B20 *> sensorDS;
+std::vector<Supla::Sensor::DS18B20 *> sensorDS;
 #endif
 
 #ifdef SUPLA_HLW8012

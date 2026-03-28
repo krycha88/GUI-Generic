@@ -138,7 +138,7 @@ void handleSensor1WireSave() {
   }
   else {
     if (strcmp(ConfigManager->get(KEY_ADDR_DS18B20)->getElement(0).c_str(), "") == 0) {
-      DS18B20::findAndSaveDS18B20Addresses();
+      Supla::Sensor::DS18B20::findAndSaveDS18B20Addresses();
     }
   }
 #endif

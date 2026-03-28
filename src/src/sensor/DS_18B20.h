@@ -5,38 +5,50 @@
 
 #include <Arduino.h>
 #include <DallasTemperature.h>
-#include <OneWireNg.h>
+#include <OneWire.h>
 
-#include <supla-common/log.h>
-#include <supla/sensor/thermometer.h>
+#include <supla/log_wrapper.h>
+#include "supla/sensor/thermometer.h"
 
-class DS18B20 : public Supla::Sensor::Thermometer {
+namespace Supla {
+namespace Sensor {
+
+class OneWireBus {
  public:
-  DS18B20(uint8_t* deviceAddress);
+  explicit OneWireBus(uint8_t pinNumber);
+
+  int8_t getIndex(uint8_t *deviceAddress);
+
+  uint8_t pin;
+  OneWireBus *nextBus;
+  uint32_t lastReadTime;
+  DallasTemperature sensors;
+
+ protected:
+  OneWire oneWire;
+};
+
+class DS18B20 : public Thermometer {
+ public:
+  explicit DS18B20(uint8_t pin, uint8_t *deviceAddress = nullptr);
+
   void iterateAlways();
   double getValue();
-
-  void onInit();
-  static void initSharedResources(uint8_t pin);
-  void setDeviceAddress(uint8_t* deviceAddress);
-  static void waitForAndRequestTemperatures();
-  void restartOneWire();
-
+  DallasTemperature &getHwSensors();
   static void findAndSaveDS18B20Addresses();
+  void setDeviceAddress(uint8_t* deviceAddress);
 
- private:
-  static OneWire sharedOneWire;
-  static DallasTemperature sharedSensors;
-
-  static unsigned long lastConversionTime;
-  const unsigned long conversionInterval = 10000;
-
-  uint8_t address[8];
+ protected:
+  static OneWireBus *oneWireBus;
+  OneWireBus *myBus;
+  DeviceAddress address;
+  int8_t retryCounter;
   double lastValidValue;
-  uint8_t retryCounter;
-
-  unsigned long lastUpdateTime;
+  uint32_t lastReadTime;
 };
+
+};  // namespace Sensor
+};  // namespace Supla
 
 #endif  // SuplaSensorDS18B20_h
 #endif

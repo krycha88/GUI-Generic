@@ -334,7 +334,7 @@ void addDirectLinks(uint8_t nr);
 #ifdef SUPLA_DS18B20
 void addDS18B20MultiThermometer(int pinNumber);
 
-extern std::vector<DS18B20 *> sensorDS;
+extern std::vector<Supla::Sensor::DS18B20 *> sensorDS;
 #endif
 
 #ifdef SUPLA_CONFIG
