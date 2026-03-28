@@ -4,10 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment"
-        required: true
-        default: GUI_Generic_ESP32
+        description: "Select environment"
         type: choice
+        default: GUI_Generic_ESP32
         options:
           - GUI_Generic_4MB_ESP8266
           - GUI_Generic_ESP32
@@ -35,11 +34,6 @@ on:
       SUPLA_MCP23017: { type: boolean, default: false }
       SUPLA_RGBW: { type: boolean, default: false }
       SUPLA_PUSHOVER: { type: boolean, default: false }
-      SUPLA_DIRECT_LINKS: { type: boolean, default: false }
-      SUPLA_LED: { type: boolean, default: false }
-      SUPLA_NTC_10K: { type: boolean, default: false }
-      SUPLA_PZEM_V_3: { type: boolean, default: false }
-      SUPLA_PZEM_ADR: { type: boolean, default: false }
 
 jobs:
   build:
@@ -57,14 +51,12 @@ jobs:
       - name: Prepare FLAGS
         run: |
           FLAGS=""
-
-          # LISTA MUSI BYĆ IDENTYCZNA Z inputs:
+          
           ALL_FLAGS="SUPLA_RELAY SUPLA_BUTTON SUPLA_ACTION_TRIGGER SUPLA_LIMIT_SWITCH \
           SUPLA_ROLLERSHUTTER SUPLA_DS18B20 SUPLA_DHT11 SUPLA_DHT22 SUPLA_SI7021_SONOFF \
           SUPLA_BME280 SUPLA_SHT3x SUPLA_SI7021 SUPLA_MAX6675 SUPLA_HC_SR04 \
           SUPLA_IMPULSE_COUNTER SUPLA_OLED SUPLA_HLW8012 SUPLA_MCP23017 SUPLA_RGBW \
-          SUPLA_PUSHOVER SUPLA_DIRECT_LINKS SUPLA_LED SUPLA_NTC_10K SUPLA_PZEM_V_3 \
-          SUPLA_PZEM_ADR"
+          SUPLA_PUSHOVER"
 
           for FLAG in $ALL_FLAGS; do
             VAR="INPUT_${FLAG}"
@@ -80,7 +72,8 @@ jobs:
       - name: Build firmware
         run: |
           echo "Using flags: $FLAGS"
-          pio run -e ${{ inputs.environment }} \
+          pio run \
+            -e ${{ inputs.environment }} \
             --project-option="build_flags=${FLAGS}"
 
       - name: Copy firmware
