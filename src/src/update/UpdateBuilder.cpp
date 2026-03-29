@@ -23,85 +23,72 @@ UpdateBuilder::UpdateBuilder(const String& url) {
 
 int UpdateBuilder::check() {
   WiFiClient client;
+  client.setTimeout(5000); // timeout 5 sekund
 
-  Serial.print("connecting to ");
+  Serial.print("Connecting to ");
   Serial.print(parseURL->getHost());
   Serial.print(":");
   Serial.println(parseURL->getPort());
 
   if (!client.connect(parseURL->getHost().c_str(), parseURL->getPort())) {
-    Serial.println("connection failed");
+    Serial.println("Connection failed");
     return BUILDER_UPDATE_FAILED;
   }
 
-  client.print(String("GET ") + parseURL->getPath().c_str() + " HTTP/1.1\r\n" + "Host: " + parseURL->getHost().c_str() + "\r\n" +
+  // Wysłanie żądania GET
+  client.print(String("GET ") + parseURL->getPath().c_str() + " HTTP/1.1\r\n" +
+               "Host: " + parseURL->getHost().c_str() + "\r\n" +
+               "User-Agent: ESPUpdater/1.0\r\n" +
                "Connection: close\r\n\r\n");
 
-  while (client.connected() || client.available()) {
-    if (client.readStringUntil('\n') == "\r") {
+  // Odczyt nagłówków HTTP
+  unsigned long startTime = millis();
+  while (client.connected()) {
+    if (millis() - startTime > 5000) { // timeout nagłówków
+      Serial.println("Header read timeout");
+      client.stop();
+      return BUILDER_UPDATE_FAILED;
+    }
+
+    String line = client.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0) { // koniec nagłówków
       Serial.println(F("UpdateBuilder - Headers received"));
       break;
     }
   }
 
-  String result = client.readStringUntil('\n');
+  // Odczyt treści odpowiedzi do bufora
+  const size_t BUFFER_SIZE = 512; // bezpieczny rozmiar bufora
+  char buffer[BUFFER_SIZE];
+  size_t pos = 0;
 
-  // #ifdef ARDUINO_ARCH_ESP8266
-  //   String result = "";
-  //   while (client.connected()) {
-  //     if (client.available()) {
-  //       char c = client.read();
-  //       // Serial.write(c);
-  //       if (c == '\n') {  // Headers received
-  //         result = "";
-  //       }
-  //       else if (c != '\r') {
-  //         result += c;
-  //       }
-  //     }
-  //   }
-  // #elif ARDUINO_ARCH_ESP32
-  //   while (client.connected() || client.available()) {
-  //     if (client.readStringUntil('\n') == "\r") {
-  //       Serial.println(F("UpdateBuilder - Headers received"));
-  //       break;
-  //     }
-  //   }
+  startTime = millis();
+  while (client.connected() || client.available()) {
+    if (millis() - startTime > 5000) { // timeout odczytu
+      Serial.println("Body read timeout");
+      client.stop();
+      return BUILDER_UPDATE_FAILED;
+    }
 
-  //   String result = "";
-  //   while (client.connected() || client.available()) {
-  //     char c = client.read();
-  //     result += c;
-  //   }
-  // #endif
+    while (client.available() && pos < BUFFER_SIZE - 1) {
+      char c = client.read();
+      buffer[pos++] = c;
+    }
+  }
 
+  buffer[pos] = '\0'; // zakończenie stringa
   client.stop();
 
   Serial.print("Update status: ");
+  Serial.println(buffer);
 
-  if (result.endsWith("NONE")) {
-    Serial.println("NONE");
-    return BUILDER_UPDATE_NO_UPDATES;
-  }
-  if (result.endsWith("WAIT")) {
-    Serial.println("WAIT");
-    return BUILDER_UPDATE_WAIT;
-  }
-
-  if (result.endsWith("READY")) {
-    Serial.println("READY");
-    return BUILDER_UPDATE_READY;
-  }
-
-  if (result.endsWith("UNKNOWN")) {
-    Serial.println("UNKNOWN");
-    return BUILDER_UPDATE_FAILED;
-  }
-
-  if (result.endsWith("ERROR")) {
-    Serial.println("ERROR");
-    return BUILDER_UPDATE_FAILED;
-  }
+  // Analiza odpowiedzi
+  if (strstr(buffer, "NONE") != nullptr)   return BUILDER_UPDATE_NO_UPDATES;
+  if (strstr(buffer, "WAIT") != nullptr)   return BUILDER_UPDATE_WAIT;
+  if (strstr(buffer, "READY") != nullptr)  return BUILDER_UPDATE_READY;
+  if (strstr(buffer, "UNKNOWN") != nullptr) return BUILDER_UPDATE_FAILED;
+  if (strstr(buffer, "ERROR") != nullptr)  return BUILDER_UPDATE_FAILED;
 
   return BUILDER_UPDATE_FAILED;
 }
