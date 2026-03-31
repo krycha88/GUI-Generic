@@ -19,23 +19,31 @@
 #include "DirectLinksConnect.h"
 #include "../../GUIGenericCommon.h"
 
+#ifdef ARDUINO_ARCH_ESP32
+#include <WiFiClientSecure.h>
+#else
+#include <ESP8266WiFi.h>
+#include <WiFiClientSecureBearSSL.h>
+#endif
+
 namespace Supla {
 namespace Sensor {
 
 DirectLinksConnect::DirectLinksConnect(const char *url, const char *host, bool isSecured) : client(nullptr), lastReadTime(0) {
-  this->setUrl(url);
+  setUrl(url);
 
-  String server(host);
-  auto npos = server.indexOf(":");
+  char hostCopy[MAX_HOST_SIZE + 16];
+  strncpy(hostCopy, host, sizeof(hostCopy));
+  hostCopy[sizeof(hostCopy) - 1] = '\0';
 
-  String suplaServer = server.substring(0, npos);
-  setHost(suplaServer.c_str());
-
-  if (npos > 0) {
-    String portServer = server.substring(npos + 1);
-    setPort(portServer.toInt());
+  char *colon = strchr(hostCopy, ':');
+  if (colon != nullptr) {
+    *colon = '\0';  // oddziel host od portu
+    setHost(hostCopy);
+    setPort(atoi(colon + 1));
   }
   else {
+    setHost(hostCopy);
     setPort(isSecured ? 443 : 80);
   }
 
@@ -43,12 +51,16 @@ DirectLinksConnect::DirectLinksConnect(const char *url, const char *host, bool i
 }
 
 DirectLinksConnect::~DirectLinksConnect() {
-  delete[] client;
+  if (client) {
+    delete client;
+    client = nullptr;
+  }
 }
 
 void DirectLinksConnect::setHost(const char *host) {
   if (host) {
     strncpy(_host, host, MAX_HOST_SIZE);
+    _host[MAX_HOST_SIZE - 1] = '\0';
   }
 }
 
@@ -59,6 +71,7 @@ void DirectLinksConnect::setPort(uint16_t port) {
 void DirectLinksConnect::setUrl(const char *url) {
   if (url) {
     strncpy(_url, url, MAX_DIRECT_LINKS_SIZE);
+    _url[MAX_DIRECT_LINKS_SIZE - 1] = '\0';
   }
 }
 
@@ -67,27 +80,40 @@ void DirectLinksConnect::enableSSL(bool isSecured) {
 }
 
 bool DirectLinksConnect::openConnection() {
-  return client->connect(_host, _port) ? true : false;
+  if (!client)
+    return false;
+  Serial.printf("Connecting to %s:%d ...\n", _host, _port);
+  bool res = client->connect(_host, _port);
+  if (!res)
+    Serial.println("Connection failed!");
+  return res;
 }
 
 bool DirectLinksConnect::closeConnection() {
-  client->stop();
-  return checkConnection();
+  if (client)
+    client->stop();
+  return !checkConnection();
 }
 
 bool DirectLinksConnect::checkConnection() {
-  return client->connected() == 1 ? true : false;
+  return client && client->connected();
 }
 
 void DirectLinksConnect::toggleConnection() {
-  if (client == NULL) {
+  if (!client) {
     if (_isSecured) {
-      client = new WiFiClientSecure();
-      ((WiFiClientSecure *)client)->setInsecure();
-#ifdef ARDUINO_ARCH_ESP8266
-      ((WiFiClientSecure *)client)->setBufferSizes(1024, 512);
+#ifdef ARDUINO_ARCH_ESP32
+      WiFiClientSecure *sslClient = new WiFiClientSecure();
+      sslClient->setInsecure();
+      sslClient->setTimeout(30);
+      client = sslClient;
+#else
+      WiFiClientSecure *sslClient = new WiFiClientSecureBearSSL();
+      sslClient->setInsecure();
+      sslClient->setBufferSizes(1024, 512);
+      sslClient->setTimeout(10);
+      client = sslClient;
 #endif
-      ((WiFiClientSecure *)client)->setTimeout(10);
     }
     else {
       client = new WiFiClient();
@@ -118,12 +144,13 @@ const char *DirectLinksConnect::getRequest() {
   static char result[1088];
   char request[256];
 
-  if (static_cast<unsigned int>(snprintf(request, sizeof(request),
-                                         "GET /direct/%s HTTP/1.1\r\n"
-                                         "Host: %s\r\n"
-                                         "User-Agent: BuildFailureDetectorESP8266\r\n"
-                                         "Connection: close\r\n\r\n",
-                                         _url, _host)) >= sizeof(request)) {
+  int n = snprintf(request, sizeof(request),
+                   "GET /direct/%s HTTP/1.1\r\n"
+                   "Host: %s\r\n"
+                   "User-Agent: BuildFailureDetectorESP\r\n"
+                   "Connection: close\r\n\r\n",
+                   _url, _host);
+  if (n < 0 || n >= (int)sizeof(request)) {
     Serial.println(F("Error: URL or host too long"));
     return nullptr;
   }
@@ -135,38 +162,38 @@ const char *DirectLinksConnect::getRequest() {
 
   client->print(request);
 
+  // Odczyt nagłówków
+  char line[128];
   while (client->connected() || client->available()) {
-    if (client->readStringUntil('\n') == "\r") {
+    size_t len = client->readBytesUntil('\n', line, sizeof(line) - 1);
+    line[len] = '\0';
+    if (strcmp(line, "\r") == 0) {
       Serial.println(F("Direct links - Headers received"));
       break;
     }
-    delay(0);
+    delay(1);
   }
 
+  // Odczyt odpowiedzi
   size_t i = 0;
-
   while (client->connected() || client->available()) {
-    char c = client->read();
-    if (i < sizeof(result) - 1) {  // Avoid buffer overflow
-      result[i++] = c;
-      // Check for the end of response
-      if (c == '}' && client->peek() == -1) {
+    while (client->available()) {
+      char c = client->read();
+      if (i < sizeof(result) - 1)
+        result[i++] = c;
+      else
         break;
-      }
     }
-    else {
-      break;  // Stop reading to prevent buffer overflow
-    }
-    delay(0);
+    delay(1);
   }
-
-  result[i] = '\0';  // Null-terminate the result string
+  result[i] = '\0';
   Serial.println(result);
 
   return result;
 }
 
 void DirectLinksConnect::sendRequest() {
+  getRequest();
 }
 
 void DirectLinksConnect::iterateAlways() {
@@ -188,4 +215,5 @@ void DirectLinksConnect::onInitNetworkConnected() {
 
 };  // namespace Sensor
 };  // namespace Supla
+
 #endif
