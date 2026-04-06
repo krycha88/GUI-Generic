@@ -15,6 +15,7 @@
 */
 #ifdef SUPLA_DEEP_SLEEP
 #include "deepSleep.h"
+#include <supla/protocol/protocol_layer.h>
 #include "../../SuplaDeviceGUI.h"
 
 namespace Supla {
