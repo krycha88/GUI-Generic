@@ -20,6 +20,7 @@
 
 #include "DirectLinksConnect.h"
 
+#include <ArduinoJson.h>
 #include <supla/sensor/thermometer.h>
 #include <supla/sensor/therm_hygro_meter.h>
 #include "pressure.h"

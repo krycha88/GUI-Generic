@@ -18,6 +18,7 @@
 #include <Arduino.h>
 #include "DirectLinksConnect.h"
 #include "../../GUIGenericCommon.h"
+#include <supla/network/network.h>
 
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFiClientSecure.h>
@@ -29,39 +30,41 @@
 namespace Supla {
 namespace Sensor {
 
-DirectLinksConnect::DirectLinksConnect(const char *url, const char *host, bool isSecured) : client(nullptr), lastReadTime(0) {
+DirectLinksConnect::DirectLinksConnect(
+    const char *url,
+    const char *host,
+    bool isSecured)
+    : _isSecured(isSecured),
+      lastReadTime(0) {
+
   setUrl(url);
 
-  char hostCopy[MAX_HOST_SIZE + 16];
+  char hostCopy[MAX_HOST_SIZE + 8];
+
   strncpy(hostCopy, host, sizeof(hostCopy));
   hostCopy[sizeof(hostCopy) - 1] = '\0';
 
   char *colon = strchr(hostCopy, ':');
-  if (colon != nullptr) {
-    *colon = '\0';  // oddziel host od portu
+
+  if (colon) {
+    *colon = '\0';
     setHost(hostCopy);
     setPort(atoi(colon + 1));
-  }
-  else {
+  } else {
     setHost(hostCopy);
     setPort(isSecured ? 443 : 80);
   }
-
-  enableSSL(isSecured);
 }
 
-DirectLinksConnect::~DirectLinksConnect() {
-  if (client) {
-    delete client;
-    client = nullptr;
-  }
-}
+DirectLinksConnect::~DirectLinksConnect() {}
 
 void DirectLinksConnect::setHost(const char *host) {
-  if (host) {
-    strncpy(_host, host, MAX_HOST_SIZE);
-    _host[MAX_HOST_SIZE - 1] = '\0';
-  }
+
+  if (!host)
+    return;
+
+  strncpy(_host, host, MAX_HOST_SIZE);
+  _host[MAX_HOST_SIZE - 1] = '\0';
 }
 
 void DirectLinksConnect::setPort(uint16_t port) {
@@ -69,151 +72,168 @@ void DirectLinksConnect::setPort(uint16_t port) {
 }
 
 void DirectLinksConnect::setUrl(const char *url) {
-  if (url) {
-    strncpy(_url, url, MAX_DIRECT_LINKS_SIZE);
-    _url[MAX_DIRECT_LINKS_SIZE - 1] = '\0';
-  }
-}
 
-void DirectLinksConnect::enableSSL(bool isSecured) {
-  _isSecured = isSecured;
+  if (!url)
+    return;
+
+  strncpy(_url, url, MAX_DIRECT_LINKS_SIZE);
+  _url[MAX_DIRECT_LINKS_SIZE - 1] = '\0';
 }
 
 bool DirectLinksConnect::openConnection() {
-  if (!client)
-    return false;
-  Serial.printf("Connecting to %s:%d ...\n", _host, _port);
-  bool res = client->connect(_host, _port);
-  if (!res)
-    Serial.println("Connection failed!");
-  return res;
+
+#ifdef ARDUINO_ARCH_ESP8266
+
+  client.setInsecure();
+  client.setBufferSizes(1024, 512);
+  client.setTimeout(10);
+
+#else
+
+  client.setInsecure();
+  client.setHandshakeTimeout(20);
+  client.setTimeout(20);
+
+#endif
+
+  Serial.printf(
+      "Connecting %s:%d heap:%u\n",
+      _host,
+      _port,
+      ESP.getFreeHeap());
+
+  bool ok = client.connect(_host, _port);
+
+  if (!ok)
+    Serial.println("Connection failed");
+
+  return ok;
 }
 
 bool DirectLinksConnect::closeConnection() {
-  if (client)
-    client->stop();
-  return !checkConnection();
+
+  client.stop();
+  return !client.connected();
 }
 
 bool DirectLinksConnect::checkConnection() {
-  return client && client->connected();
+
+  return client.connected();
 }
 
 void DirectLinksConnect::toggleConnection() {
-  if (!client) {
-    if (_isSecured) {
-#ifdef ARDUINO_ARCH_ESP32
-      WiFiClientSecure *sslClient = new WiFiClientSecure();
-      sslClient->setInsecure();
-      sslClient->setTimeout(30);
-      client = sslClient;
-#else
-      WiFiClientSecure *sslClient = new WiFiClientSecureBearSSL();
-      sslClient->setInsecure();
-      sslClient->setBufferSizes(1024, 512);
-      sslClient->setTimeout(10);
-      client = sslClient;
-#endif
-    }
-    else {
-      client = new WiFiClient();
-    }
+
+  if (client.connected()) {
+    client.stop();
+    return;
   }
 
-  if (checkConnection()) {
-    closeConnection();
-  }
-  else {
-    openConnection();
-  }
+  openConnection();
 }
 
 void DirectLinksConnect::send() {
+
   toggleConnection();
   sendRequest();
   toggleConnection();
 
-  if (client) {
-    delete client;
-    client = nullptr;
-  }
-  printFreeMemory("DirectLinksConnect");
+  printFreeMemory("DirectLinks");
 }
 
 const char *DirectLinksConnect::getRequest() {
-  static char result[1088];
-  char request[256];
 
-  int n = snprintf(request, sizeof(request),
-                   "GET /direct/%s HTTP/1.1\r\n"
-                   "Host: %s\r\n"
-                   "User-Agent: BuildFailureDetectorESP\r\n"
-                   "Connection: close\r\n\r\n",
-                   _url, _host);
-  if (n < 0 || n >= (int)sizeof(request)) {
-    Serial.println(F("Error: URL or host too long"));
+  int n = snprintf(
+      request,
+      sizeof(request),
+      "GET /direct/%s HTTP/1.1\r\n"
+      "Host: %s\r\n"
+      "Connection: close\r\n\r\n",
+      _url,
+      _host);
+
+  if (n <= 0 || n >= sizeof(request)) {
+    Serial.println("Request too long");
     return nullptr;
   }
 
-  if (!client || !client->connected()) {
-    Serial.println(F("Error: Client not connected"));
+  if (!client.connected()) {
+    Serial.println("Client not connected");
     return nullptr;
   }
 
-  client->print(request);
+  client.print(request);
 
-  // Odczyt nagłówków
-  char line[128];
-  while (client->connected() || client->available()) {
-    size_t len = client->readBytesUntil('\n', line, sizeof(line) - 1);
-    line[len] = '\0';
-    if (strcmp(line, "\r") == 0) {
-      Serial.println(F("Direct links - Headers received"));
+  // headers
+
+  while (client.connected()) {
+
+    size_t len =
+        client.readBytesUntil(
+            '\n',
+            line,
+            sizeof(line) - 1);
+
+    line[len] = 0;
+
+    if (strcmp(line, "\r") == 0)
       break;
-    }
-    delay(1);
+
+    delay(0);
   }
 
-  // Odczyt odpowiedzi
+  // body
+
   size_t i = 0;
-  while (client->connected() || client->available()) {
-    while (client->available()) {
-      char c = client->read();
+
+  while (client.connected() || client.available()) {
+
+    while (client.available()) {
+
+      char c = client.read();
+
       if (i < sizeof(result) - 1)
         result[i++] = c;
-      else
-        break;
     }
-    delay(1);
+
+    delay(0);
   }
-  result[i] = '\0';
+
+  result[i] = 0;
+
   Serial.println(result);
 
   return result;
 }
 
 void DirectLinksConnect::sendRequest() {
+
   getRequest();
 }
 
 void DirectLinksConnect::iterateAlways() {
+
   onInitNetworkConnected();
 
   if (millis() - lastReadTime > 60000) {
+
     send();
     lastReadTime = millis();
   }
 }
 
 void DirectLinksConnect::onInitNetworkConnected() {
-  if (Supla::Network::IsReady() && !initNetworkConnected) {
+
+  if (Supla::Network::IsReady() &&
+      !initNetworkConnected) {
+
     send();
+
     lastReadTime = millis();
     initNetworkConnected = true;
   }
 }
 
-};  // namespace Sensor
-};  // namespace Supla
+};  
+};  
 
 #endif
