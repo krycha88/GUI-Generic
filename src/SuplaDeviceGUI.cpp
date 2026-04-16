@@ -849,7 +849,7 @@ Supla::Control::ConfigExpander *Expander;
 #endif
 
 #ifdef SUPLA_WT32_ETH01_LAN8720
-Supla::WT32_ETH01 *eth = nullptr;
+Supla::GUI_WT32_ETH01 *eth = nullptr;
 #elif defined(SUPLA_ETH01_LAN8720)
 Supla::GUI_ETH01 *eth = nullptr;
 #else

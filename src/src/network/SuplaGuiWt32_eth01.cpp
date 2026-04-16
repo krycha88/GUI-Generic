@@ -22,11 +22,11 @@
 #include "../../SuplaDeviceGUI.h"
 
 namespace Supla {
-GUI_WT32_ETH01::GUI_WT32_ETH01(uint8_t ethmode) : Supla::WT32_ETH01(ethmode) {
+GUI_WT32_ETH01::GUI_WT32_ETH01(uint8_t ethmode) : Supla::ESPETH(ethmode) {
 }
 
 void GUI_WT32_ETH01::setup() {
-  WT32_ETH01::setup();
+  ESPETH::setup();
 
   if (mode == Supla::DEVICE_MODE_CONFIG) {
     uint8_t mac[6] = {};

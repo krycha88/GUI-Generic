@@ -27,11 +27,11 @@
 #include <supla/network/network.h>
 #include <supla/supla_lib_config.h>
 #include <supla/log_wrapper.h>
-#include <supla/network/wt32_eth01.h>
+#include <supla/network/esp32eth.h>
 #include <supla/tools.h>
 
 namespace Supla {
-class GUI_WT32_ETH01 : public Supla::WT32_ETH01 {
+class GUI_WT32_ETH01 : public Supla::ESPETH {
  public:
   explicit GUI_WT32_ETH01(uint8_t ethmode);
   void setup();

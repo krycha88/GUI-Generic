@@ -403,7 +403,7 @@ extern Supla::Control::ConfigExpander *Expander;
 #endif
 
 #ifdef SUPLA_WT32_ETH01_LAN8720
-extern Supla::WT32_ETH01 *eth;
+extern Supla::GUI_WT32_ETH01 *eth;
 #elif defined(SUPLA_ETH01_LAN8720)
 extern Supla::GUI_ETH01 *eth;
 #else
