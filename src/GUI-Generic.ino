@@ -143,6 +143,7 @@ void setup() {
 
     if (gpio != OFF_GPIO) {
       binary = Supla::Control::GUI::Binary(gpio, ConfigESP->getPullUp(gpio), false, nr);
+      binary->setFilteringTimeMs(200, false);
     }
 
 #ifdef SUPLA_CONDITIONS
