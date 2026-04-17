@@ -20,6 +20,7 @@
 #ifdef SUPLA_WT32_ETH01_LAN8720
 #include "SuplaGuiWt32_eth01.h"
 #include "../../SuplaDeviceGUI.h"
+#include <SuplaDevice.h>
 
 namespace Supla {
 GUI_WT32_ETH01::GUI_WT32_ETH01(uint8_t ethmode) : Supla::ESPETH(ethmode) {
@@ -28,24 +29,14 @@ GUI_WT32_ETH01::GUI_WT32_ETH01(uint8_t ethmode) : Supla::ESPETH(ethmode) {
 void GUI_WT32_ETH01::setup() {
   ESPETH::setup();
 
-  if (mode == Supla::DEVICE_MODE_CONFIG) {
-    uint8_t mac[6] = {};
-    WiFi.macAddress(mac);
-    char macStr[12 + 6] = {};
-    generateHexString(mac, macStr, 6);
-
-    String cstr = "SUPLA-GUI-Generic-";
-    cstr.reserve(32);
-    cstr += macStr;
-
-    SUPLA_LOG_INFO("WiFi: enter config mode with SSID: \"%s\"", cstr.c_str());
-    WiFi.mode(WIFI_MODE_AP);
-
-    WiFi.softAP(cstr.c_str(), "", 6);
-
+  if (SuplaDevice.getCurrentStatus() == STATUS_CONFIG_MODE) {
     Supla::GUI::crateWebServer();
+    SuplaDevice.enterConfigMode();
+    delay(0);
+    return;
   }
-  else if (ConfigManager->get(KEY_ENABLE_GUI)->getValueInt()) {
+
+  if (ConfigManager && ConfigManager->get(KEY_ENABLE_GUI)->getValueInt()) {
     Supla::GUI::crateWebServer();
   }
 
