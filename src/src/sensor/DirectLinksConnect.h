@@ -65,7 +65,7 @@ class DirectLinksConnect : public Element {
 #ifdef ARDUINO_ARCH_ESP32
   WiFiClientSecure client;
 #else
-  WiFiClientSecureBearSSL client;
+  BearSSL::WiFiClientSecure client;
 #endif
 
   int8_t retryCount = 0;
