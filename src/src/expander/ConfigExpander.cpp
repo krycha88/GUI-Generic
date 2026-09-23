@@ -238,7 +238,9 @@ Supla::Io::Base *ConfigExpander::getIoExpender(uint8_t nr, uint8_t function) {
         break;
 #endif
 
-#ifdef ARDUINO_ARCH_ESP32
+// Drugą magistralę I2C mają tylko układy z więcej niż jednym kontrolerem I2C
+// (C3, C6 i H2 mają jeden, więc nie definiują Wire1).
+#if defined(ARDUINO_ARCH_ESP32) && ((defined(SOC_I2C_NUM) && SOC_I2C_NUM > 1) || (defined(SOC_HP_I2C_NUM) && SOC_HP_I2C_NUM > 1))
 #ifdef SUPLA_PCF8575
       case EXPENDER_PCF8575_I2C2:
         if (ioExpender[address].io_Wire1 == nullptr) {
