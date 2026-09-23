@@ -33,12 +33,23 @@ void Supla::Sensor::initADC() {
       return;
     }
 
+    // ESP32 i S2 kalibrują ADC schematem line fitting, układy RISC-V (C3, C5,
+    // C6) i S3 mają tylko curve fitting.
+#if defined(ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED) && ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
     adc_cali_line_fitting_config_t cali_config = {
         .unit_id = ADC_UNIT_1,
         .atten = ADC_ATTEN_DB_12,
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
     adc_cali_create_scheme_line_fitting(&cali_config, &cali_handle);
+#elif defined(ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED) && ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+    adc_cali_curve_fitting_config_t cali_config = {
+        .unit_id = ADC_UNIT_1,
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+    };
+    adc_cali_create_scheme_curve_fitting(&cali_config, &cali_handle);
+#endif
   }
 }
 
@@ -48,7 +59,11 @@ void Supla::Sensor::cleanupADC() {
     adc_handle = nullptr;
   }
   if (cali_handle) {
+#if defined(ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED) && ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
     adc_cali_delete_scheme_line_fitting(cali_handle);
+#elif defined(ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED) && ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+    adc_cali_delete_scheme_curve_fitting(cali_handle);
+#endif
     cali_handle = nullptr;
   }
 }
