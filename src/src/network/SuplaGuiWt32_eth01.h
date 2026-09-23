@@ -23,6 +23,13 @@
 
 #ifdef SUPLA_WT32_ETH01_LAN8720
 #include <Arduino.h>
+
+// LAN8720 podłącza się do wbudowanego kontrolera EMAC, który mają tylko
+// ESP32 (i ESP32-P4). C3, C5, C6, S2, S3 go nie mają — bez tego czytelnego
+// komunikatu build kończy się błędami w esp32eth.h.
+#if !defined(SOC_EMAC_SUPPORTED) || !SOC_EMAC_SUPPORTED
+#error "SUPLA_WT32_ETH01_LAN8720: ten uklad nie ma wbudowanego kontrolera Ethernet (EMAC). Flaga dziala tylko na ESP32."
+#endif
 #include <ETH.h>
 #include <supla/network/network.h>
 #include <supla/supla_lib_config.h>
