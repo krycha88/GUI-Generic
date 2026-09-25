@@ -1,5 +1,5 @@
 {
-	"version": "6.1.0",
+	"version": "6.1.2",
 	"Opis struktury": {
 		"SEKCJA": {
 			"SUPLA_OPTION": {
@@ -42,7 +42,20 @@
 			}
 		},
 		"dla SEKCJA": "Patrz element SECTIONS, gdzie jest SEKCJA i tłumaczenia jej nazwy",
-		"dla SUPLA_OPTION": "Identyfikatory opcji rozpoczynające się w GUI Generic od SUPLA_"
+		"dla SUPLA_OPTION": "Identyfikatory opcji rozpoczynające się w GUI Generic od SUPLA_",
+		"dla BOARDS": "Układy obsługiwane przez firmware, pokazywane w builderze: klucz = identyfikator układu (esp8266, esp8285, esp32, esp32c3, esp32c5, esp32c6, esp32s2, esp32s3 — jak w polu soc), wartość = {} albo {\"fqbn\": \"...\"}, gdy płytka arduino-cli ma być inna niż domyślna. Brak sekcji = domyślna lista buildera"
+	},
+	"BOARDS": {
+		"esp8266": {},
+		"esp8285": {},
+		"esp32": {
+			"fqbn": "esp32:esp32:d32"
+		},
+		"esp32c3": {},
+		"esp32c5": {},
+		"esp32c6": {},
+		"esp32s2": {},
+		"esp32s3": {}
 	},
 	"BASIC": {
 		"SUPLA_CONFIG": {
@@ -153,6 +166,10 @@
 			"name": "Tryb głębokiego uśpienia (Deep Sleep)",
 			"desc": "Tryb głębokiego uśpienia (Deep Sleep) umożliwia dłuższą pracę na baterii poprzez obniżenie zużycia energii kosztem rzadszej komunikacji WiFi.",
 			"defOn": false,
+			"depRel": [
+				"SUPLA_WT32_ETH01_LAN8720",
+				"SUPLA_ETH01_LAN8720"
+			],
 			"en": {
 				"name": "Deep Sleep mode",
 				"desc": "Deep Sleep enables longer battery life by lowering power consumption at the expense of less WiFi communication."
@@ -168,27 +185,6 @@
 			"fr": {
 				"name": "Mode veille profonde (Deep Sleep)",
 				"desc": "La veille prolongée permet une plus longue durée de vie de la batterie en réduisant la consommation d´énergie au détriment de la communication WiFi."
-			}
-		},
-		"SUPLA_MDNS": {
-			"name": "Protokół mDNS",
-			"desc": "Użycie protokołu mDNS pozwala połączyć się z modułem bez początkowej znajomości jego adresu IP, wystarczy podać adres modułu http://supla.local",
-			"defOn": false,
-			"en": {
-				"name": "mDNS protocol",
-				"desc": "Using the mDNS protocol allows you to connect to the module without the initial knowledge of its IP address, just enter the address of the module http: //supla.local"
-			},
-			"es": {
-				"name": "Protocolo mDNS",
-				"desc": "El uso del protocolo mDNS le permite conectarse al módulo sin conocer su dirección IP, solo necesita ingresar la dirección del módulo http: //supla.local"
-			},
-			"de": {
-				"name": "mDNS-Protokoll",
-				"desc": "Mit dem mDNS-Protokoll können Sie sich mit dem Modul verbinden, ohne seine IP-Adresse zu kennen, Sie müssen nur die Adresse des Moduls http eingeben: //supla.local"
-			},
-			"fr": {
-				"name": "Protocole mDNS",
-				"desc": "L'utilisation du protocole mDNS permet de se connecter au module sans connaître son adresse IP, il suffit de saisir l'adresse du module http://supla.local"
 			}
 		},
 		"SUPLA_WAKE_ON_LAN": {
@@ -219,6 +215,10 @@
 				"only": ["esp32"]
 			},
 			"defOn": false,
+			"depRel": [
+				"SUPLA_ETH01_LAN8720",
+				"SUPLA_DEEP_SLEEP"
+			],
 			"en": {
 				"name": "WT32-ETH01",
 				"desc": "WT32-ETH01 to built-in serial-over-ethernet module based on MCU WT32-S1 series ESP32."
@@ -243,6 +243,10 @@
 				"only": ["esp32"]
 			},
 			"defOn": false,
+			"depRel": [
+				"SUPLA_WT32_ETH01_LAN8720",
+				"SUPLA_DEEP_SLEEP"
+			],
 			"en": {
 				"name": "LAN8720",
 				"desc": "Module Ethernet based on LAN8720. Works only with ESP32."
@@ -297,15 +301,6 @@
 				"SUPLA_RGBW",
 				"SUPLA_ACTION_TRIGGER",
 				"SUPLA_OLED"
-			],
-			"depOff": [
-				"SUPLA_RELAY",
-				"SUPLA_ROLLERSHUTTER",
-				"SUPLA_RGBW",
-				"SUPLA_ACTION_TRIGGER"
-			],
-			"depOpt": [
-				"SUPLA_ACTION_TRIGGER"
 			],
 			"en": {
 				"name": "Buttons",
@@ -417,6 +412,9 @@
 			"name": "Warunkowanie",
 			"desc": "Umożliwia sterowanie różnymi elementami (przekaźnikami, rgbw itd.) w zależnośći od wartości sensora.",
 			"defOn": false,
+			"depOn": [
+				"SUPLA_PUSHOVER"
+			],
 			"en": {
 				"name": "Conditioning",
 				"desc": "It allows you to control depending on the sensor value."
@@ -1014,6 +1012,9 @@
 		"SUPLA_ANALOG_READING_KPOP": {
 			"name": "Pomiar analogowy (ADC Pin)",
 			"desc": "Ustawienia urządzenia->Analog. Umożliwia obsługę pomiaru napięcia na wejściu ADC Pin.",
+			"soc": {
+				"only": ["esp8266", "esp8285", "esp32"]
+			},
 			"defOn": false,
 			"en": {
 				"name": "Analog measurement (ADC Pin)",
@@ -1128,6 +1129,9 @@
 			"name": "Licznik energii CSE7766",
 			"desc": "Ustawienia urządzenia->Inne. Umożliwia obsługę licznika energii CSE7766.",
 			"defOn": false,
+			"depRel": [
+				"SUPLA_VINDRIKTNING_IKEA_KPOP"
+			],
 			"en": {
 				"name": "Energy meter CSE7766",
 				"desc": "Device settings->Other. It enables the operation of the energy meter CSE7766."
@@ -1227,153 +1231,6 @@
 			"fr": {
 				"name": "Moniteur de puissance INA219",
 				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA219."
-			}
-		},
-		"SUPLA_INA226": {
-			"name": "Licznik mocy INA226",
-			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA226.",
-			"defOn": false,
-			"en": {
-				"name": "Power monitor INA226",
-				"desc": "Device settings->I2C. Enables support for INA226 power monitor."
-			},
-			"es": {
-				"name": "Monitor de energía INA226",
-				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA226."
-			},
-			"de": {
-				"name": "Leistungsmesser INA226",
-				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA226-Leistungsmesser."
-			},
-			"fr": {
-				"name": "Moniteur de puissance INA226",
-				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA226."
-			}
-		},
-		"SUPLA_INA228": {
-			"name": "Licznik mocy INA228 (85V 20-bit)",
-			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA228 (85V 20-bit).",
-			"defOn": false,
-			"en": {
-				"name": "Power monitor INA228 (85V 20-bit)",
-				"desc": "Device settings->I2C. Enables support for INA228 power monitor (85V 20-bit)."
-			},
-			"es": {
-				"name": "Monitor de energía INA228 (85V 20-bit)",
-				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA228 (85V 20-bit)."
-			},
-			"de": {
-				"name": "Leistungsmesser INA228 (85V 20-bit)",
-				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA228-Leistungsmesser (85V 20-bit)."
-			},
-			"fr": {
-				"name": "Moniteur de puissance INA228 (85V 20-bit)",
-				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA228 (85V 20-bit)."
-			}
-		},
-		"SUPLA_INA229": {
-			"name": "Licznik mocy INA229 SPI (85V 20-bit)",
-			"desc": "Ustawienia urządzenia->SPI. Umożliwia obsługę licznika mocy INA229 SPI (85V 20-bit).",
-			"defOn": false,
-			"en": {
-				"name": "Power monitor INA229 SPI (85V 20-bit)",
-				"desc": "Device settings->SPI. Enables support for INA229 SPI power monitor (85V 20-bit)."
-			},
-			"es": {
-				"name": "Monitor de energía INA229 SPI (85V 20-bit)",
-				"desc": "Configuración del dispositivo->SPI. Habilita el soporte para el monitor de energía INA229 SPI (85V 20-bit)."
-			},
-			"de": {
-				"name": "Leistungsmesser INA229 SPI (85V 20-bit)",
-				"desc": "Geräteeinstellungen->SPI. Aktiviert die Unterstützung für INA229 SPI-Leistungsmesser (85V 20-bit)."
-			},
-			"fr": {
-				"name": "Moniteur de puissance INA229 SPI (85V 20-bit)",
-				"desc": "Paramètres de l´appareil->SPI. Active la prise en charge du moniteur de puissance INA229 SPI (85V 20-bit)."
-			}
-		},
-		"SUPLA_INA236": {
-			"name": "Licznik mocy INA236 (48V 16-bit)",
-			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA236 (48V 16-bit).",
-			"defOn": false,
-			"en": {
-				"name": "Power monitor INA236 (48V 16-bit)",
-				"desc": "Device settings->I2C. Enables support for INA236 power monitor (48V 16-bit)."
-			},
-			"es": {
-				"name": "Monitor de energía INA236 (48V 16-bit)",
-				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA236 (48V 16-bit)."
-			},
-			"de": {
-				"name": "Leistungsmesser INA236 (48V 16-bit)",
-				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA236-Leistungsmesser (48V 16-bit)."
-			},
-			"fr": {
-				"name": "Moniteur de puissance INA236 (48V 16-bit)",
-				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA236 (48V 16-bit)."
-			}
-		},
-		"SUPLA_INA238": {
-			"name": "Licznik mocy INA238 (16-bit)",
-			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA238 (16-bit).",
-			"defOn": false,
-			"en": {
-				"name": "Power monitor INA238 (16-bit)",
-				"desc": "Device settings->I2C. Enables support for INA238 power monitor (16-bit)."
-			},
-			"es": {
-				"name": "Monitor de energía INA238 (16-bit)",
-				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA238 (16-bit)."
-			},
-			"de": {
-				"name": "Leistungsmesser INA238 (16-bit)",
-				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA238-Leistungsmesser (16-bit)."
-			},
-			"fr": {
-				"name": "Moniteur de puissance INA238 (16-bit)",
-				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA238 (16-bit)."
-			}
-		},
-		"SUPLA_INA239": {
-			"name": "Licznik mocy INA239 SPI (85V 16-bit)",
-			"desc": "Ustawienia urządzenia->SPI. Umożliwia obsługę licznika mocy INA239 SPI (85V 16-bit).",
-			"defOn": false,
-			"en": {
-				"name": "Power monitor INA239 SPI (85V 16-bit)",
-				"desc": "Device settings->SPI. Enables support for INA239 SPI power monitor (85V 16-bit)."
-			},
-			"es": {
-				"name": "Monitor de energía INA239 SPI (85V 16-bit)",
-				"desc": "Configuración del dispositivo->SPI. Habilita el soporte para el monitor de energía INA239 SPI (85V 16-bit)."
-			},
-			"de": {
-				"name": "Leistungsmesser INA239 SPI (85V 16-bit)",
-				"desc": "Geräteeinstellungen->SPI. Aktiviert die Unterstützung für INA239 SPI-Leistungsmesser (85V 16-bit)."
-			},
-			"fr": {
-				"name": "Moniteur de puissance INA239 SPI (85V 16-bit)",
-				"desc": "Paramètres de l´appareil->SPI. Active la prise en charge du moniteur de puissance INA239 SPI (85V 16-bit)."
-			}
-		},
-		"SUPLA_INA260": {
-			"name": "Licznik mocy INA260 (36V 16-bit)",
-			"desc": "Ustawienia urządzenia->I2C. Umożliwia obsługę licznika mocy INA260 (36V 16-bit).",
-			"defOn": false,
-			"en": {
-				"name": "Power monitor INA260 (36V 16-bit)",
-				"desc": "Device settings->I2C. Enables support for INA260 power monitor (36V 16-bit)."
-			},
-			"es": {
-				"name": "Monitor de energía INA260 (36V 16-bit)",
-				"desc": "Configuración del dispositivo->I2C. Habilita el soporte para el monitor de energía INA260 (36V 16-bit)."
-			},
-			"de": {
-				"name": "Leistungsmesser INA260 (36V 16-bit)",
-				"desc": "Geräteeinstellungen->I2C. Aktiviert die Unterstützung für INA260-Leistungsmesser (36V 16-bit)."
-			},
-			"fr": {
-				"name": "Moniteur de puissance INA260 (36V 16-bit)",
-				"desc": "Paramètres de l´appareil->I2C. Active la prise en charge du moniteur de puissance INA260 (36V 16-bit)."
 			}
 		}
 	},
@@ -1495,6 +1352,9 @@
 			"name": "IKEA VINDRIKTNING",
 			"desc": "Ustawienia urządzenia->Inne. Czujnik cząstek stałych PM1006",
 			"defOn": false,
+			"depRel": [
+				"SUPLA_CSE7766"
+			],
 			"en": {
 				"name": "IKEA VINDRIKTNING",
 				"desc": "Device settings->Other. Particulate Matter Sensor with PM1006 inside."
@@ -1538,6 +1398,9 @@
 		"SUPLA_BONEIO_32x10A": {
 			"name": "boneIO 32x10A",
 			"desc": "",
+			"soc": {
+				"only": ["esp32"]
+			},
 			"defOn": false,
 			"en": {
 				"name": "boneIO 32x10A",
@@ -1559,6 +1422,9 @@
 		"SUPLA_BONEIO_24x16A": {
 			"name": "boneIO 24x16A",
 			"desc": "",
+			"soc": {
+				"only": ["esp32"]
+			},
 			"defOn": false,
 			"en": {
 				"name": "boneIO 24x16A",
@@ -1581,27 +1447,27 @@
 	"DEBUG": {
 		"SUPLA_EXCLUDE_LITTLEFS_CONFIG": {
 			"name": "Wyłączenie LittleFS",
-			"desc": "Wyklucza dodanie includa LITTLEFS, dzięki czemu kompilacja oszczędza prawie 100KB binarki.",
+			"desc": "Wyklucza z biblioteki SuplaDevice obsługę konfiguracji w LittleFS, dzięki czemu binarka jest mniejsza o prawie 100KB. GUI-Generic zawsze przechowuje konfigurację w SPIFFS, więc opcja powinna pozostać włączona.",
 			"alertOff": "Wyłączenie tej opcji zwiększy o 100KB binarkę, zmniejszając ilość dostępnego miejsca np. dla OTA.",
 			"defOn": true,
 			"en": {
 				"name": "Disabling LittleFS",
-				"desc": "It excludes the addition of the LITTLEFS includa, which saves the compilation almost 100KB.",
+				"desc": "Excludes LittleFS configuration support from the SuplaDevice library, making the binary almost 100KB smaller. GUI-Generic always stores its configuration in SPIFFS, so this option should stay enabled.",
 				"alertOff": "Disabling this option will increase the compilation by almost 100KB, reducing the amount of space available, e.g. for OTA."
 			},
 			"es": {
 				"name": "Deshabilitar LittleFS",
-				"desc": "Excluye la adición de LITTLEFS includa, lo que ahorra la compilación casi 100 KB.",
+				"desc": "Excluye de la biblioteca SuplaDevice el soporte de configuración en LittleFS, lo que reduce el binario en casi 100 KB. GUI-Generic siempre guarda la configuración en SPIFFS, por lo que esta opción debe permanecer activada.",
 				"alertOff": "Deshabilitar esta opción aumentará la compilación en casi 100 KB, reduciendo la cantidad de espacio disponible, por ejemplo, para OTA."
 			},
 			"de": {
 				"name": "LittleFS deaktivieren",
-				"desc": "Es schließt das Hinzufügen der LITTLEFS-Includa aus, wodurch die Kompilierung fast 100 KB einspart.",
+				"desc": "Schließt die LittleFS-Konfigurationsunterstützung aus der SuplaDevice-Bibliothek aus, wodurch die Binärdatei fast 100 KB kleiner wird. GUI-Generic speichert die Konfiguration immer in SPIFFS, daher sollte diese Option aktiviert bleiben.",
 				"alertOff": "Durch Deaktivieren dieser Option wird die Kompilierung um fast 100 KB erhöht, wodurch der verfügbare Speicherplatz, z. B. für OTA, verringert wird."
 			},
 			"fr": {
 				"name": "Désactivation de LittleFS",
-				"desc": "Il exclut l´ajout du LITTLEFS includa, qui permet d´économiser près de 100 Ko sur la compilation.",
+				"desc": "Exclut de la bibliothèque SuplaDevice la prise en charge de la configuration dans LittleFS, ce qui réduit le binaire de près de 100 Ko. GUI-Generic enregistre toujours sa configuration dans SPIFFS, cette option doit donc rester activée.",
 				"alertOff": "La désactivation de cette option augmentera la compilation de près de 100 Ko, réduisant ainsi la quantité d'espace disponible, par exemple pour l'OTA."
 			}
 		},
@@ -1609,9 +1475,6 @@
 			"name": "Wyłączenie wszystkich logów",
 			"desc": "Opcja pozwala na wyłączenie wszystkich komunikatów logowania wyświetlanych na interfejsie UART. Wyłączenie tej funkcji skutkuje mniejszym rozmiarem binarki. (SUPLA_DISABLE_LOGS)",
 			"defOn": true,
-			"depRel": [
-				"SUPLA_COMM_DEBUG"
-			],
 			"en": {
 				"name": "Disable All Logs",
 				"desc": "This option allows for the disabling of all logging messages displayed on the UART interface. Disabling this feature results in a smaller binary size. (SUPLA_DISABLE_LOGS)"
@@ -1631,56 +1494,26 @@
 		},
 		"SUPLA_DEBUG_MODE": {
 			"name": "DEBUG",
-			"desc": "Rejestruje dodatkowe informacje diagnostyczne związane z komunikacją (SUPLA_DEBUG_MODE).",
+			"desc": "Dodaje kanał z ilością wolnej pamięci RAM, pomocny przy diagnozowaniu problemów z pamięcią (SUPLA_DEBUG_MODE).",
 			"defOn": false,
 			"depRel": [
 				"SUPLA_DISABLE_LOGS"
 			],
 			"en": {
 				"name": "DEBUG",
-				"desc": "Logs additional diagnostic information related to communication (SUPLA_DEBUG_MODE)."
+				"desc": "Adds a channel showing free RAM, useful for diagnosing memory problems (SUPLA_DEBUG_MODE)."
 			},
 			"es": {
 				"name": "DEBUG",
-				"desc": "Registra información diagnóstica adicional relacionada con la comunicación (SUPLA_DEBUG_MODE)."
+				"desc": "Añade un canal con la memoria RAM libre, útil para diagnosticar problemas de memoria (SUPLA_DEBUG_MODE)."
 			},
 			"de": {
 				"name": "DEBUG",
-				"desc": "Zeichnet zusätzliche diagnostische Informationen zur Kommunikation auf (SUPLA_DEBUG_MODE)."
+				"desc": "Fügt einen Kanal mit dem freien RAM hinzu, hilfreich bei der Diagnose von Speicherproblemen (SUPLA_DEBUG_MODE)."
 			},
 			"fr": {
 				"name": "DEBUG",
-				"desc": "Enregistre des informations de diagnostic supplémentaires liées à la communication (SUPLA_DEBUG_MODE)."
-			}
-		}
-	},
-	"TEST": {
-		"SUPLA_ZIGBEE_GATEWAY": {
-			"name": "Zigbee Gateway",
-			"desc": "",
-			"alertOff": "",
-			"defOn": true,
-			"libs": "Z2S_Library",
-			"opts": "CORE_DEBUG_LEVEL=5,ARDUINO_ESP32C6_DEV,ARDUINO_USB_MODE=1,ZIGBEE_MODE_ZCZR,esp_zb_api_zczr,esp_zb_cli_command,zboss_stack.zczr,zboss_port",
-			"en": {
-				"name": "Zigbee Gateway",
-				"desc": "",
-				"alertOff": ""
-			},
-			"es": {
-				"name": "Zigbee Gateway",
-				"desc": "",
-				"alertOff": ""
-			},
-			"de": {
-				"name": "Zigbee Gateway",
-				"desc": "",
-				"alertOff": ""
-			},
-			"fr": {
-				"name": "Zigbee Gateway",
-				"desc": "",
-				"alertOff": ""
+				"desc": "Ajoute un canal indiquant la mémoire RAM libre, utile pour diagnostiquer les problèmes de mémoire (SUPLA_DEBUG_MODE)."
 			}
 		}
 	},
