@@ -1,5 +1,5 @@
 {
-	"version": "6.1.0",
+	"version": "6.1.1",
 	"Opis struktury": {
 		"SEKCJA": {
 			"SUPLA_OPTION": {
@@ -42,7 +42,20 @@
 			}
 		},
 		"dla SEKCJA": "Patrz element SECTIONS, gdzie jest SEKCJA i tłumaczenia jej nazwy",
-		"dla SUPLA_OPTION": "Identyfikatory opcji rozpoczynające się w GUI Generic od SUPLA_"
+		"dla SUPLA_OPTION": "Identyfikatory opcji rozpoczynające się w GUI Generic od SUPLA_",
+		"dla BOARDS": "Układy obsługiwane przez firmware, pokazywane w builderze: klucz = identyfikator układu (esp8266, esp8285, esp32, esp32c3, esp32c5, esp32c6, esp32s2, esp32s3 — jak w polu soc), wartość = {} albo {\"fqbn\": \"...\"}, gdy płytka arduino-cli ma być inna niż domyślna. Brak sekcji = domyślna lista buildera"
+	},
+	"BOARDS": {
+		"esp8266": {},
+		"esp8285": {},
+		"esp32": {
+			"fqbn": "esp32:esp32:d32"
+		},
+		"esp32c3": {},
+		"esp32c5": {},
+		"esp32c6": {},
+		"esp32s2": {},
+		"esp32s3": {}
 	},
 	"BASIC": {
 		"SUPLA_CONFIG": {
